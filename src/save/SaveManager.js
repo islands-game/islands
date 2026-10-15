@@ -1,12 +1,16 @@
 // Локальные сохранения (localStorage). Хранятся только данные (JSON), код не выполняется.
 // Версия 1: позиция, уровень, опыт. Версия 2: + ресурсы и приручённые существа.
+// Версия 3: + постройки и шаг обучения. Старые версии читаются без потерь.
 import { CREATURES } from '../config/creatures.js';
+import { BUILDINGS, MAX_BUILDINGS } from '../config/buildings.js';
+import { TUTORIAL_DONE } from '../ui/Tutorial.js';
 import { RESOURCE_ORDER } from '../config/resources.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
+const MAX_COORD = 40;
 
 const num = (v, fallback) => (Number.isFinite(v) ? v : fallback);
 const int = (v, min, max, fallback) => Math.max(min, Math.min(max, Math.floor(num(v, fallback))));
@@ -39,7 +43,26 @@ function validate(raw) {
     },
     inventory: Object.fromEntries(RESOURCE_ORDER.map(k => [k, int(inv[k], 0, 9999, 0)])),
     creatures: validateCreatures(raw.creatures),
+    buildings: validateBuildings(raw.buildings),
+    // В старых сохранениях обучения не было — считаем его пройденным
+    tutorial: int(raw.tutorial, 0, TUTORIAL_DONE, TUTORIAL_DONE),
   };
+}
+
+function validateBuildings(raw) {
+  const list = [];
+  for (const b of Array.isArray(raw) ? raw : []) {
+    if (list.length >= MAX_BUILDINGS) break;
+    if (!b || typeof b.id !== 'string' || !Object.hasOwn(BUILDINGS, b.id)) continue;
+    if (!Number.isFinite(b.x) || !Number.isFinite(b.z)) continue;
+    list.push({
+      id: b.id,
+      x: Math.max(-MAX_COORD, Math.min(MAX_COORD, b.x)),
+      z: Math.max(-MAX_COORD, Math.min(MAX_COORD, b.z)),
+      rot: int(b.rot, 0, 3, 0),
+    });
+  }
+  return list;
 }
 
 export const SaveManager = {

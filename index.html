@@ -35,6 +35,15 @@
     </div>
   </div>
 
+  <!-- Строительство -->
+  <div id="build-panel" class="overlay hidden">
+    <div class="panel wide">
+      <h2 id="bp-title"></h2>
+      <div id="bp-list"></div>
+      <button id="bp-close" class="big"></button>
+    </div>
+  </div>
+
   <!-- HUD -->
   <div id="hud" class="hidden">
     <div id="left">
@@ -56,6 +65,22 @@
     <div id="prompt" class="hidden"></div>
     <button id="btn-menu" class="icon">☰</button>
     <button id="btn-creatures" class="icon second">🐾</button>
+    <button id="btn-build" class="icon third">🔨</button>
+
+    <div id="tutorial" class="hidden">
+      <div class="tut-head"><b id="tut-title"></b><span id="tut-count"></span>
+        <button id="tut-skip"></button></div>
+      <div id="tut-text"></div>
+    </div>
+
+    <div id="build-bar" class="hidden">
+      <div id="bb-info"></div>
+      <div class="bb-btns">
+        <button id="bb-rot">↻</button>
+        <button id="bb-ok">✔</button>
+        <button id="bb-cancel">✖</button>
+      </div>
+    </div>
 
     <div id="actions">
       <button id="btn-interact" class="round small"></button>

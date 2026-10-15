@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 export const ISLAND_RADIUS = 14;
 export const GROUND_Y = 0;
+export const WALK_Y = 0.1; // высота платформ и мостов
 
 // Остров: земля, деревья, камни, кристаллы, дом, портал, облака, освещение.
 // colliders — круги {x, z, r}, через которые персонаж не проходит.
@@ -9,6 +10,8 @@ export class World {
   constructor(scene) {
     this.scene = scene;
     this.colliders = [];
+    this.rects = [];      // твёрдые прямоугольники (стены, дома): { x, z, hw, hd }
+    this.walkables = [];  // платформы и мосты: по ним можно ходить
     this.nodes = []; // ресурсы, которые можно собрать (деревья, камни, кристаллы)
     this.clouds = [];
     this.crystals = [];
@@ -212,11 +215,31 @@ export class World {
 
   // Высота земли в точке; null — за краем острова (падение)
   groundAt(x, z) {
-    return Math.hypot(x, z) <= ISLAND_RADIUS ? GROUND_Y : null;
+    let y = Math.hypot(x, z) <= ISLAND_RADIUS ? GROUND_Y : null;
+    // Платформы и мосты — тоже земля (можно стоять и выходить за край острова)
+    for (const w of this.walkables) {
+      if (Math.abs(x - w.x) <= w.hw && Math.abs(z - w.z) <= w.hd) y = WALK_Y;
+    }
+    return y;
   }
 
   // Выталкивает точку из препятствий
   resolveCollisions(pos, radius) {
+    // Прямоугольные препятствия: стены и дома
+    for (const r of this.rects) {
+      const nx = Math.max(r.x - r.hw, Math.min(r.x + r.hw, pos.x));
+      const nz = Math.max(r.z - r.hd, Math.min(r.z + r.hd, pos.z));
+      const dx = pos.x - nx, dz = pos.z - nz;
+      const d = Math.hypot(dx, dz);
+      if (d > 0.0001) {
+        if (d < radius) { pos.x = nx + (dx / d) * radius; pos.z = nz + (dz / d) * radius; }
+      } else {
+        // Точка внутри прямоугольника — выталкиваем через ближайший край
+        const px = r.hw - Math.abs(pos.x - r.x), pz = r.hd - Math.abs(pos.z - r.z);
+        if (px < pz) pos.x = r.x + (pos.x >= r.x ? 1 : -1) * (r.hw + radius);
+        else pos.z = r.z + (pos.z >= r.z ? 1 : -1) * (r.hd + radius);
+      }
+    }
     for (const c of this.colliders) {
       if (!c.active) continue;
       const dx = pos.x - c.x, dz = pos.z - c.z;

@@ -94,3 +94,33 @@ button.big.primary { background: #ff9f43; color: #3a2000; font-weight: 700; }
   #hint { bottom: calc(230px + env(safe-area-inset-bottom)); max-width: 86vw; }
   #prompt { bottom: calc(300px + env(safe-area-inset-bottom)); }
 }
+
+/* Строительство */
+.icon.third { top: calc(128px + env(safe-area-inset-top)); }
+#bp-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+#build-bar { position: absolute; bottom: calc(80px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+  background: #1e2a4aee; padding: 8px 12px; border-radius: 14px; display: flex; align-items: center; gap: 12px;
+  pointer-events: auto; max-width: 90vw; }
+#bb-info { font-weight: 600; font-size: 14px; }
+#bb-info.bad { color: #ff9a9a; }
+.bb-btns { display: flex; gap: 8px; }
+.bb-btns button { width: 48px; height: 48px; border-radius: 12px; background: #3d5a99; font-size: 22px; }
+#bb-ok { background: #3fbf6f; }
+#bb-cancel { background: #d9534f; }
+
+/* Обучение */
+#tutorial { position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  background: #ff9f43ee; color: #3a2000; padding: 8px 14px; border-radius: 14px; width: min(340px, calc(100vw - 150px));
+  pointer-events: auto; font-size: 14px; }
+.tut-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.tut-head span { opacity: .7; }
+#tut-skip { margin-left: auto; background: #0002; color: #3a2000; padding: 3px 8px; border-radius: 8px; font-size: 12px; }
+#tut-text { font-weight: 600; }
+@media (max-width: 700px) {
+  /* на узком экране обучение — под панелью героя */
+  #tutorial { top: auto; bottom: calc(300px + env(safe-area-inset-bottom)); width: min(340px, 92vw); }
+  #prompt { bottom: calc(360px + env(safe-area-inset-bottom)); }
+}
+@media (pointer: coarse) {
+  #build-bar { bottom: calc(225px + env(safe-area-inset-bottom)); z-index: 2; }
+}

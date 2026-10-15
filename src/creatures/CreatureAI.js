@@ -1,5 +1,3 @@
-import { ISLAND_RADIUS } from '../world/World.js';
-
 // Поведение спутника. Состояния: idle (стоит), follow (идёт за героем),
 // attack (бьёт врага), return (бежит к герою). Команды игрока: follow, stay, defend, attack.
 const OWNER_FAR = 22;   // дальше этого расстояния существо возвращается
@@ -13,14 +11,14 @@ function moveToward(c, target, speed, dt, stop, world) {
   c.facing = Math.atan2(dx, dz);
   if (d <= stop) return false;
   const step = Math.min(speed * dt, d - stop);
+  const ox = c.pos.x, oz = c.pos.z;
   c.pos.x += (dx / d) * step;
   c.pos.z += (dz / d) * step;
   world.resolveCollisions(c.pos, 0.45);
-  const r = Math.hypot(c.pos.x, c.pos.z);
-  if (r > ISLAND_RADIUS - 0.5) {
-    c.pos.x *= (ISLAND_RADIUS - 0.5) / r;
-    c.pos.z *= (ISLAND_RADIUS - 0.5) / r;
-  }
+  // Не выходим за землю (остров, платформы, мосты)
+  const ground = world.groundAt(c.pos.x, c.pos.z);
+  if (ground === null) { c.pos.x = ox; c.pos.z = oz; return false; }
+  c.pos.y = ground;
   return true;
 }
 

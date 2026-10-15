@@ -9,6 +9,9 @@ import { CreatureManager } from '../creatures/CreatureManager.js';
 import { Inventory } from '../inventory/Inventory.js';
 import { addXp, xpNeeded } from '../progression/Progression.js';
 import { UIManager } from '../ui/UIManager.js';
+import { BuildSystem, DEMOLISH } from '../building/BuildSystem.js';
+import { BUILDINGS } from '../config/buildings.js';
+import { TUTORIAL_STEPS, TUTORIAL_DONE } from '../ui/Tutorial.js';
 import { SaveManager } from '../save/SaveManager.js';
 import { RESOURCES } from '../config/resources.js';
 import { t } from '../config/i18n.js';
@@ -27,6 +30,8 @@ export class Game {
     this.playing = false;
     this.started = false;
     this.saveTimer = 0;
+    this.stats = { kills: 0, collected: 0, built: 0 }; // счётчики для обучения
+    this.tutorialStep = TUTORIAL_DONE;
 
     this.world = new World(this.scene);
     this.player = new Player(this.scene, this.world);
@@ -40,6 +45,8 @@ export class Game {
       onContinue: () => this.start(true),
       onMenu: () => this.pause(),
       onSummon: id => { this.creatures.summon(id); this.refreshPanel(); },
+      onSelectBuilding: id => { this.ui.showBuildPanel(false); this.build.select(id); },
+      onSkipTutorial: () => this.setTutorialStep(TUTORIAL_DONE),
     });
     this.ui.setCamera(this.camera);
 
@@ -52,6 +59,11 @@ export class Game {
       scene: this.scene, world: this.world, player: this.player,
       inventory: this.inventory, combat: this.combat, ui: this.ui,
     });
+    this.build = new BuildSystem({
+      scene: this.scene, world: this.world, player: this.player, inventory: this.inventory,
+      creatures: this.creatures, combat: this.combat, ui: this.ui,
+      onPlaced: () => { this.stats.built++; },
+    });
 
     // Меньше пикселей на слабых устройствах
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.input.isTouch ? 1.5 : 2));
@@ -59,6 +71,8 @@ export class Game {
     addEventListener('keydown', e => {
       if (e.code !== 'Escape' || !this.playing) return;
       if (this.ui.panelOpen) this.ui.showPanel(false);
+      else if (this.ui.buildPanelOpen) this.ui.showBuildPanel(false);
+      else if (this.build.active) this.build.cancel();
       else this.pause();
     });
     addEventListener('beforeunload', () => this.save());
@@ -74,14 +88,19 @@ export class Game {
     this.combat.reset();
     this.inventory.reset();
     this.creatures.reset();
+    this.build.reset();
+    this.stats = { kills: 0, collected: 0, built: 0 };
     const data = loadSave ? SaveManager.load() : null;
     if (data) {
       this.player.fromSave(data.player);
       this.inventory.fromSave(data.inventory);
       this.creatures.fromSave(data.creatures);
+      this.build.fromSave(data.buildings);
+      this.setTutorialStep(data.tutorial, false);
     } else {
       SaveManager.clear();
       this.player.resetStats();
+      this.setTutorialStep(0, false);
     }
     this.input.clearActions();
     this.started = true;
@@ -95,6 +114,7 @@ export class Game {
     this.playing = false;
     this.input.enabled = false;
     this.input.move.x = this.input.move.y = 0;
+    this.build.cancel();
     this.save();
     this.ui.showMenu(true);
   }
@@ -106,6 +126,8 @@ export class Game {
       player: this.player.toSave(),
       inventory: this.inventory.toSave(),
       creatures: this.creatures.toSave(),
+      buildings: this.build.toSave(),
+      tutorial: this.tutorialStep,
     });
   }
 
@@ -125,7 +147,27 @@ export class Game {
     }
   }
 
+  // --- Обучение ---
+
+  setTutorialStep(step, announce = true) {
+    this.tutorialStep = step;
+    if (step >= TUTORIAL_DONE) {
+      this.ui.setTutorial(null);
+      if (announce) this.ui.toast(t('tut.done'));
+    } else {
+      this.ui.setTutorial(step, TUTORIAL_DONE, TUTORIAL_STEPS[step].key);
+    }
+  }
+
+  updateTutorial() {
+    if (this.tutorialStep < TUTORIAL_DONE && TUTORIAL_STEPS[this.tutorialStep].done(this)) {
+      this.setTutorialStep(this.tutorialStep + 1);
+      if (this.tutorialStep < TUTORIAL_DONE) this.ui.toast('✔');
+    }
+  }
+
   onEnemyKilled(enemy) {
+    this.stats.kills++;
     const xp = enemy.def.xp;
     this.gainXp(xp);
     this.creatures.gainXp(Math.ceil(xp * 0.6));
@@ -148,7 +190,18 @@ export class Game {
     return Object.entries(cost).map(([k, v]) => `${RESOURCES[k].icon}${v}`).join(' ');
   }
 
+  updateBuildBar() {
+    const b = this.build;
+    if (!b.active) return this.ui.setBuildBar(false);
+    const def = BUILDINGS[b.mode];
+    let text = b.infoText();
+    if (def) text += ` ${this.ui.costText(def.cost)}`;
+    if (!this.input.isTouch) text += ` — ${t('buildHelp')}`; // на телефоне подсказка не нужна: кнопки подписаны значками
+    this.ui.setBuildBar(true, text, b.valid || b.mode === DEMOLISH && !!b.demolishTarget);
+  }
+
   updatePrompt() {
+    if (this.build.active) return this.ui.setPrompt(null);
     const target = this.player.dead ? null : this.interactTarget();
     const key = this.input.isTouch ? '' : 'E — ';
     if (!target) return this.ui.setPrompt(null);
@@ -169,6 +222,7 @@ export class Game {
     if (target.kind === 'node') {
       const node = target.node;
       const got = this.resources.collect(node);
+      this.stats.collected++;
       _label.set(node.x, 1.8, node.z);
       this.ui.floatText(_label, `+${got.amount} ${RESOURCES[got.type].icon}`, '#ffffff');
       this.gainXp(got.xp);
@@ -196,11 +250,29 @@ export class Game {
 
   // --- Главный цикл ---
 
+  toggleBuild() {
+    if (this.build.active) return this.build.cancel();
+    if (this.ui.buildPanelOpen) return this.ui.showBuildPanel(false);
+    this.ui.showPanel(false);
+    const items = Object.values(BUILDINGS).map(b => ({ id: b.id, cost: b.cost, canAfford: this.inventory.has(b.cost) }));
+    this.ui.showBuildPanel(true, items);
+  }
+
   handleActions() {
     const input = this.input;
-    if (input.consume('attack')) this.combat.heroAttack();
-    if (input.consume('interact')) this.interact();
-    if (input.consume('panel')) this.togglePanel();
+    if (input.consume('build')) this.toggleBuild();
+    if (this.build.active) {
+      // В режиме строительства "Действие" ставит постройку, "Атака" не работает
+      input.consume('attack');
+      if (input.consume('interact') | input.consume('confirm')) this.build.confirm();
+      if (input.consume('rotate')) this.build.rotate();
+      if (input.consume('cancel')) this.build.cancel();
+    } else {
+      input.consume('confirm'); input.consume('rotate'); input.consume('cancel');
+      if (input.consume('attack')) this.combat.heroAttack();
+      if (input.consume('interact')) this.interact();
+    }
+    if (input.consume('panel')) { this.ui.showBuildPanel(false); this.togglePanel(); }
     if (input.consume('ability')) this.creatures.command('ability');
     for (const c of COMMANDS) {
       if (input.consume('cmd-' + c)) this.creatures.command(c);
@@ -220,7 +292,10 @@ export class Game {
       this.resources.update(dt);
       this.combat.update(dt, this.camera);
       this.creatures.update(dt);
+      this.build.update();
+      this.updateBuildBar();
       this.updatePrompt();
+      this.updateTutorial();
       this.ui.updateHud(this.player, this.inventory, this.creatures.active, xpNeeded(this.player.level));
 
       this.saveTimer += dt;

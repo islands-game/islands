@@ -9,11 +9,13 @@ const _v = new THREE.Vector3();
 
 // Интерфейс: меню, полоски, ресурсы, спутник, подсказки, панель существ, всплывающий урон.
 export class UIManager {
-  constructor({ onStart, onContinue, onMenu, onSummon, press, isTouch }) {
+  constructor({ onStart, onContinue, onMenu, onSummon, onSelectBuilding, onSkipTutorial, press, isTouch }) {
     this.$ = id => document.getElementById(id);
     this.isTouch = isTouch;
     this.press = press;
     this.onSummon = onSummon;
+    this.onSelectBuilding = onSelectBuilding;
+    this.buildPanelOpen = false;
     this.hintTimer = 0;
     this.toastTimer = 0;
     this.camera = null;
@@ -33,6 +35,12 @@ export class UIManager {
     this.$('btn-ability').onclick = () => press('ability');
     this.$('btn-creatures').onclick = () => press('panel');
     this.$('cr-close').onclick = () => this.showPanel(false);
+    this.$('btn-build').onclick = () => press('build');
+    this.$('bp-close').onclick = () => this.showBuildPanel(false);
+    this.$('bb-rot').onclick = () => press('rotate');
+    this.$('bb-ok').onclick = () => press('confirm');
+    this.$('bb-cancel').onclick = () => press('cancel');
+    this.$('tut-skip').onclick = onSkipTutorial;
     document.querySelectorAll('[data-lang]').forEach(b => {
       b.onclick = () => {
         setLang(b.dataset.lang);
@@ -69,6 +77,11 @@ export class UIManager {
     this.$('btn-interact').textContent = t('interact');
     this.$('cr-title').textContent = t('creatures');
     this.$('cr-close').textContent = t('close');
+    this.$('bp-title').textContent = t('buildMenu');
+    this.$('bp-close').textContent = t('close');
+    this.$('tut-title').textContent = t('tut.title');
+    this.$('tut-skip').textContent = t('skip');
+    if (this.tutorialState) this.setTutorial(...this.tutorialState);
     document.querySelectorAll('[data-lang]').forEach(b =>
       b.classList.toggle('active', b.dataset.lang === getLang()));
     if (!this.$('hud').classList.contains('hidden')) this.showHint();
@@ -77,7 +90,60 @@ export class UIManager {
   showMenu(show) {
     this.$('menu').classList.toggle('hidden', !show);
     this.$('hud').classList.toggle('hidden', show);
-    if (show) { this.showPanel(false); this.refreshTexts(); }
+    if (show) { this.showPanel(false); this.showBuildPanel(false); this.setBuildBar(false); this.refreshTexts(); }
+  }
+
+  get anyPanelOpen() {
+    return this.panelOpen || this.buildPanelOpen;
+  }
+
+  costText(cost) {
+    return Object.entries(cost).map(([k, v]) => `${RESOURCES[k].icon}${v}`).join(' ');
+  }
+
+  // Меню строительства. items: [{ id, cost, canAfford }]
+  showBuildPanel(show, items = []) {
+    this.buildPanelOpen = show;
+    this.$('build-panel').classList.toggle('hidden', !show);
+    if (!show) return;
+    const list = this.$('bp-list');
+    list.textContent = '';
+    const add = (id, name, costText, enabled) => {
+      const row = document.createElement('div');
+      row.className = 'cr-row';
+      const info = document.createElement('div');
+      info.textContent = name;
+      const small = document.createElement('small');
+      small.textContent = costText;
+      info.appendChild(small);
+      const btn = document.createElement('button');
+      btn.textContent = t('select');
+      btn.style.opacity = enabled ? 1 : 0.6;
+      btn.onclick = () => this.onSelectBuilding(id);
+      row.append(info, btn);
+      list.appendChild(row);
+    };
+    for (const it of items) add(it.id, t('building.' + it.id), this.costText(it.cost), it.canAfford);
+    add('demolish', '🗑 ' + t('demolish'), '', true);
+  }
+
+  // Панель управления строительством (сверху по центру)
+  setBuildBar(active, text = '', ok = true) {
+    this.$('build-bar').classList.toggle('hidden', !active);
+    if (!active) return;
+    const info = this.$('bb-info');
+    info.textContent = text;
+    info.classList.toggle('bad', !ok);
+  }
+
+  // Обучение: step — номер шага (0..total-1), null — скрыть
+  setTutorial(step, total, key) {
+    this.tutorialState = step === null ? null : [step, total, key];
+    const box = this.$('tutorial');
+    box.classList.toggle('hidden', step === null);
+    if (step === null) return;
+    this.$('tut-count').textContent = `${step + 1}/${total}`;
+    this.$('tut-text').textContent = t(key);
   }
 
   showHint() {

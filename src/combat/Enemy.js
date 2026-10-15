@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { HealthBar } from './HealthBar.js';
-import { ISLAND_RADIUS } from '../world/World.js';
 
 const bodyGeo = new THREE.SphereGeometry(0.7, 12, 10);
 const eyeGeo = new THREE.SphereGeometry(0.1, 6, 6);
@@ -67,14 +66,13 @@ export class Enemy {
     const d = Math.hypot(dx, dz);
     if (d < 0.05) return;
     const step = Math.min(speed * dt, d);
+    const ox = this.pos.x, oz = this.pos.z;
     this.pos.x += (dx / d) * step;
     this.pos.z += (dz / d) * step;
     world.resolveCollisions(this.pos, 0.6);
-    const r = Math.hypot(this.pos.x, this.pos.z);
-    if (r > ISLAND_RADIUS - 1) {
-      this.pos.x *= (ISLAND_RADIUS - 1) / r;
-      this.pos.z *= (ISLAND_RADIUS - 1) / r;
-    }
+    // Не выходим за землю (остров, платформы, мосты)
+    const ground = world.groundAt(this.pos.x, this.pos.z);
+    if (ground === null) { this.pos.x = ox; this.pos.z = oz; } else this.pos.y = ground;
     this.body.rotation.y = Math.atan2(dx, dz);
   }
 

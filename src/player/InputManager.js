@@ -11,6 +11,9 @@ const KEY_ACTIONS = {
   KeyT: 'cmd-attack',
   KeyR: 'cmd-return',
   KeyP: 'panel',
+  KeyB: 'build',
+  KeyZ: 'rotate',
+  KeyQ: 'cancel',
 };
 
 // Единый ввод: клавиатура, мышь и сенсорный экран дают одни и те же значения.
