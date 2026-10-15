@@ -5,6 +5,7 @@ import { events } from '../core/Events.js';
 import { t } from '../config/i18n.js';
 
 const C = ARENA.center;
+const HERO_SCALE = 1.3;   // герои чуть крупнее, чтобы их было видно на маленьком экране
 const SIGN = { blue: 1, red: -1 };
 const OTHER = { blue: 'red', red: 'blue' };
 const LANES = ['left', 'mid', 'right'];
@@ -38,7 +39,14 @@ export class ArenaSystem {
     this.world.day = 0.25;                       // на арене всегда день
     this.world.applyLighting();
     this.world.timeFrozen = true;
+    this.savedCam = g.cameraCtl.pose;
     g.cameraCtl.tactical = true;
+    // На телефоне камера ближе и наклонена сильнее, а юниты крупнее — иначе героя не видно
+    const landscape = innerHeight <= 520;
+    this.unitScale = g.input.isTouch ? (landscape ? 1.6 : 1.35) : 1;
+    g.cameraCtl.tacticalDistance = g.input.isTouch ? (landscape ? 9 : 13) : 19;
+    g.cameraCtl.tacticalPitch = g.input.isTouch ? 0.9 : 1.0;
+    p.mesh.scale.setScalar(HERO_SCALE * this.unitScale);
     document.body.classList.add('arena');
     // Спутник участвует в матче с одинаковыми для всех характеристиками
     g.creatures.combat = this.facade;
@@ -61,8 +69,8 @@ export class ArenaSystem {
     this.world.day = this.saved.day;
     this.world.applyLighting();
     g.cameraCtl.tactical = false;
-    g.cameraCtl.pitch = 0.35;
-    g.cameraCtl.distance = 9;
+    p.mesh.scale.setScalar(1);
+    g.cameraCtl.snap(this.savedCam ?? { yaw: 0, pitch: 0.35, distance: 9 }, p.pos);
     document.body.classList.remove('arena');
     g.creatures.combat = g.combat;
     if (g.creatures.active) g.creatures.active.normalized = false;
@@ -125,7 +133,9 @@ export class ArenaSystem {
   }
 
   add(kind, team, stats, x, z) {
-    const u = new Unit(this, kind, team, stats, x, z);
+    // Герои, крипы и лесные монстры на телефоне крупнее
+    const k = ['hero', 'minion', 'monster'].includes(kind) ? this.unitScale : 1;
+    const u = new Unit(this, kind, team, { ...stats, scale: (stats.scale ?? 1) * k }, x, z);
     this.units.push(u);
     return u;
   }
@@ -138,7 +148,7 @@ export class ArenaSystem {
   makeHeroes() {
     const make = (team, spec, i, isPlayer) => {
       const base = ARENA.heroes[spec.hero];
-      const s = { ...base, radius: 0.5 };
+      const s = { ...base, radius: 0.5, scale: HERO_SCALE };
       if (isPlayer) s.external = this.player;
       const sp = this.spawnPoint(team, i);
       const u = this.add('hero', team, s, sp.x, sp.z);
@@ -171,7 +181,8 @@ export class ArenaSystem {
   placePlayerAtSpawn() {
     const sp = this.spawnPoint('blue', 0);
     this.player.pos.set(sp.x, 0, sp.z);
-    this.game.cameraCtl.target.copy(this.player.pos);
+    const cam = this.game.cameraCtl;
+    cam.snap({ yaw: 0, pitch: cam.tacticalPitch, distance: cam.tacticalDistance }, this.player.pos);
   }
 
   fillCamp(camp) {

@@ -316,6 +316,7 @@ export class UIManager {
   // Обучение: step — номер шага (0..total-1), null — скрыть
   setTutorial(step, total, key) {
     this.tutorialState = step === null ? null : [step, total, key];
+    this.$('hint').style.visibility = step === null ? '' : 'hidden';   // обучение заменяет подсказку
     const box = this.$('tutorial');
     box.classList.toggle('hidden', step === null);
     if (step === null) return;

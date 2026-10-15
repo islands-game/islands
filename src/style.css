@@ -208,3 +208,28 @@ body.arena #left { width: 190px; }
 @media (pointer: coarse) and (max-height: 520px) {
   body.arena #minimap, body.arena #arena-hud { right: auto; left: calc(50% - 40px); }
 }
+
+/* Телефон в портрете: подсказки стоят ниже героя и не закрывают его (герой выше центра экрана, см. Game.resize) */
+@media (pointer: coarse) and (min-height: 521px) {
+  #tutorial { top: calc(50vh + 70px); bottom: auto; }
+  #hint { bottom: calc(285px + env(safe-area-inset-bottom)); }
+  #prompt { bottom: calc(205px + env(safe-area-inset-bottom)); }
+  #build-bar { bottom: calc(205px + env(safe-area-inset-bottom)); }
+  body.arena #btn-jump { display: none; }
+  body.arena #actions { right: calc(28px + env(safe-area-inset-right)); }
+}
+/* Арена в горизонтальном положении: миникарта и счёт левее центра, чтобы не закрывать героя */
+@media (pointer: coarse) and (max-height: 520px) {
+  body.arena #minimap, body.arena #arena-hud { left: 190px; right: auto; }
+}
+/* Арена на телефоне в портрете: подсказка не заходит на кнопки способностей справа */
+@media (pointer: coarse) and (min-height: 521px) {
+  body.arena #hint { left: 12px; transform: none; max-width: calc(100vw - 130px); }
+}
+@media (pointer: coarse) and (min-height: 521px) {
+  body.arena #hint { bottom: calc(235px + env(safe-area-inset-bottom)); }
+  #arena-hud { width: 76px; right: calc(72px + env(safe-area-inset-right)); }
+}
+@media (pointer: coarse) and (min-height: 521px) {
+  body.arena #left { width: min(190px, calc(100vw - 195px)); }
+}
