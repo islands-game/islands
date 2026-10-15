@@ -6,6 +6,7 @@
 //  cost     — сколько ресурсов нужно
 //  solid    — через постройку нельзя пройти (стена, дом)
 //  walkable — по постройке можно ходить и выходить за край острова (платформа, мост)
+//  structure — постройка со стенами и дверью: house (дом: внутри безопасно, есть кровать), pen (загон с забором)
 export const BUILDINGS = {
   wood_platform: { id: 'wood_platform', model: 'platform', size: { w: 4, d: 4 }, color: 0xc69b6d,
     cost: { wood: 4 }, solid: false, walkable: true },
@@ -14,9 +15,9 @@ export const BUILDINGS = {
   bridge: { id: 'bridge', model: 'bridge', size: { w: 2, d: 6 }, color: 0xb98a5a,
     cost: { wood: 5 }, solid: false, walkable: true },
   house: { id: 'house', model: 'house', size: { w: 4, d: 4 }, color: 0xf2d9a6,
-    cost: { wood: 8, stone: 4 }, solid: true, walkable: false },
+    cost: { wood: 8, stone: 4 }, solid: false, walkable: false, structure: 'house' },
   pen: { id: 'pen', model: 'pen', size: { w: 6, d: 6 }, color: 0x8b5a2b,
-    cost: { wood: 6, stone: 2 }, solid: false, walkable: false },
+    cost: { wood: 6, stone: 2 }, solid: false, walkable: false, structure: 'pen' },
 };
 
 export const MAX_BUILDINGS = 60;

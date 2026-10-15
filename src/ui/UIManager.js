@@ -141,14 +141,18 @@ export class UIManager {
     this.$('quest-reward').textContent = `${t('quest.reward')}: ${r.xp ? `${r.xp} XP ` : ''}${items}`;
   }
 
-  // Полоска здоровья босса (null — скрыть)
-  setBoss(boss) {
+  // Полоска сверху экрана: здоровье босса или оставшиеся слизни рейда (name === null — скрыть)
+  setBar(name, ratio) {
     const box = this.$('boss');
-    box.classList.toggle('hidden', !boss);
-    if (!boss) return;
-    const name = t('enemy.' + boss.def.id);
+    box.classList.toggle('hidden', !name);
+    if (!name) return;
     if (this.$('boss-name').textContent !== name) this.$('boss-name').textContent = name;
-    this.$('boss-fill').style.width = `${(boss.hp / boss.maxHp) * 100}%`;
+    this.$('boss-fill').style.width = `${Math.max(0, Math.min(1, ratio)) * 100}%`;
+  }
+
+  // Затемнение экрана (сон)
+  fade(on) {
+    this.$('fade').classList.toggle('on', on);
   }
 
   showFps(show) {

@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { events } from '../core/Events.js';
+import { BUILDINGS } from '../config/buildings.js';
+import { buildModel } from '../building/BuildingModels.js';
+import { structureRects, interiorRect, bedPosition } from '../building/Structures.js';
 
 export const DAY_LENGTH = 240; // сколько секунд длятся целые сутки
 const SKY_DAY = new THREE.Color(0x8fd3ff);
@@ -50,6 +53,7 @@ export class World {
     this.colliders = [];
     this.rects = [];      // твёрдые прямоугольники (стены, дома): { x, z, hw, hd }
     this.walkables = [];  // платформы и мосты: по ним можно ходить
+    this.interiors = [];  // комнаты домов: внутри безопасно
     this.nodes = []; // ресурсы, которые можно собрать (деревья, камни, кристаллы)
     this.portals = [];
     this.clouds = [];
@@ -59,6 +63,7 @@ export class World {
     this.day = 0.12;       // время суток: начинаем утром
     this.night = 0;        // 0 — день, 1 — глубокая ночь
     this.isNight = false;
+    this.dayCount = 0;     // сколько суток прошло (нужно рейдам)
     // Места, где ничего не должно стоять: точки появления и порталы дальних островов
     this.reserved = ISLANDS.map(i => ({ x: i.spawn.x, z: i.spawn.z, r: 3.5 }));
     // Порталы на дальних островах (на домашнем острове расстановка уже сложилась, её не трогаем)
@@ -176,7 +181,7 @@ export class World {
       tree.position.set(p.x, GROUND_Y, p.z);
       tree.scale.setScalar(0.8 + rand() * 0.6);
       this.scene.add(tree);
-      this.addNode('wood', tree, p.x, p.z, 0.5);
+      this.addNode('wood', tree, p.x, p.z, 0.5, 0.85 * tree.scale.x);
     }
     for (let i = 0; i < island.rocks; i++) {
       const p = place(4, R - 1);
@@ -201,28 +206,67 @@ export class World {
     }
   }
 
+  // Стартовый дом: такой же, как дом, который можно построить (с дверью, комнатой и кроватью)
   buildHouse() {
-    const house = new THREE.Group();
-    const walls = new THREE.Mesh(
-      new THREE.BoxGeometry(4, 2.6, 4),
-      new THREE.MeshLambertMaterial({ color: 0xf2d9a6 })
-    );
-    walls.position.y = 1.3;
-    const roof = new THREE.Mesh(
-      new THREE.ConeGeometry(3.6, 2, 4),
-      new THREE.MeshLambertMaterial({ color: 0xd9534f, flatShading: true })
-    );
-    roof.position.y = 3.6;
-    roof.rotation.y = Math.PI / 4;
-    const door = new THREE.Mesh(
-      new THREE.BoxGeometry(0.9, 1.6, 0.1),
-      new THREE.MeshLambertMaterial({ color: 0x6b4423 })
-    );
-    door.position.set(0, 0.8, 2.05);
-    house.add(walls, roof, door);
-    house.position.set(-7, GROUND_Y, -4);
-    this.scene.add(house);
-    this.colliders.push({ x: -7, z: -4, r: 2.9 });
+    const def = BUILDINGS.house;
+    // Расчищаем место: деревья и камни, которые стояли на месте дома и у его двери, убираем
+    this.clearArea(-10, -6.5, -4, 3);
+    const mesh = buildModel(def, { roof: 0xd9534f });
+    mesh.position.set(-7, GROUND_Y, -4);
+    this.scene.add(mesh);
+    this.registerStructure(def, -7, -4, 0, mesh);
+    // Невидимая отметка: здесь нельзя строить и появляться существам (но она не мешает ходить)
+    this.colliders.push({ x: -7, z: -4, r: 0, pr: 2.9, active: true, placeOnly: true });
+  }
+
+  // Убирает собираемые объекты (деревья, камни, кристаллы) в прямоугольнике x1..x2, z1..z2
+  clearArea(x1, z1, x2, z2) {
+    for (const n of [...this.nodes]) {
+      if (n.x < x1 || n.x > x2 || n.z < z1 || n.z > z2) continue;
+      this.scene.remove(n.obj);
+      this.nodes.splice(this.nodes.indexOf(n), 1);
+      this.colliders.splice(this.colliders.indexOf(n.collider), 1);
+      const c = this.crystals.indexOf(n.obj);
+      if (c >= 0) this.crystals.splice(c, 1);
+    }
+  }
+
+  // Постройка со стенами: регистрирует твёрдые стены и (для дома) комнату, где можно спрятаться
+  registerStructure(def, x, z, rot, mesh) {
+    const rec = { solids: [], interior: null, roof: mesh.userData.roof ?? null, bed: null };
+    for (const r of structureRects(def, x, z, rot)) {
+      const wall = { ...r };
+      this.rects.push(wall);
+      rec.solids.push(wall);
+    }
+    if (def.structure === 'house') {
+      rec.interior = interiorRect(def, x, z, rot);
+      rec.bed = bedPosition(def, x, z, rot);
+      this.interiors.push(rec);
+    }
+    return rec;
+  }
+
+  removeStructure(rec) {
+    for (const wall of rec.solids) {
+      const i = this.rects.indexOf(wall);
+      if (i >= 0) this.rects.splice(i, 1);
+    }
+    const j = this.interiors.indexOf(rec);
+    if (j >= 0) this.interiors.splice(j, 1);
+  }
+
+  // Комната, в которой стоит точка (или null)
+  interiorAt(x, z) {
+    for (const r of this.interiors) {
+      if (Math.abs(x - r.interior.x) < r.interior.hw && Math.abs(z - r.interior.z) < r.interior.hd) return r;
+    }
+    return null;
+  }
+
+  // Крыша дома, в котором стоит герой, исчезает — видно комнату
+  updateRoofs(inside) {
+    for (const r of this.interiors) if (r.roof) r.roof.visible = r !== inside;
   }
 
   // Портал: кольцо со светящимся центром. Подойди и нажми "Действие", чтобы перенестись на другой остров.
@@ -241,7 +285,7 @@ export class World {
     core.rotation.copy(ring.rotation);
     this.portalRings.push(ring);
     this.scene.add(ring, core);
-    this.colliders.push({ x: p.x, z: p.z, r: 1.2 });
+    this.colliders.push({ x: p.x, z: p.z, r: 1.2, active: true });
     this.portals.push({ x: p.x, z: p.z, r: 1.2, dest: p.dest, nameKey: p.nameKey, recLevel: p.recLevel ?? 1 });
   }
 
@@ -268,15 +312,16 @@ export class World {
   }
 
   // Объект, который можно собрать: у него есть collider, который выключается, пока ресурс "отрастает"
-  addNode(type, obj, x, z, r) {
-    const collider = { x, z, r, active: true };
+  // r — радиус для расстановки (чтобы мир не менялся), collideR — радиус, через который не пройти
+  addNode(type, obj, x, z, r, collideR = r) {
+    const collider = { x, z, r: collideR, pr: r, active: true };
     this.colliders.push(collider);
     this.nodes.push({ type, obj, x, z, collider, active: true, respawnAt: 0 });
   }
 
   isFree(x, z, margin = 0) {
     if (this.reserved.some(p => Math.hypot(x - p.x, z - p.z) < p.r)) return false; // площадки и порталы
-    return !this.colliders.some(c => c.active && Math.hypot(x - c.x, z - c.z) < c.r + margin);
+    return !this.colliders.some(c => c.active && Math.hypot(x - c.x, z - c.z) < (c.pr ?? c.r) + margin);
   }
 
   // Находится ли точка на острове (с отступом от края)
@@ -297,6 +342,16 @@ export class World {
     return { x, z };
   }
 
+  // Какой остров под точкой (id) или null. Платформы и мосты за краем засчитываются ближайшему острову.
+  islandIdAt(x, z) {
+    let best = null, bestD = Infinity;
+    for (const i of ISLANDS) {
+      const d = Math.hypot(x - i.x, z - i.z) - i.r;
+      if (d < 8 && d < bestD) { bestD = d; best = i.id; }
+    }
+    return best;
+  }
+
   // Ближайший портал, до которого можно дотянуться (расстояние до края портала)
   nearestPortal(pos, range = 2.2) {
     let best = null, bestD = range;
@@ -305,6 +360,13 @@ export class World {
       if (d < bestD) { bestD = d; best = p; }
     }
     return best ? { portal: best, dist: bestD } : null;
+  }
+
+  // Сон: сразу наступает утро (если уже за полночь, новые сутки не считаем второй раз)
+  skipToMorning() {
+    if (this.day > 0.2) this.dayCount++;
+    this.day = 0.02;
+    this.applyLighting();
   }
 
   // Высота земли в точке; null — за краем острова (падение)
@@ -335,7 +397,7 @@ export class World {
       }
     }
     for (const c of this.colliders) {
-      if (!c.active) continue;
+      if (!c.active || c.placeOnly) continue;
       const dx = pos.x - c.x, dz = pos.z - c.z;
       const dist = Math.hypot(dx, dz);
       const min = c.r + radius;
@@ -348,7 +410,9 @@ export class World {
 
   update(dt) {
     this.time += dt;
+    const before = this.day;
     this.day = (this.day + dt / DAY_LENGTH) % 1;
+    if (this.day < before) this.dayCount++;
     this.applyLighting();
     this.crystals.forEach((c, i) => {
       c.rotation.y += dt;

@@ -14,6 +14,7 @@ import { BUILDINGS } from '../config/buildings.js';
 import { TUTORIAL_STEPS, TUTORIAL_DONE } from '../ui/Tutorial.js';
 import { Settings } from '../save/Settings.js';
 import { QuestManager } from '../quests/QuestManager.js';
+import { RaidSystem } from '../combat/RaidSystem.js';
 import { QUESTS } from '../config/quests.js';
 import { events } from './Events.js';
 import { initSound } from './Sound.js';
@@ -72,6 +73,7 @@ export class Game {
       onPlaced: () => { this.stats.built++; },
     });
     this.quests = new QuestManager(this);
+    this.raids = new RaidSystem(this);
 
     // Качество графики: меньше пикселей на слабых устройствах. В режиме "Авто" подстраивается по FPS.
     this.autoScale = this.input.isTouch ? 0.8 : 1;
@@ -114,11 +116,19 @@ export class Game {
       this.creatures.fromSave(data.creatures);
       this.build.fromSave(data.buildings);
       this.quests.fromSave(data.quests);
+      this.world.day = data.time.day;
+      this.world.dayCount = data.time.count;
+      this.world.applyLighting();
+      this.raids.fromSave(data.time);
       this.setTutorialStep(data.tutorial, false);
     } else {
       SaveManager.clear();
       this.player.resetStats();
       this.quests.reset();
+      this.world.day = 0.12;
+      this.world.dayCount = 0;
+      this.world.applyLighting();
+      this.raids.reset();
       this.setTutorialStep(0, false);
     }
     this.input.clearActions();
@@ -148,6 +158,7 @@ export class Game {
       buildings: this.build.toSave(),
       tutorial: this.tutorialStep,
       quests: this.quests.toSave(),
+      time: { day: this.world.day, count: this.world.dayCount, ...this.raids.toSave() },
     });
   }
 
@@ -221,6 +232,14 @@ export class Game {
     }
   }
 
+  // Полоска сверху: здоровье босса рядом или оставшиеся слизни рейда
+  updateTopBar() {
+    const boss = this.combat.nearestBoss(this.player.pos, 30);
+    if (boss) this.ui.setBar(t('enemy.' + boss.def.id), boss.hp / boss.maxHp);
+    else if (this.raids.active) this.ui.setBar(t('raid.title'), this.raids.remaining / Math.max(1, this.raids.total));
+    else this.ui.setBar(null, 0);
+  }
+
   // Текущее задание в углу экрана (показываем, когда обучение закончено)
   updateQuestUi() {
     const q = this.quests.current;
@@ -258,6 +277,8 @@ export class Game {
     if (wild) return { kind: 'wild', ...wild };
     const portal = this.world.nearestPortal(this.player.pos);
     if (portal) return { kind: 'portal', ...portal };
+    const room = this.player.inside;
+    if (room && Math.hypot(this.player.pos.x - room.bed.x, this.player.pos.z - room.bed.z) < 1.7) return { kind: 'bed', room };
     const node = this.resources.nearest(this.player.pos);
     return node ? { kind: 'node', ...node } : null;
   }
@@ -284,6 +305,9 @@ export class Game {
     if (target.kind === 'node') {
       return this.ui.setPrompt(`${key}${t('collect')}: ${t('res.' + target.node.type)}`);
     }
+    if (target.kind === 'bed') {
+      return this.ui.setPrompt(`${key}${t('sleep')}`, !this.canSleep());
+    }
     if (target.kind === 'portal') {
       // Если уровень героя ниже рекомендуемого, подсказка предупреждает (но пройти всё равно можно)
       const p = target.portal;
@@ -309,6 +333,8 @@ export class Game {
       _label.set(node.x, 1.8, node.z);
       this.ui.floatText(_label, `+${got.amount} ${RESOURCES[got.type].icon}`, '#ffffff');
       this.gainXp(got.xp);
+    } else if (target.kind === 'bed') {
+      this.sleep();
     } else if (target.kind === 'portal') {
       this.teleport(target.portal);
     } else {
@@ -321,6 +347,28 @@ export class Game {
         this.ui.toast(`${t('need')}: ${this.costText(wild.def.tame.cost)}`);
       }
     }
+  }
+
+  // Спать можно ночью или когда ранен
+  canSleep() {
+    return this.world.isNight || this.player.hp < this.player.maxHp;
+  }
+
+  // Сон в доме: экран темнеет, наступает утро, здоровье восстанавливается
+  sleep() {
+    if (this.sleeping) return;
+    if (!this.canSleep()) return this.ui.toast(t('notTired'));
+    this.sleeping = true;
+    this.ui.fade(true);
+    setTimeout(() => {
+      const wasNight = this.world.isNight;
+      if (wasNight) this.world.skipToMorning();
+      this.player.hp = this.player.maxHp;
+      this.raids?.endRaid('sleep');
+      this.ui.toast(t(wasNight ? 'slept' : 'rested'));
+      this.save();
+    }, 700);
+    setTimeout(() => { this.ui.fade(false); this.sleeping = false; }, 1500);
   }
 
   // Перенос героя через портал. Спутник догонит сам (если он далеко, существо переносится к герою).
@@ -397,6 +445,10 @@ export class Game {
       const look = this.input.consumeLook();
       this.cameraCtl.update(dt, this.player.pos, look);
       this.player.update(dt, this.input, this.cameraCtl.yaw);
+      // Внутри дома безопасно: враги не видят героя, здоровье восстанавливается
+      this.player.inside = this.player.dead ? null : this.world.interiorAt(this.player.pos.x, this.player.pos.z);
+      this.world.updateRoofs(this.player.inside);
+      if (this.player.inside && !this.player.dead) this.player.heal(6 * dt);
       this.handleActions();
       this.resources.update(dt);
       this.updateNightMonsters();
@@ -407,8 +459,9 @@ export class Game {
       this.updatePrompt();
       this.updateTutorial();
       this.quests.update();
+      this.raids.update(dt);
       this.updateQuestUi();
-      this.ui.setBoss(this.combat.nearestBoss(this.player.pos, 30));
+      this.updateTopBar();
       this.ui.setClock(this.world.night);
       this.ui.updateHud(this.player, this.inventory, this.creatures.active, xpNeeded(this.player.level));
 

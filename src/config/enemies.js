@@ -39,6 +39,23 @@ export const ENEMIES = {
     xp: 60,
     respawn: 30,
   },
+  // БОСС Ледяного острова: медленный, но очень крепкий. Удар по области шире, чем у Лавового короля.
+  frost_giant: {
+    id: 'frost_giant',
+    color: 0x8fe3ff,
+    boss: true,
+    crown: true,
+    scale: 2.2,
+    hp: 450,
+    atk: 11,
+    speed: 2,
+    aggro: 9,
+    attackRange: 3.2,
+    attackCooldown: 1.6,
+    slam: { cooldown: 8, windup: 1.4, radius: 5, damage: 24 },
+    xp: 220,
+    respawn: 300,
+  },
   // БОСС Огненного острова. scale — размер, crown — корона,
   // slam — удар по области: за windup секунд появляется красное кольцо, потом урон всем в радиусе radius.
   lava_king: {
@@ -78,13 +95,12 @@ export const ENEMIES = {
 export const NIGHT_MONSTER_COUNT = 5;
 
 export const ENEMY_SPAWNS = [
-  { type: 'slime', x: -2, z: -8 },
-  { type: 'slime', x: 9, z: 1 },
-  { type: 'slime', x: -10, z: -1 },
+  // На домашнем острове постоянных монстров нет: там нападают рейды (config/raids.js)
   // Ледяной остров
-  { type: 'frost_slime', x: 62, z: -1 },
+  { type: 'frost_slime', x: 63, z: -6 },
   { type: 'frost_slime', x: 79, z: -1 },
   { type: 'frost_slime', x: 74, z: -3 },
+  { type: 'frost_giant', x: 60, z: -2 },
   // Огненный остров
   { type: 'lava_slime', x: 132, z: -1 },
   { type: 'lava_slime', x: 149, z: -1 },

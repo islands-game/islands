@@ -70,7 +70,26 @@ export class CombatSystem {
     this.enemies = this.enemies.filter(e => !e.node);
   }
 
+  // Участники рейда: временные слизни, которые сами ищут героя
+  spawnRaider(defId, x, z) {
+    const e = new Enemy(ENEMIES[defId], { x, z }, this.scene);
+    e.temp = 'raid';
+    e.hunter = true;
+    this.enemies.push(e);
+    return e;
+  }
+
+  raiders() {
+    return this.enemies.filter(e => e.temp === 'raid');
+  }
+
+  clearRaiders() {
+    for (const e of this.raiders()) e.dispose(this.scene);
+    this.enemies = this.enemies.filter(e => e.temp !== 'raid');
+  }
+
   reset() {
+    this.clearRaiders();
     this.calmTrees();
     this.enemies.forEach(e => e.respawn());
     this.heroCd = 0;
@@ -139,7 +158,7 @@ export class CombatSystem {
 
   damagePlayer(raw) {
     const p = this.player;
-    if (p.dead) return;
+    if (p.dead || p.inside) return; // в доме безопасно
     const { dealt } = p.takeDamage(raw);
     const pos = p.pos.clone();
     pos.y += 2;

@@ -95,7 +95,7 @@ export class Enemy {
     this.provoked = true;
     if (this.hp <= 0) {
       this.dead = true;
-      this.deadTimer = this.def.respawn;
+      this.deadTimer = this.temp ? Infinity : this.def.respawn; // временные враги (рейд) не возрождаются
       this.root.visible = false;
       return true;
     }
@@ -133,8 +133,8 @@ export class Enemy {
     const dx = player.pos.x - this.pos.x, dz = player.pos.z - this.pos.z;
     const dist = Math.hypot(dx, dz);
     // Ночью враги замечают героя издалека
-    const aggro = this.def.aggro * (1 + 0.4 * world.night);
-    const chasing = !player.dead && dist < aggro * (this.provoked ? 2 : 1);
+    const aggro = this.hunter ? 60 : this.def.aggro * (1 + 0.4 * world.night); // участники рейда ищут героя по всему острову
+    const chasing = !player.dead && !player.inside && dist < aggro * (this.provoked ? 2 : 1);
     let moving = false;
 
     const slam = this.def.slam;

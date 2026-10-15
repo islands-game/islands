@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { localWalls, bedPosition, HOUSE_WALL } from './Structures.js';
+
+const DOOR_HALF = 0.7; // половина ширины двери (как в Structures.js)
 
 // Модели построек из простых фигур. Начало координат — центр основания, ширина вдоль x, глубина вдоль z.
 const lambert = color => new THREE.MeshLambertMaterial({ color, flatShading: true });
@@ -40,14 +43,28 @@ function bridge({ w, d }, color) {
   return g;
 }
 
-function house({ w, d }, color) {
+// Дом: стены с дверью, пол, кровать. Крыша — отдельная группа (userData.roof): когда герой внутри, её прячут.
+function house({ w, d }, color, def, opts = {}) {
   const g = new THREE.Group();
-  g.add(box(w - 0.4, 2.4, d - 0.4, lambert(color), 0, 1.2, 0));
-  const roof = new THREE.Mesh(new THREE.ConeGeometry((Math.max(w, d) - 0.4) * 0.9, 1.8, 4), lambert(0x5b8def));
-  roof.position.y = 3.3;
-  roof.rotation.y = Math.PI / 4;
+  const wallMat = lambert(color);
+  for (const r of localWalls(def)) g.add(box(r.hw * 2, 2.4, r.hd * 2, wallMat, r.x, 1.2, r.z));
+  g.add(box(DOOR_HALF * 2 + 0.2, 0.4, HOUSE_WALL, wallMat, 0, 2.2, d / 2 - HOUSE_WALL / 2)); // перемычка над дверью
+  g.add(box(w - 2 * HOUSE_WALL, 0.05, d - 2 * HOUSE_WALL, lambert(0xcaa972), 0, 0.03, 0));    // пол
+  const bed = bedPosition(def, 0, 0, 0);
+  g.add(
+    box(1.3, 0.35, 0.8, lambert(0x8b5a2b), bed.x, 0.2, bed.z),
+    box(1.2, 0.15, 0.7, lambert(0xf2f2f2), bed.x, 0.45, bed.z),
+    box(0.5, 0.12, 0.5, lambert(0xff9aa2), bed.x - 0.35, 0.58, bed.z)
+  );
+  const roofMat = lambert(opts.roof ?? 0x5b8def);
+  const roof = new THREE.Group();
+  roof.add(box(w, 0.2, d, roofMat, 0, 2.5, 0));
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(Math.max(w, d) * 0.75, 1.8, 4), roofMat);
+  cone.position.y = 3.5;
+  cone.rotation.y = Math.PI / 4;
+  roof.add(cone);
   g.add(roof);
-  g.add(box(0.9, 1.6, 0.1, lambert(0x6b4423), 0, 0.8, d / 2 - 0.2));
+  g.userData.roof = roof;
   return g;
 }
 
@@ -79,8 +96,8 @@ function pen({ w, d }, color) {
 
 const BUILDERS = { platform, wall, bridge, house, pen };
 
-export function buildModel(def) {
-  return (BUILDERS[def.model] ?? platform)(def.size, def.color);
+export function buildModel(def, opts) {
+  return (BUILDERS[def.model] ?? platform)(def.size, def.color, def, opts);
 }
 
 // Освобождает память модели

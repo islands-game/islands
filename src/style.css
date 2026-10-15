@@ -176,3 +176,7 @@ button.big.primary { background: #ff9f43; color: #3a2000; font-weight: 700; }
   width: min(300px, calc(100vw - 500px)); min-width: 200px; background: #3a0d0dcc; padding: 6px 12px; border-radius: 12px; text-align: center; }
 #boss-name { font-weight: 700; font-size: 14px; color: #ffd23f; margin-bottom: 4px; }
 #boss .bar { height: 12px; }
+
+/* Сон */
+#fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 15; transition: opacity .6s; }
+#fade.on { opacity: 1; }

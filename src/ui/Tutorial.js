@@ -9,3 +9,5 @@ export const TUTORIAL_STEPS = [
 ];
 
 export const TUTORIAL_DONE = TUTORIAL_STEPS.length;
+// Номер шага "победи слизня": на нём случается первый рейд (RaidSystem)
+export const TUTORIAL_FIGHT_STEP = 3;

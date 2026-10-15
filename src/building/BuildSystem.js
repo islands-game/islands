@@ -74,15 +74,16 @@ export class BuildSystem {
       return false;
     }
     for (const c of this.world.colliders) {
-      if (c.active && circleRectOverlap(c.x, c.z, c.r, rect)) return false;
+      if (c.active && circleRectOverlap(c.x, c.z, Math.max(c.r, c.pr ?? 0), rect)) return false;
     }
     for (const p of this.placed) {
       if (rectsOverlap(rect, p.rect)) return false;
     }
     // Не строим на герое, спутнике и врагах
-    if (circleRectOverlap(this.player.pos.x, this.player.pos.z, 0.6, rect) && def.solid) return false;
+    const blocks = def.solid || def.structure;
+    if (blocks && circleRectOverlap(this.player.pos.x, this.player.pos.z, 0.6, rect)) return false;
     const pet = this.creatures.active;
-    if (pet && circleRectOverlap(pet.pos.x, pet.pos.z, 0.6, rect) && def.solid) return false;
+    if (blocks && pet && circleRectOverlap(pet.pos.x, pet.pos.z, 0.6, rect)) return false;
     for (const e of this.combat.enemies) {
       if (!e.dead && circleRectOverlap(e.pos.x, e.pos.z, 0.8, rect)) return false;
     }
@@ -167,7 +168,8 @@ export class BuildSystem {
     mesh.rotation.y = (rot * Math.PI) / 2;
     this.scene.add(mesh);
     const rect = this.rectFor(def, x, z, rot);
-    const rec = { id, x, z, rot, mesh, rect, walk: null, solid: null };
+    const rec = { id, x, z, rot, mesh, rect, walk: null, solid: null, struct: null };
+    if (def.structure) rec.struct = this.world.registerStructure(def, x, z, rot, mesh);
     if (def.solid) { rec.solid = { ...rect }; this.world.rects.push(rec.solid); }
     if (def.walkable) { rec.walk = { ...rect }; this.world.walkables.push(rec.walk); }
     this.placed.push(rec);
@@ -177,6 +179,7 @@ export class BuildSystem {
   remove(rec) {
     this.scene.remove(rec.mesh);
     disposeModel(rec.mesh);
+    if (rec.struct) this.world.removeStructure(rec.struct);
     if (rec.solid) this.world.rects.splice(this.world.rects.indexOf(rec.solid), 1);
     if (rec.walk) this.world.walkables.splice(this.world.walkables.indexOf(rec.walk), 1);
     this.placed.splice(this.placed.indexOf(rec), 1);

@@ -18,6 +18,7 @@ export class Player {
     this.level = 1;
     this.xp = 0;
     this.dead = false;
+    this.inside = null;   // дом, в котором стоит герой (там безопасно)
     this.shield = 0;
     this.shieldTime = 0;
     this.recalcStats();

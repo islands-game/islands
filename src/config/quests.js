@@ -25,4 +25,5 @@ export const QUESTS = [
   { id: 'lava3',     type: 'kill',    target: 'lava_slime', amount: 3, reward: { xp: 250, items: { crystal: 5 } } },
   { id: 'boss',      type: 'kill',    target: 'lava_king', amount: 1, reward: { xp: 500, items: { crystal: 10, stone: 10 } } },
   { id: 'treant3',   type: 'kill',    target: 'tree_monster', amount: 3, reward: { xp: 200, items: { wood: 10 } } },
+  { id: 'bossIce',   type: 'kill',    target: 'frost_giant', amount: 1, reward: { xp: 350, items: { crystal: 8, wood: 10 } } },
 ];
