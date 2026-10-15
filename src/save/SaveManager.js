@@ -1,15 +1,16 @@
 // Локальные сохранения (localStorage). Хранятся только данные (JSON), код не выполняется.
 // Версия 1: позиция, уровень, опыт. Версия 2: + ресурсы и приручённые существа.
-// Версия 3: + постройки и шаг обучения. Старые версии читаются без потерь.
+// Версия 3: + постройки и шаг обучения. Версия 4: + задания. Старые версии читаются без потерь.
 import { CREATURES } from '../config/creatures.js';
 import { BUILDINGS, MAX_BUILDINGS } from '../config/buildings.js';
 import { TUTORIAL_DONE } from '../ui/Tutorial.js';
+import { QUESTS } from '../config/quests.js';
 import { RESOURCE_ORDER } from '../config/resources.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 const MAX_COORD = 40;
 
 const num = (v, fallback) => (Number.isFinite(v) ? v : fallback);
@@ -46,6 +47,11 @@ function validate(raw) {
     buildings: validateBuildings(raw.buildings),
     // В старых сохранениях обучения не было — считаем его пройденным
     tutorial: int(raw.tutorial, 0, TUTORIAL_DONE, TUTORIAL_DONE),
+    // Задания появились в версии 4: в старых сохранениях начинаем с первого
+    quests: {
+      index: int(raw.quests?.index, 0, QUESTS.length, 0),
+      progress: int(raw.quests?.progress, 0, 99999, 0),
+    },
   };
 }
 

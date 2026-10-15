@@ -38,6 +38,7 @@
 | Враг | `src/config/enemies.js` |
 | Постройка | `src/config/buildings.js` |
 | Ресурс | `src/config/resources.js` |
+| Задание | `src/config/quests.js` |
 | Остров и портал | `src/world/World.js` (`ISLANDS`, `PORTALS`) |
 | Слова и названия | `src/config/i18n.js` (русский, English, ქართული) |
 

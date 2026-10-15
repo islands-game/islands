@@ -138,3 +138,11 @@ button.big.primary { background: #ff9f43; color: #3a2000; font-weight: 700; }
 #st-vol { flex: 1; touch-action: pan-x; }
 #fps { position: fixed; top: 4px; left: 50%; transform: translateX(-50%); z-index: 20;
   background: #000a; padding: 2px 8px; border-radius: 6px; font: 12px monospace; pointer-events: none; }
+
+/* Задание */
+#quest { background: #1e2a4a99; padding: 8px 12px; border-radius: 14px; font-size: 12px; }
+.quest-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+.quest-head b { color: #ffd166; }
+#quest-text { font-weight: 600; margin-bottom: 4px; }
+#quest .bar { height: 8px; margin: 2px 0 4px; }
+#quest-reward { opacity: .85; }

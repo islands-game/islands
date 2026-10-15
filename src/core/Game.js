@@ -13,6 +13,8 @@ import { BuildSystem, DEMOLISH } from '../building/BuildSystem.js';
 import { BUILDINGS } from '../config/buildings.js';
 import { TUTORIAL_STEPS, TUTORIAL_DONE } from '../ui/Tutorial.js';
 import { Settings } from '../save/Settings.js';
+import { QuestManager } from '../quests/QuestManager.js';
+import { QUESTS } from '../config/quests.js';
 import { events } from './Events.js';
 import { initSound } from './Sound.js';
 
@@ -69,6 +71,7 @@ export class Game {
       creatures: this.creatures, combat: this.combat, ui: this.ui,
       onPlaced: () => { this.stats.built++; },
     });
+    this.quests = new QuestManager(this);
 
     // Качество графики: меньше пикселей на слабых устройствах. В режиме "Авто" подстраивается по FPS.
     this.autoScale = this.input.isTouch ? 0.8 : 1;
@@ -110,10 +113,12 @@ export class Game {
       this.inventory.fromSave(data.inventory);
       this.creatures.fromSave(data.creatures);
       this.build.fromSave(data.buildings);
+      this.quests.fromSave(data.quests);
       this.setTutorialStep(data.tutorial, false);
     } else {
       SaveManager.clear();
       this.player.resetStats();
+      this.quests.reset();
       this.setTutorialStep(0, false);
     }
     this.input.clearActions();
@@ -142,6 +147,7 @@ export class Game {
       creatures: this.creatures.toSave(),
       buildings: this.build.toSave(),
       tutorial: this.tutorialStep,
+      quests: this.quests.toSave(),
     });
   }
 
@@ -213,6 +219,13 @@ export class Game {
     } else {
       this.ui.setTutorial(step, TUTORIAL_DONE, TUTORIAL_STEPS[step].key);
     }
+  }
+
+  // Текущее задание в углу экрана (показываем, когда обучение закончено)
+  updateQuestUi() {
+    const q = this.quests.current;
+    const show = this.tutorialStep >= TUTORIAL_DONE;
+    this.ui.setQuest(show ? (q ?? 'done') : null, q ? Math.min(this.quests.value(q), q.amount) : 0, QUESTS.length);
   }
 
   updateTutorial() {
@@ -287,7 +300,7 @@ export class Game {
       const node = target.node;
       const got = this.resources.collect(node);
       this.stats.collected++;
-      events.emit('collect');
+      events.emit('collect', got.type, got.amount);
       _label.set(node.x, 1.8, node.z);
       this.ui.floatText(_label, `+${got.amount} ${RESOURCES[got.type].icon}`, '#ffffff');
       this.gainXp(got.xp);
@@ -297,7 +310,7 @@ export class Game {
       const wild = target.creature;
       if (this.creatures.tame(wild)) {
         this.ui.toast(`${t('tamed')} ${t('creature.' + wild.id)}`);
-        events.emit('tame');
+        events.emit('tame', wild.id);
         this.combat.ring(wild.pos, 0xffe066, 4, 0.8);
       } else {
         this.ui.toast(`${t('need')}: ${this.costText(wild.def.tame.cost)}`);
@@ -315,7 +328,7 @@ export class Game {
     this.cameraCtl.target.copy(p.pos);
     this.combat.ring(p.pos, 0xb388ff, 4, 0.6);
     this.ui.toast(t(portal.nameKey));
-    events.emit('portal');
+    events.emit('portal', portal.nameKey.replace('island.', ''));
   }
 
   // Ночью деревья оживают, утром всё возвращается как было
@@ -388,6 +401,8 @@ export class Game {
       this.updateBuildBar();
       this.updatePrompt();
       this.updateTutorial();
+      this.quests.update();
+      this.updateQuestUi();
       this.ui.setClock(this.world.night);
       this.ui.updateHud(this.player, this.inventory, this.creatures.active, xpNeeded(this.player.level));
 

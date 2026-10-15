@@ -116,6 +116,31 @@ export class UIManager {
     if (this.clockEl.textContent !== icon) this.clockEl.textContent = icon;
   }
 
+  // Задание: q — запись из config/quests.js, 'done' — все выполнены, null — скрыть
+  setQuest(q, progress, total) {
+    const box = this.$('quest');
+    box.classList.toggle('hidden', q === null);
+    if (q === null) return;
+    this.$('quest-title').textContent = t('quest.title');
+    if (q === 'done') {
+      this.$('quest-text').textContent = t('quest.allDone');
+      this.$('quest-count').textContent = '';
+      this.$('quest-fill').style.width = '100%';
+      this.$('quest-reward').textContent = '';
+      return;
+    }
+    const key = `${q.id}:${progress}`;
+    if (key === this.questKey && getLang() === this.questLang) return; // ничего не изменилось
+    this.questKey = key;
+    this.questLang = getLang();
+    this.$('quest-text').textContent = t('quest.' + q.id);
+    this.$('quest-count').textContent = `${progress}/${q.amount}`;
+    this.$('quest-fill').style.width = `${(progress / q.amount) * 100}%`;
+    const r = q.reward;
+    const items = Object.entries(r.items ?? {}).map(([k, v]) => `${RESOURCES[k].icon}${v}`).join(' ');
+    this.$('quest-reward').textContent = `${t('quest.reward')}: ${r.xp ? `${r.xp} XP ` : ''}${items}`;
+  }
+
   showFps(show) {
     this.$('fps').classList.toggle('hidden', !show);
   }

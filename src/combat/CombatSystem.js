@@ -129,7 +129,7 @@ export class CombatSystem {
     pos.y += 1.6;
     this.ui.floatText(pos, `-${amount}`, color);
     const killed = enemy.takeDamage(amount);
-    events.emit(killed ? 'kill' : 'hit');
+    events.emit(killed ? 'kill' : 'hit', enemy);
     if (killed) {
       this.ring(enemy.pos, 0x8bd450, 2.5, 0.4);
       this.onKill(enemy);
