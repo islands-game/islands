@@ -315,6 +315,15 @@ export class Game {
     events.emit('portal');
   }
 
+  // Ночью деревья оживают, утром всё возвращается как было
+  updateNightMonsters() {
+    if (this.world.isNight && !this.combat.nightActive) {
+      if (this.combat.awakenTrees() > 0) this.ui.toast(t('treesAwake'));
+    } else if (!this.world.isNight && this.combat.nightActive) {
+      this.combat.calmTrees();
+    }
+  }
+
   // --- Панель существ ---
 
   togglePanel() {
@@ -369,6 +378,7 @@ export class Game {
       this.player.update(dt, this.input, this.cameraCtl.yaw);
       this.handleActions();
       this.resources.update(dt);
+      this.updateNightMonsters();
       this.combat.update(dt, this.camera);
       this.creatures.update(dt);
       this.build.update();

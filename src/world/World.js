@@ -87,8 +87,8 @@ export class World {
     _sky.copy(SKY_NIGHT).lerp(SKY_DAY, k).lerp(SKY_DUSK, warm * 0.55);
     this.scene.background.copy(_sky);
     this.scene.fog.color.copy(_sky);
-    this.hemi.intensity = 0.45 + 0.65 * k;
-    this.sun.intensity = 0.12 + 1.5 * k;
+    this.hemi.intensity = 0.62 + 0.48 * k;   // ночью всё равно хорошо видно землю и существ
+    this.sun.intensity = 0.2 + 1.42 * k;
     this.sun.color.setHex(0xfff2cc).lerp(SKY_DUSK, warm * 0.6);
     this.sun.position.set(30 * Math.cos(this.day * Math.PI * 2), 8 + 22 * Math.max(0, h), 10);
 

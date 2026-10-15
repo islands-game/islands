@@ -26,7 +26,7 @@ export class ResourceSystem {
   nearest(pos) {
     let best = null, bestD = COLLECT_RANGE;
     for (const n of this.world.nodes) {
-      if (!n.active) continue;
+      if (!n.active || n.locked) continue; // locked — дерево сейчас ожило и ходит монстром
       const d = Math.hypot(pos.x - n.x, pos.z - n.z) - n.collider.r;
       if (d < bestD) { bestD = d; best = n; }
     }

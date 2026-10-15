@@ -17,6 +17,18 @@ export class Enemy {
     this.material = new THREE.MeshLambertMaterial({ color: def.color, emissive: 0x000000 });
     this.root = new THREE.Group();
     this.body = new THREE.Group();
+    if (def.shape === 'treant') this.buildTreant();
+    else this.buildBlob();
+    this.bar = new HealthBar(1.2);
+    this.bar.group.position.y = def.shape === 'treant' ? 3.4 : 1.7;
+    this.root.add(this.body, this.bar.group);
+    scene.add(this.root);
+
+    this.respawn();
+  }
+
+  // Слизень: мягкий шарик с глазами
+  buildBlob() {
     const blob = new THREE.Mesh(bodyGeo, this.material);
     blob.scale.set(1, 0.8, 1);
     blob.position.y = 0.55;
@@ -24,12 +36,28 @@ export class Enemy {
     e1.position.set(-0.25, 0.8, 0.58);
     e2.position.set(0.25, 0.8, 0.58);
     this.body.add(blob, e1, e2);
-    this.bar = new HealthBar(1.2);
-    this.bar.group.position.y = 1.7;
-    this.root.add(this.body, this.bar.group);
-    scene.add(this.root);
+  }
 
-    this.respawn();
+  // Дерево-монстр: ствол, крона и злые красные глаза
+  buildTreant() {
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.35, 0.5, 1.6, 7),
+      new THREE.MeshLambertMaterial({ color: 0x5a3a22 })
+    );
+    trunk.position.y = 0.8;
+    const crown = new THREE.Mesh(new THREE.ConeGeometry(1.4, 2.6, 7), this.material);
+    crown.position.y = 2.6;
+    const glow = new THREE.MeshBasicMaterial({ color: 0xff3030 });
+    const e1 = new THREE.Mesh(eyeGeo, glow), e2 = new THREE.Mesh(eyeGeo, glow);
+    e1.position.set(-0.2, 1.3, 0.42);
+    e2.position.set(0.2, 1.3, 0.42);
+    this.body.add(trunk, crown, e1, e2);
+  }
+
+  // Убирает врага из мира (для временных врагов)
+  dispose(scene) {
+    scene.remove(this.root);
+    this.root.traverse(o => { if (o.isMesh && o.geometry !== bodyGeo && o.geometry !== eyeGeo) o.geometry.dispose(); });
   }
 
   respawn() {

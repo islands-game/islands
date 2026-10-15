@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Enemy } from './Enemy.js';
-import { ENEMIES, ENEMY_SPAWNS } from '../config/enemies.js';
+import { ENEMIES, ENEMY_SPAWNS, NIGHT_MONSTER_COUNT } from '../config/enemies.js';
 import { t } from '../config/i18n.js';
 import { events } from '../core/Events.js';
 
@@ -23,6 +23,7 @@ export class CombatSystem {
     this.effects = [];
     this.heroCd = 0;
     this.deadTimer = 0;
+    this.nightActive = false;
     this.spawnEnemies();
   }
 
@@ -33,7 +34,43 @@ export class CombatSystem {
     }
   }
 
+  // Ночью несколько деревьев оживают и становятся монстрами. Возвращает, сколько ожило.
+  awakenTrees() {
+    if (this.nightActive) return 0;
+    this.nightActive = true;
+    const candidates = this.world.nodes.filter(n =>
+      n.type === 'wood' && n.active && !n.locked &&
+      Math.hypot(n.x - this.player.pos.x, n.z - this.player.pos.z) > 8);
+    let count = 0;
+    while (candidates.length && count < NIGHT_MONSTER_COUNT) {
+      const node = candidates.splice(Math.floor(Math.random() * candidates.length), 1)[0];
+      node.locked = true;
+      node.obj.visible = false;
+      node.collider.active = false;
+      const enemy = new Enemy(ENEMIES.tree_monster, { x: node.x, z: node.z }, this.scene);
+      enemy.node = node;
+      this.enemies.push(enemy);
+      count++;
+    }
+    return count;
+  }
+
+  // Утром монстры исчезают, деревья возвращаются на место
+  calmTrees() {
+    if (!this.nightActive) return;
+    this.nightActive = false;
+    for (const e of this.enemies.filter(x => x.node)) {
+      const n = e.node;
+      n.locked = false;
+      n.obj.visible = n.active;
+      n.collider.active = n.active;
+      e.dispose(this.scene);
+    }
+    this.enemies = this.enemies.filter(e => !e.node);
+  }
+
   reset() {
+    this.calmTrees();
     this.enemies.forEach(e => e.respawn());
     this.heroCd = 0;
     this.deadTimer = 0;

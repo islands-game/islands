@@ -26,7 +26,25 @@ export const ENEMIES = {
     xp: 35,
     respawn: 25,
   },
+  // Появляется только ночью: ожившее дерево. Утром исчезает, дерево возвращается на место.
+  // shape: 'treant' — рисуется как дерево с глазами.
+  tree_monster: {
+    id: 'tree_monster',
+    shape: 'treant',
+    color: 0x2d6b3a,
+    hp: 45,
+    atk: 8,
+    speed: 2.2,
+    aggro: 6,
+    attackRange: 1.8,
+    attackCooldown: 1.3,
+    xp: 30,
+    respawn: 99999,
+  },
 };
+
+// Сколько деревьев оживает за ночь
+export const NIGHT_MONSTER_COUNT = 5;
 
 export const ENEMY_SPAWNS = [
   { type: 'slime', x: -2, z: -8 },
