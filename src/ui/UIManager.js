@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { t, setLang, getLang, LANGS } from '../config/i18n.js';
 import { SaveManager } from '../save/SaveManager.js';
 import { RESOURCES, RESOURCE_ORDER } from '../config/resources.js';
+import { CREATURES, creatureNameKey } from '../config/creatures.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
 import { Settings, QUALITIES } from '../save/Settings.js';
 import { events } from '../core/Events.js';
@@ -254,7 +255,7 @@ export class UIManager {
 
     this.$('pet').classList.toggle('hidden', !pet);
     if (pet) {
-      this.$('pet-name').textContent = `${t('creature.' + pet.id)} · ${t('level')} ${pet.level}`;
+      this.$('pet-name').textContent = `${t(pet.nameKey)} · ${t('level')} ${pet.level}`;
       this.$('pet-cd').style.width = `${Math.max(0, Math.min(1, pet.abilityReady)) * 100}%`;
       this.$('btn-ability').title = t('ability.' + pet.def.ability.id);
     }
@@ -280,7 +281,7 @@ export class UIManager {
       const row = document.createElement('div');
       row.className = 'cr-row';
       const info = document.createElement('div');
-      info.textContent = t('creature.' + r.id);
+      info.textContent = t(creatureNameKey(CREATURES[r.id], r.level));
       const small = document.createElement('small');
       small.textContent = `${t('level')} ${r.level}`;
       info.appendChild(small);

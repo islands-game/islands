@@ -81,9 +81,17 @@ export class CreatureManager {
   }
 
   gainXp(n) {
-    if (this.active?.addXp(n)) {
-      this.ui.toast(`${t('creature.' + this.active.id)}: ${t('levelUp')} ${this.active.level}`);
-      this.combat.ring(this.active.pos, 0xffe066, 3, 0.6);
+    const c = this.active;
+    if (!c?.addXp(n)) return;
+    if (c.justEvolved) {
+      // Эволюция: новая стадия, большой эффект и особый звук
+      c.justEvolved = false;
+      this.ui.toast(`${t('evolved')} ${t(c.nameKey)}`);
+      this.combat.ring(c.pos, 0xff9bf5, 5, 0.9);
+      events.emit('evolve');
+    } else {
+      this.ui.toast(`${t(c.nameKey)}: ${t('levelUp')} ${c.level}`);
+      this.combat.ring(c.pos, 0xffe066, 3, 0.6);
       events.emit('levelUp');
     }
   }

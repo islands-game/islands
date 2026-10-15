@@ -7,7 +7,9 @@
 //  ability    — способность: fireball (урон), shield (щит герою), heal (лечение героя)
 //  basicRange — дальность обычной атаки (больше 3 — стреляет)
 //  tame.cost  — что нужно отдать для приручения
-//  evolutions — место для будущих эволюций
+//  evolutions — стадии развития: на каком уровне существо становится больше и сильнее
+//               (level — уровень, scale — размер, color — новый цвет, statMult — множитель hp/atk/def).
+//               Названия стадий: "creature.<id>.2" и "creature.<id>.3" в i18n.js
 export const CREATURES = {
   fire_fox: {
     id: 'fire_fox',
@@ -20,7 +22,10 @@ export const CREATURES = {
     ability: { id: 'fireball', cooldown: 4, power: 14, range: 9 },
     basicRange: 5,
     tame: { cost: { crystal: 3 } },
-    evolutions: [],
+    evolutions: [
+      { level: 4, scale: 1.25, color: 0xff3d00, statMult: 1.25 },
+      { level: 8, scale: 1.5, color: 0xffd23f, statMult: 1.6 },
+    ],
     spawn: { x: 6, z: 2 },
   },
   stone_guard: {
@@ -34,7 +39,10 @@ export const CREATURES = {
     ability: { id: 'shield', cooldown: 10, power: 25, duration: 6 },
     basicRange: 1.7,
     tame: { cost: { stone: 6 } },
-    evolutions: [],
+    evolutions: [
+      { level: 4, scale: 1.25, color: 0x5f6a7a, statMult: 1.25 },
+      { level: 8, scale: 1.5, color: 0x3d4452, statMult: 1.6 },
+    ],
     spawn: { x: -9, z: 5 },
   },
   forest_spirit: {
@@ -48,7 +56,21 @@ export const CREATURES = {
     ability: { id: 'heal', cooldown: 8, power: 22 },
     basicRange: 1.7,
     tame: { cost: { wood: 6 } },
-    evolutions: [],
+    evolutions: [
+      { level: 4, scale: 1.25, color: 0x2fbf6b, statMult: 1.25 },
+      { level: 8, scale: 1.5, color: 0x1f8f4a, statMult: 1.6 },
+    ],
     spawn: { x: 3, z: -10 },
   },
 };
+
+// Стадия развития (1, 2, 3...) для существа данного вида и уровня
+export function stageForLevel(def, level) {
+  return 1 + def.evolutions.filter(e => level >= e.level).length;
+}
+
+// Ключ названия в i18n.js с учётом стадии
+export function creatureNameKey(def, level) {
+  const stage = stageForLevel(def, level);
+  return stage > 1 ? `creature.${def.id}.${stage}` : `creature.${def.id}`;
+}
