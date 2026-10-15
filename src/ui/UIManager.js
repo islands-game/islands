@@ -61,6 +61,9 @@ export class UIManager {
       this.$('res').appendChild(span);
       this.resEls[k] = span;
     }
+    // Часы: солнце или луна
+    this.clockEl = document.createElement('span');
+    this.$('res').appendChild(this.clockEl);
     this.refreshTexts();
   }
 
@@ -105,6 +108,12 @@ export class UIManager {
       b.textContent = t('q.' + b.dataset.q);
       b.classList.toggle('active', b.dataset.q === s.quality);
     });
+  }
+
+  // Значок времени суток: ☀ днём, ☾ ночью
+  setClock(night) {
+    const icon = night > 0.6 ? '☾' : night > 0.25 ? '◐' : '☀';
+    if (this.clockEl.textContent !== icon) this.clockEl.textContent = icon;
   }
 
   showFps(show) {

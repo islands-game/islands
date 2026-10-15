@@ -77,6 +77,8 @@ export class Game {
     this.fpsStart = performance.now();
     this.goodSeconds = 0;
     events.on('settings', () => this.applyQuality());
+    events.on('nightfall', () => { if (this.playing) this.ui.toast(t('nightfall')); });
+    events.on('daybreak', () => { if (this.playing) this.ui.toast(t('daybreak')); });
     initSound();
     this.applyQuality();
     addEventListener('resize', () => this.resize());
@@ -373,6 +375,7 @@ export class Game {
       this.updateBuildBar();
       this.updatePrompt();
       this.updateTutorial();
+      this.ui.setClock(this.world.night);
       this.ui.updateHud(this.player, this.inventory, this.creatures.active, xpNeeded(this.player.level));
 
       this.saveTimer += dt;

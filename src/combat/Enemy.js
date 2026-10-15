@@ -91,7 +91,9 @@ export class Enemy {
 
     const dx = player.pos.x - this.pos.x, dz = player.pos.z - this.pos.z;
     const dist = Math.hypot(dx, dz);
-    const chasing = !player.dead && dist < this.def.aggro * (this.provoked ? 2 : 1);
+    // Ночью враги замечают героя издалека
+    const aggro = this.def.aggro * (1 + 0.4 * world.night);
+    const chasing = !player.dead && dist < aggro * (this.provoked ? 2 : 1);
     let moving = false;
 
     if (chasing) {

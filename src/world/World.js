@@ -1,4 +1,11 @@
 import * as THREE from 'three';
+import { events } from '../core/Events.js';
+
+export const DAY_LENGTH = 240; // сколько секунд длятся целые сутки
+const SKY_DAY = new THREE.Color(0x8fd3ff);
+const SKY_DUSK = new THREE.Color(0xff9a6b);
+const SKY_NIGHT = new THREE.Color(0x101a40);
+const _sky = new THREE.Color();
 
 export const ISLAND_RADIUS = 14; // радиус домашнего острова
 export const GROUND_Y = 0;
@@ -41,6 +48,9 @@ export class World {
     this.crystals = [];
     this.portalRings = [];
     this.time = 0;
+    this.day = 0.12;       // время суток: начинаем утром
+    this.night = 0;        // 0 — день, 1 — глубокая ночь
+    this.isNight = false;
     // Места, где ничего не должно стоять: точки появления и порталы дальних островов
     this.reserved = ISLANDS.map(i => ({ x: i.spawn.x, z: i.spawn.z, r: 3.5 }));
     this.reserved.push({ x: 70, z: -7, r: 3 });
@@ -59,10 +69,34 @@ export class World {
   }
 
   buildLights() {
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x88aa77, 1.1));
-    const sun = new THREE.DirectionalLight(0xfff2cc, 1.6);
-    sun.position.set(20, 30, 10);
-    this.scene.add(sun);
+    this.hemi = new THREE.HemisphereLight(0xffffff, 0x88aa77, 1.1);
+    this.sun = new THREE.DirectionalLight(0xfff2cc, 1.6);
+    this.sun.position.set(20, 30, 10);
+    this.scene.add(this.hemi, this.sun);
+    this.applyLighting();
+  }
+
+  // Смена дня и ночи: свет, цвет неба и тумана зависят от времени суток this.day (0..1).
+  // 0 — рассвет, 0.25 — полдень, 0.5 — закат, 0.75 — полночь.
+  applyLighting() {
+    const h = Math.sin(this.day * Math.PI * 2);            // высота солнца: 1 — полдень, -1 — полночь
+    const k = THREE.MathUtils.smoothstep(h, -0.45, 0.5);  // 0 — ночь, 1 — день
+    const warm = Math.max(0, 1 - Math.abs(h) / 0.5);       // рассвет и закат
+    this.night = 1 - k;
+
+    _sky.copy(SKY_NIGHT).lerp(SKY_DAY, k).lerp(SKY_DUSK, warm * 0.55);
+    this.scene.background.copy(_sky);
+    this.scene.fog.color.copy(_sky);
+    this.hemi.intensity = 0.45 + 0.65 * k;
+    this.sun.intensity = 0.12 + 1.5 * k;
+    this.sun.color.setHex(0xfff2cc).lerp(SKY_DUSK, warm * 0.6);
+    this.sun.position.set(30 * Math.cos(this.day * Math.PI * 2), 8 + 22 * Math.max(0, h), 10);
+
+    const isNight = this.night > 0.6;
+    if (isNight !== this.isNight) {
+      this.isNight = isNight;
+      events.emit(isNight ? 'nightfall' : 'daybreak');
+    }
   }
 
   buildIsland(island) {
@@ -305,6 +339,8 @@ export class World {
 
   update(dt) {
     this.time += dt;
+    this.day = (this.day + dt / DAY_LENGTH) % 1;
+    this.applyLighting();
     this.crystals.forEach((c, i) => {
       c.rotation.y += dt;
       c.position.y = GROUND_Y + 1 + Math.sin(this.time * 2 + i) * 0.12;
