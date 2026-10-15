@@ -179,7 +179,8 @@ export class Game {
     // На телефоне в портрете герой стоит чуть выше центра: внизу остаётся место для подсказок и кнопок
     const shift = this.input.isTouch && h > 520 ? Math.round(h * 0.09) : 0;
     // Телефон в горизонтали: камера ближе, иначе герой совсем маленький
-    this.cameraCtl.baseDistance = this.input.isTouch && h <= 520 ? 6 : 9;
+    this.cameraCtl.touch = this.input.isTouch;
+    this.cameraCtl.baseDistance = this.input.isTouch ? (h <= 520 ? 8 : 10) : 9;
     if (shift) this.camera.setViewOffset(w, h, 0, shift, w, h);
     else this.camera.clearViewOffset();
     this.camera.updateProjectionMatrix();

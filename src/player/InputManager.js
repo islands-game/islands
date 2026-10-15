@@ -66,7 +66,7 @@ export class InputManager {
     canvas.addEventListener('pointerdown', e => {
       if (e.pointerType !== 'mouse') return;
       dragging = true; sx = e.clientX; sy = e.clientY; st = performance.now();
-      canvas.setPointerCapture(e.pointerId);
+      try { canvas.setPointerCapture(e.pointerId); } catch { /* касание уже закончилось */ }
     });
     canvas.addEventListener('pointerup', e => {
       if (e.pointerType !== 'mouse') return;
@@ -95,7 +95,7 @@ export class InputManager {
     let stickId = null, cx = 0, cy = 0;
     stick.addEventListener('pointerdown', e => {
       stickId = e.pointerId;
-      stick.setPointerCapture(e.pointerId);
+      try { stick.setPointerCapture(e.pointerId); } catch { /* касание уже закончилось */ }
       const r = stick.getBoundingClientRect();
       cx = r.left + r.width / 2; cy = r.top + r.height / 2;
       onStick(e);
@@ -119,18 +119,26 @@ export class InputManager {
 
     jump.addEventListener('pointerdown', e => { e.preventDefault(); this.jumpPressed = true; });
 
-    // Камера: свайп по свободной части экрана
-    let lookId = null, lx = 0, ly = 0;
+    // Камера: свайп по свободной части экрана.
+    // Не считаем свайпом касания рядом с кнопками и джойстиком (в бою палец постоянно скользит у кнопок),
+    // небольшие движения (мёртвая зона) и делаем поворот мягким — иначе камера "уплывает" и смотрит в пол.
+    const noLookZones = () => ['stick', 'actions', 'btn-jump', 'btn-menu', 'btn-creatures', 'btn-build']
+      .map(id => document.getElementById(id)?.getBoundingClientRect()).filter(r => r && r.width > 0);
+    const inZone = (x, y) => noLookZones().some(r => x > r.left - 24 && x < r.right + 24 && y > r.top - 24 && y < r.bottom + 24);
+    let lookId = null, lx = 0, ly = 0, moved = 0;
     canvas.addEventListener('pointerdown', e => {
-      if (e.pointerType === 'mouse' || lookId !== null) return;
-      lookId = e.pointerId; lx = e.clientX; ly = e.clientY;
-      canvas.setPointerCapture(e.pointerId);
+      if (e.pointerType === 'mouse' || lookId !== null || inZone(e.clientX, e.clientY)) return;
+      lookId = e.pointerId; lx = e.clientX; ly = e.clientY; moved = 0;
+      try { canvas.setPointerCapture(e.pointerId); } catch { /* касание уже закончилось */ }
     });
     canvas.addEventListener('pointermove', e => {
       if (e.pointerId !== lookId || !this.enabled) return;
-      this.look.x += (e.clientX - lx) * 1.4;
-      this.look.y += (e.clientY - ly) * 1.4;
+      const dx = e.clientX - lx, dy = e.clientY - ly;
       lx = e.clientX; ly = e.clientY;
+      moved += Math.hypot(dx, dy);
+      if (moved < 12) return;                 // мёртвая зона: случайные касания не вращают камеру
+      this.look.x += dx * 0.7;
+      this.look.y += dy * 0.3;                // наклон вверх-вниз намного мягче поворота
     });
     const endLook = e => { if (e.pointerId === lookId) lookId = null; };
     canvas.addEventListener('pointerup', endLook);

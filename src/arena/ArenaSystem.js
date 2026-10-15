@@ -43,9 +43,9 @@ export class ArenaSystem {
     g.cameraCtl.tactical = true;
     // На телефоне камера ближе и наклонена сильнее, а юниты крупнее — иначе героя не видно
     const landscape = innerHeight <= 520;
-    this.unitScale = g.input.isTouch ? (landscape ? 1.6 : 1.35) : 1;
-    g.cameraCtl.tacticalDistance = g.input.isTouch ? (landscape ? 9 : 13) : 19;
-    g.cameraCtl.tacticalPitch = g.input.isTouch ? 0.9 : 1.0;
+    this.unitScale = g.input.isTouch ? (landscape ? 1.5 : 1.3) : 1;
+    g.cameraCtl.tacticalDistance = g.input.isTouch ? (landscape ? 11 : 16) : 19;
+    g.cameraCtl.tacticalPitch = g.input.isTouch ? 0.8 : 1.0;
     p.mesh.scale.setScalar(HERO_SCALE * this.unitScale);
     document.body.classList.add('arena');
     // Спутник участвует в матче с одинаковыми для всех характеристиками
