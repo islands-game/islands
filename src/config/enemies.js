@@ -39,6 +39,24 @@ export const ENEMIES = {
     xp: 60,
     respawn: 30,
   },
+  // БОСС Огненного острова. scale — размер, crown — корона,
+  // slam — удар по области: за windup секунд появляется красное кольцо, потом урон всем в радиусе radius.
+  lava_king: {
+    id: 'lava_king',
+    color: 0xff4a1a,
+    boss: true,
+    crown: true,
+    scale: 2.4,
+    hp: 600,
+    atk: 14,
+    speed: 2.4,
+    aggro: 9,
+    attackRange: 3.4,
+    attackCooldown: 1.5,
+    slam: { cooldown: 7, windup: 1.2, radius: 4.5, damage: 30 },
+    xp: 300,
+    respawn: 300,
+  },
   // Появляется только ночью: ожившее дерево. Утром исчезает, дерево возвращается на место.
   // shape: 'treant' — рисуется как дерево с глазами.
   tree_monster: {
@@ -71,4 +89,5 @@ export const ENEMY_SPAWNS = [
   { type: 'lava_slime', x: 132, z: -1 },
   { type: 'lava_slime', x: 149, z: -1 },
   { type: 'lava_slime', x: 144, z: -4 },
+  { type: 'lava_king', x: 136, z: -4 },
 ];

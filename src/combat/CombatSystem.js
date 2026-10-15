@@ -10,6 +10,7 @@ const RESPAWN_DELAY = 2;
 
 const ringGeo = new THREE.RingGeometry(0.5, 0.65, 28).rotateX(-Math.PI / 2);
 const ballGeo = new THREE.SphereGeometry(0.22, 8, 6);
+const discGeo = new THREE.CircleGeometry(1, 32).rotateX(-Math.PI / 2);
 
 // Единая боевая система: герой, существа и враги наносят урон через неё.
 export class CombatSystem {
@@ -149,6 +150,41 @@ export class CombatSystem {
       this.deadTimer = RESPAWN_DELAY;
       this.ui.toast(t('died'));
     }
+  }
+
+  // --- Удар босса по области ---
+
+  // Красное кольцо на земле растёт за dur секунд, потом вызывается onLand
+  telegraph(pos, radius, dur, onLand) {
+    const mat = new THREE.MeshBasicMaterial({ color: 0xff2a2a, transparent: true, opacity: 0.4, depthWrite: false, side: THREE.DoubleSide });
+    const disc = new THREE.Mesh(discGeo, mat);
+    disc.position.set(pos.x, 0.12, pos.z);
+    disc.scale.setScalar(radius * 0.15);
+    this.scene.add(disc);
+    this.effects.push({
+      mesh: disc, mat, t: 0, dur, onEnd: onLand,
+      tick: k => { disc.scale.setScalar(radius * (0.15 + 0.85 * k)); mat.opacity = 0.3 + 0.35 * k; },
+    });
+    events.emit('slamWarn');
+  }
+
+  // Удар: урон герою, если он внутри круга
+  slamImpact(center, radius, damage) {
+    this.ring(center, 0xff6a2a, radius * 1.6, 0.5);
+    events.emit('slam');
+    const p = this.player;
+    if (!p.dead && Math.hypot(p.pos.x - center.x, p.pos.z - center.z) < radius) this.damagePlayer(damage);
+  }
+
+  // Ближайший живой босс рядом (для полоски здоровья на экране)
+  nearestBoss(pos, range) {
+    let best = null, bestD = range;
+    for (const e of this.enemies) {
+      if (e.dead || !e.def.boss) continue;
+      const d = Math.hypot(e.pos.x - pos.x, e.pos.z - pos.z);
+      if (d < bestD) { bestD = d; best = e; }
+    }
+    return best;
   }
 
   // --- Визуальные эффекты ---

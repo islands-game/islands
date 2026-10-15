@@ -237,6 +237,11 @@ export class Game {
 
   onEnemyKilled(enemy) {
     this.stats.kills++;
+    if (enemy.def.boss) {
+      this.ui.toast(`${t('bossDefeated')} ${t('enemy.' + enemy.def.id)}`);
+      this.combat.ring(enemy.pos, 0xffd23f, 8, 1);
+      events.emit('levelUp');
+    }
     const xp = enemy.def.xp;
     this.gainXp(xp);
     this.creatures.gainXp(Math.ceil(xp * 0.6));
@@ -403,6 +408,7 @@ export class Game {
       this.updateTutorial();
       this.quests.update();
       this.updateQuestUi();
+      this.ui.setBoss(this.combat.nearestBoss(this.player.pos, 30));
       this.ui.setClock(this.world.night);
       this.ui.updateHud(this.player, this.inventory, this.creatures.active, xpNeeded(this.player.level));
 

@@ -23,5 +23,6 @@ export const QUESTS = [
   { id: 'level6',    type: 'level',   target: 'any',     amount: 6,  reward: { xp: 100, items: { stone: 10 } } },
   { id: 'visitFire', type: 'visit',   target: 'fire',    amount: 1,  reward: { xp: 150, items: { crystal: 3 } } },
   { id: 'lava3',     type: 'kill',    target: 'lava_slime', amount: 3, reward: { xp: 250, items: { crystal: 5 } } },
+  { id: 'boss',      type: 'kill',    target: 'lava_king', amount: 1, reward: { xp: 500, items: { crystal: 10, stone: 10 } } },
   { id: 'treant3',   type: 'kill',    target: 'tree_monster', amount: 3, reward: { xp: 200, items: { wood: 10 } } },
 ];

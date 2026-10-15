@@ -170,3 +170,9 @@ button.big.primary { background: #ff9f43; color: #3a2000; font-weight: 700; }
   #build-bar { bottom: calc(64px + env(safe-area-inset-bottom)); }
   #tutorial { width: min(300px, calc(100vw - 500px)); font-size: 12px; }
 }
+
+/* Босс */
+#boss { position: absolute; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  width: min(300px, calc(100vw - 500px)); min-width: 200px; background: #3a0d0dcc; padding: 6px 12px; border-radius: 12px; text-align: center; }
+#boss-name { font-weight: 700; font-size: 14px; color: #ffd23f; margin-bottom: 4px; }
+#boss .bar { height: 12px; }

@@ -141,6 +141,16 @@ export class UIManager {
     this.$('quest-reward').textContent = `${t('quest.reward')}: ${r.xp ? `${r.xp} XP ` : ''}${items}`;
   }
 
+  // Полоска здоровья босса (null — скрыть)
+  setBoss(boss) {
+    const box = this.$('boss');
+    box.classList.toggle('hidden', !boss);
+    if (!boss) return;
+    const name = t('enemy.' + boss.def.id);
+    if (this.$('boss-name').textContent !== name) this.$('boss-name').textContent = name;
+    this.$('boss-fill').style.width = `${(boss.hp / boss.maxHp) * 100}%`;
+  }
+
   showFps(show) {
     this.$('fps').classList.toggle('hidden', !show);
   }

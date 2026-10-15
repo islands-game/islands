@@ -22,6 +22,8 @@ export class Enemy {
     this.bar = new HealthBar(1.2);
     this.bar.group.position.y = def.shape === 'treant' ? 3.4 : 1.7;
     this.root.add(this.body, this.bar.group);
+    this.scale = def.scale ?? 1;   // босс крупнее обычных врагов
+    this.root.scale.setScalar(this.scale);
     scene.add(this.root);
 
     this.respawn();
@@ -36,6 +38,15 @@ export class Enemy {
     e1.position.set(-0.25, 0.8, 0.58);
     e2.position.set(0.25, 0.8, 0.58);
     this.body.add(blob, e1, e2);
+    if (this.def.crown) {
+      // Корона из трёх золотых зубцов
+      const gold = new THREE.MeshLambertMaterial({ color: 0xffd23f, emissive: 0x664400 });
+      for (const x of [-0.3, 0, 0.3]) {
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.12, x === 0 ? 0.55 : 0.4, 5), gold);
+        spike.position.set(x, 1.2, 0);
+        this.body.add(spike);
+      }
+    }
   }
 
   // Дерево-монстр: ствол, крона и злые красные глаза
@@ -69,6 +80,8 @@ export class Enemy {
     this.lunge = 0;
     this.wanderT = 0;
     this.wanderTarget = null;
+    this.slamming = false;                            // идёт замах удара по области
+    this.slamCd = this.def.slam ? this.def.slam.cooldown * 0.6 : 0;
     this.pos.set(this.home.x, 0, this.home.z);
     this.root.visible = true;
     this.bar.set(1);
@@ -97,7 +110,7 @@ export class Enemy {
     const ox = this.pos.x, oz = this.pos.z;
     this.pos.x += (dx / d) * step;
     this.pos.z += (dz / d) * step;
-    world.resolveCollisions(this.pos, 0.6);
+    world.resolveCollisions(this.pos, 0.6 * this.scale);
     // Не выходим за землю (остров, платформы, мосты)
     const ground = world.groundAt(this.pos.x, this.pos.z);
     if (ground === null) { this.pos.x = ox; this.pos.z = oz; } else this.pos.y = ground;
@@ -124,8 +137,22 @@ export class Enemy {
     const chasing = !player.dead && dist < aggro * (this.provoked ? 2 : 1);
     let moving = false;
 
-    if (chasing) {
-      if (dist > this.def.attackRange * 0.9) {
+    const slam = this.def.slam;
+    if (slam) this.slamCd = Math.max(0, this.slamCd - dt);
+
+    if (chasing && this.slamming) {
+      // Замах: стоит на месте и смотрит на героя, красное кольцо показывает опасную зону
+      this.body.rotation.y = Math.atan2(dx, dz);
+    } else if (chasing) {
+      if (slam && this.slamCd <= 0 && dist < slam.radius + 1.5) {
+        this.slamming = true;
+        this.slamCd = slam.cooldown;
+        const center = { x: this.pos.x, y: 0, z: this.pos.z };
+        combat.telegraph(center, slam.radius, slam.windup, () => {
+          this.slamming = false;
+          if (!this.dead) combat.slamImpact(center, slam.radius, slam.damage);
+        });
+      } else if (dist > this.def.attackRange * 0.9) {
         this.moveTo(player.pos.x, player.pos.z, this.def.speed, dt, world);
         moving = true;
       } else {

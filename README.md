@@ -58,7 +58,7 @@ npm run build   # сборка в папку dist (её можно выложи�
 
 Новое существо = одна запись в `src/config/creatures.js` + названия в `src/config/i18n.js`.
 Новый остров = запись в ISLANDS и PORTALS (src/world/World.js) + враги в ENEMY_SPAWNS.
-Новый враг = запись в `src/config/enemies.js`. Все тексты — в `src/config/i18n.js`.
+Новый враг или босс = запись в `src/config/enemies.js` (у босса: boss, scale, slam). Все тексты — в `src/config/i18n.js`.
 Новый звук = строка в `src/core/Sound.js` и `events.emit('имя')` там, где он нужен.
 Новая постройка = запись в `src/config/buildings.js` + названия в `src/config/i18n.js`.
 Новое задание = запись в `src/config/quests.js` + название "quest.<id>" в `src/config/i18n.js`.
