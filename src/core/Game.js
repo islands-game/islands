@@ -267,7 +267,10 @@ export class Game {
       return this.ui.setPrompt(`${key}${t('collect')}: ${t('res.' + target.node.type)}`);
     }
     if (target.kind === 'portal') {
-      return this.ui.setPrompt(`${key}${t('portal')}: ${t(target.portal.nameKey)}`);
+      // Если уровень героя ниже рекомендуемого, подсказка предупреждает (но пройти всё равно можно)
+      const p = target.portal;
+      const rec = p.recLevel > 1 ? ` (${t('recLevel')} ${p.recLevel})` : '';
+      return this.ui.setPrompt(`${key}${t('portal')}: ${t(p.nameKey)}${rec}`, this.player.level < p.recLevel);
     }
     const def = target.creature.def;
     const name = t('creature.' + def.id);

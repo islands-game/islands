@@ -26,6 +26,19 @@ export const ENEMIES = {
     xp: 35,
     respawn: 25,
   },
+  // Живёт на Огненном острове: самый опасный из слизней
+  lava_slime: {
+    id: 'lava_slime',
+    color: 0xff6a2a,
+    hp: 85,
+    atk: 13,
+    speed: 3,
+    aggro: 8,
+    attackRange: 1.5,
+    attackCooldown: 1,
+    xp: 60,
+    respawn: 30,
+  },
   // Появляется только ночью: ожившее дерево. Утром исчезает, дерево возвращается на место.
   // shape: 'treant' — рисуется как дерево с глазами.
   tree_monster: {
@@ -54,4 +67,8 @@ export const ENEMY_SPAWNS = [
   { type: 'frost_slime', x: 62, z: -1 },
   { type: 'frost_slime', x: 79, z: -1 },
   { type: 'frost_slime', x: 74, z: -3 },
+  // Огненный остров
+  { type: 'lava_slime', x: 132, z: -1 },
+  { type: 'lava_slime', x: 149, z: -1 },
+  { type: 'lava_slime', x: 144, z: -4 },
 ];

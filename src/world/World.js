@@ -26,12 +26,20 @@ export const ISLANDS = [
     trees: 10, rocks: 8, crystals: 9,
     colors: { grass: 0xeaf6ff, rock: 0x7aa6c4, trunk: 0x8a9db0, leaf: 0xcfeaff, stone: 0xa8c4d8, crystal: 0xb8f0ff, glow: 0x4aa8e0, pad: 0xbfe3ff },
   },
+  {
+    id: 'fire', x: 140, z: 0, r: 12, spawn: { x: 140, z: 4 }, seed: 123, nameKey: 'island.fire',
+    trees: 8, rocks: 10, crystals: 8,
+    colors: { grass: 0x4a3535, rock: 0x7a2a1a, trunk: 0x2a1a1a, leaf: 0x8a3a1f, stone: 0x5a4545, crystal: 0xffa04a, glow: 0xff4a00, pad: 0x8a5a4a },
+  },
 ];
 
 // Порталы между островами: x, z — где стоит портал, dest — куда он переносит героя
+// recLevel — рекомендуемый уровень героя (портал предупредит, если уровень ниже)
 export const PORTALS = [
-  { x: 8, z: -6, rot: -0.6, color: 0xb388ff, glow: 0x6a3fd1, dest: { x: 70, z: 4 }, nameKey: 'island.ice' },
+  { x: 8, z: -6, rot: -0.6, color: 0xb388ff, glow: 0x6a3fd1, dest: { x: 70, z: 4 }, nameKey: 'island.ice', recLevel: 3 },
   { x: 70, z: -7, rot: 0.4, color: 0x8fe3ff, glow: 0x2a9fd0, dest: { x: 8, z: -3.2 }, nameKey: 'island.home' },
+  { x: -10, z: 7, rot: 0.8, color: 0xff9a4a, glow: 0xd04a10, dest: { x: 140, z: 4 }, nameKey: 'island.fire', recLevel: 6 },
+  { x: 140, z: -7, rot: 0.4, color: 0xffb070, glow: 0xd04a10, dest: { x: -8.5, z: 5 }, nameKey: 'island.home' },
 ];
 
 // Остров: земля, деревья, камни, кристаллы, дом, порталы, облака, освещение.
@@ -53,7 +61,8 @@ export class World {
     this.isNight = false;
     // Места, где ничего не должно стоять: точки появления и порталы дальних островов
     this.reserved = ISLANDS.map(i => ({ x: i.spawn.x, z: i.spawn.z, r: 3.5 }));
-    this.reserved.push({ x: 70, z: -7, r: 3 });
+    // Порталы на дальних островах (на домашнем острове расстановка уже сложилась, её не трогаем)
+    for (const p of PORTALS) if (p.x > 30) this.reserved.push({ x: p.x, z: p.z, r: 3 });
 
     scene.background = new THREE.Color(0x8fd3ff);
     scene.fog = new THREE.Fog(0x8fd3ff, 40, 140);
@@ -233,14 +242,14 @@ export class World {
     this.portalRings.push(ring);
     this.scene.add(ring, core);
     this.colliders.push({ x: p.x, z: p.z, r: 1.2 });
-    this.portals.push({ x: p.x, z: p.z, r: 1.2, dest: p.dest, nameKey: p.nameKey });
+    this.portals.push({ x: p.x, z: p.z, r: 1.2, dest: p.dest, nameKey: p.nameKey, recLevel: p.recLevel ?? 1 });
   }
 
   buildClouds() {
     const geo = new THREE.SphereGeometry(1, 8, 6);
     const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
     const rand = this.rng(7);
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < 34; i++) {
       const cloud = new THREE.Group();
       for (let j = 0; j < 4; j++) {
         const puff = new THREE.Mesh(geo, mat);
@@ -250,8 +259,8 @@ export class World {
       }
       const a = rand() * Math.PI * 2;
       const r = 28 + rand() * 40;
-      // Первые 14 облаков — вокруг домашнего острова, остальные — возле дальнего
-      const ox = i < 14 ? 0 : 70;
+      // Облака вокруг каждого острова: первые 14 — домашний, дальше ледяной и огненный
+      const ox = i < 14 ? 0 : i < 24 ? 70 : 140;
       cloud.position.set(ox + Math.cos(a) * r, -6 + rand() * 22, Math.sin(a) * r);
       this.scene.add(cloud);
       this.clouds.push(cloud);
@@ -348,7 +357,7 @@ export class World {
     this.portalRings.forEach(p => { p.rotation.z += dt * 0.8; });
     this.clouds.forEach((c, i) => {
       c.position.x += dt * (0.3 + (i % 3) * 0.1);
-      if (c.position.x > 140) c.position.x = -70;
+      if (c.position.x > 210) c.position.x = -70;
     });
   }
 }

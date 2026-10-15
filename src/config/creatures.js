@@ -80,6 +80,24 @@ export const CREATURES = {
     ],
     spawn: { x: 74, z: 5 },
   },
+  // Живёт на Огненном острове: самый крепкий страж, щит держится дольше
+  magma_guard: {
+    id: 'magma_guard',
+    model: 'golem',
+    color: 0xff7a3a,
+    element: 'fire',
+    role: 'defender',
+    stats: { hp: 95, atk: 8, def: 5, speed: 3.8 },
+    growth: { hp: 12, atk: 2, def: 1.2 },
+    ability: { id: 'shield', cooldown: 9, power: 35, duration: 7 },
+    basicRange: 1.7,
+    tame: { cost: { stone: 10, crystal: 2 } },
+    evolutions: [
+      { level: 4, scale: 1.25, color: 0xff4a1a, statMult: 1.25 },
+      { level: 8, scale: 1.5, color: 0xffd23f, statMult: 1.6 },
+    ],
+    spawn: { x: 144, z: 5 },
+  },
 };
 
 // Стадия развития (1, 2, 3...) для существа данного вида и уровня
