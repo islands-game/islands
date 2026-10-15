@@ -8,6 +8,7 @@
 </head>
 <body>
   <canvas id="game"></canvas>
+  <div id="hurt"></div>
 
   <!-- Главное меню -->
   <div id="menu" class="overlay">
@@ -24,16 +25,42 @@
     </div>
   </div>
 
+  <!-- Существа -->
+  <div id="creatures-panel" class="overlay hidden">
+    <div class="panel wide">
+      <h2 id="cr-title"></h2>
+      <div id="cr-list"></div>
+      <div id="cr-cmds"></div>
+      <button id="cr-close" class="big"></button>
+    </div>
+  </div>
+
   <!-- HUD -->
   <div id="hud" class="hidden">
-    <div class="stats">
-      <div class="row"><span class="label" id="hp-label"></span>
-        <div class="bar hp"><div id="hp-fill"></div></div></div>
-      <div class="row"><span class="label" id="lvl-label"></span>
-        <div class="bar xp"><div id="xp-fill"></div></div></div>
+    <div id="left">
+      <div class="stats">
+        <div class="row"><span class="label" id="hp-label"></span>
+          <div class="bar hp"><div id="hp-fill"></div></div></div>
+        <div class="row"><span class="label" id="lvl-label"></span>
+          <div class="bar xp"><div id="xp-fill"></div></div></div>
+      </div>
+      <div id="res"></div>
+      <div id="pet" class="hidden">
+        <div class="pet-top"><span id="pet-name"></span><button id="btn-ability">⚡</button></div>
+        <div class="bar cd"><div id="pet-cd"></div></div>
+      </div>
     </div>
+
+    <div id="toast"></div>
     <div id="hint"></div>
+    <div id="prompt" class="hidden"></div>
     <button id="btn-menu" class="icon">☰</button>
+    <button id="btn-creatures" class="icon second">🐾</button>
+
+    <div id="actions">
+      <button id="btn-interact" class="round small"></button>
+      <button id="btn-attack" class="round"></button>
+    </div>
 
     <!-- Сенсорное управление -->
     <div id="touch" class="hidden">

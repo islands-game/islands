@@ -1,12 +1,27 @@
 import { ISTouch } from './touchFlag.js';
 
+// Клавиши -> действия. Кнопки на экране вызывают те же действия через press().
+const KEY_ACTIONS = {
+  KeyE: 'interact',
+  KeyF: 'attack',
+  Digit1: 'ability',
+  KeyX: 'cmd-follow',
+  KeyG: 'cmd-stay',
+  KeyV: 'cmd-defend',
+  KeyT: 'cmd-attack',
+  KeyR: 'cmd-return',
+  KeyP: 'panel',
+};
+
 // Единый ввод: клавиатура, мышь и сенсорный экран дают одни и те же значения.
-// move.x / move.y — направление ходьбы (-1..1), look — накопленный поворот камеры, jump — нажат прыжок.
+// move.x / move.y — направление ходьбы (-1..1), look — накопленный поворот камеры,
+// press(name) / consume(name) — одноразовые действия (атака, взаимодействие, команды).
 export class InputManager {
   constructor(canvas) {
     this.move = { x: 0, y: 0 };
     this.look = { x: 0, y: 0 };
     this.jumpPressed = false;
+    this.pressed = new Set();
     this.keys = new Set();
     this.isTouch = ISTouch;
     this.enabled = false;
@@ -16,22 +31,46 @@ export class InputManager {
     if (this.isTouch) this.initTouch();
   }
 
+  press(name) {
+    this.pressed.add(name);
+  }
+
+  consume(name) {
+    return this.pressed.delete(name);
+  }
+
+  clearActions() {
+    this.pressed.clear();
+    this.jumpPressed = false;
+  }
+
   initKeyboard() {
     addEventListener('keydown', e => {
       if (!this.enabled) return;
       this.keys.add(e.code);
       if (e.code === 'Space') { this.jumpPressed = true; e.preventDefault(); }
+      const action = KEY_ACTIONS[e.code];
+      if (action && !e.repeat) this.press(action);
     });
     addEventListener('keyup', e => this.keys.delete(e.code));
     addEventListener('blur', () => this.keys.clear());
   }
 
   initMouse(canvas) {
-    let dragging = false;
+    let dragging = false, sx = 0, sy = 0, st = 0;
     canvas.addEventListener('pointerdown', e => {
-      if (e.pointerType === 'mouse') { dragging = true; canvas.setPointerCapture(e.pointerId); }
+      if (e.pointerType !== 'mouse') return;
+      dragging = true; sx = e.clientX; sy = e.clientY; st = performance.now();
+      canvas.setPointerCapture(e.pointerId);
     });
-    canvas.addEventListener('pointerup', () => { dragging = false; });
+    canvas.addEventListener('pointerup', e => {
+      if (e.pointerType !== 'mouse') return;
+      dragging = false;
+      // Короткий клик без перетаскивания — атака
+      if (this.enabled && Math.hypot(e.clientX - sx, e.clientY - sy) < 6 && performance.now() - st < 350) {
+        this.press('attack');
+      }
+    });
     canvas.addEventListener('pointermove', e => {
       if (dragging && this.enabled) {
         this.look.x += e.movementX;

@@ -15,13 +15,23 @@ export class Player {
     this.vy = 0;
     this.onGround = true;
     this.facing = 0;
-    this.hp = 100;
-    this.maxHp = 100;
     this.level = 1;
     this.xp = 0;
+    this.dead = false;
+    this.shield = 0;
+    this.shieldTime = 0;
+    this.recalcStats();
+    this.hp = this.maxHp;
 
     this.mesh = this.buildMesh();
     scene.add(this.mesh);
+  }
+
+  // Характеристики растут вместе с уровнем
+  recalcStats() {
+    this.maxHp = 100 + (this.level - 1) * 10;
+    this.atk = 10 + (this.level - 1) * 2;
+    this.def = Math.floor((this.level - 1) / 2);
   }
 
   buildMesh() {
@@ -42,11 +52,61 @@ export class Player {
     e1.position.set(-0.12, 1.55, 0.3);
     e2.position.set(0.12, 1.55, 0.3);
     g.add(body, head, e1, e2);
+
+    // Щит (виден, когда его накладывает существо)
+    this.shieldMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(1.1, 14, 10),
+      new THREE.MeshBasicMaterial({ color: 0x7ab8ff, transparent: true, opacity: 0.28 })
+    );
+    this.shieldMesh.position.y = 0.95;
+    this.shieldMesh.visible = false;
+    g.add(this.shieldMesh);
     return g;
+  }
+
+  addShield(amount, seconds) {
+    this.shield = Math.max(this.shield, amount);
+    this.shieldTime = seconds;
+  }
+
+  heal(amount) {
+    const before = this.hp;
+    this.hp = Math.min(this.maxHp, this.hp + amount);
+    return Math.round(this.hp - before);
+  }
+
+  // Возвращает { dealt, absorbed }
+  takeDamage(raw) {
+    let dmg = Math.max(1, Math.round(raw - this.def));
+    const absorbed = Math.min(this.shield, dmg);
+    this.shield -= absorbed;
+    dmg -= absorbed;
+    this.hp = Math.max(0, this.hp - dmg);
+    return { dealt: dmg, absorbed };
+  }
+
+  die() {
+    this.dead = true;
+    this.mesh.visible = false;
+  }
+
+  reviveAtSpawn() {
+    this.dead = false;
+    this.hp = this.maxHp;
+    this.shield = 0;
+    this.mesh.visible = true;
+    this.respawn();
   }
 
   // yaw — куда повёрнута камера; движение считается относительно неё
   update(dt, input, yaw) {
+    if (this.shieldTime > 0) {
+      this.shieldTime -= dt;
+      if (this.shieldTime <= 0) this.shield = 0;
+    }
+    this.shieldMesh.visible = this.shield > 0;
+    if (this.dead) return;
+
     const mx = input.move.x, my = input.move.y;
     const len = Math.min(1, Math.hypot(mx, my));
     if (len > 0.05) {
@@ -91,6 +151,18 @@ export class Player {
   respawn() {
     this.pos.set(SPAWN.x, SPAWN.y, SPAWN.z);
     this.vy = 0;
+    this.mesh.position.copy(this.pos);
+  }
+
+  resetStats() {
+    this.level = 1;
+    this.xp = 0;
+    this.recalcStats();
+    this.hp = this.maxHp;
+    this.shield = 0;
+    this.dead = false;
+    this.mesh.visible = true;
+    this.respawn();
   }
 
   toSave() {
@@ -98,10 +170,14 @@ export class Player {
   }
 
   fromSave(p) {
-    this.pos.set(p.x, Math.max(p.y, GROUND_Y), p.z);
-    this.hp = Math.min(p.hp, this.maxHp);
     this.level = p.level;
     this.xp = p.xp;
+    this.recalcStats();
+    this.hp = Math.min(p.hp, this.maxHp);
+    this.dead = false;
+    this.shield = 0;
+    this.mesh.visible = true;
+    this.pos.set(p.x, Math.max(p.y, GROUND_Y), p.z);
     if (this.world.groundAt(this.pos.x, this.pos.z) === null) this.respawn();
   }
 }

@@ -1,14 +1,22 @@
 import * as THREE from 'three';
 import { World } from '../world/World.js';
+import { ResourceSystem } from '../world/ResourceSystem.js';
 import { Player } from '../player/Player.js';
 import { CameraController } from '../player/CameraController.js';
 import { InputManager } from '../player/InputManager.js';
+import { CombatSystem } from '../combat/CombatSystem.js';
+import { CreatureManager } from '../creatures/CreatureManager.js';
+import { Inventory } from '../inventory/Inventory.js';
+import { addXp, xpNeeded } from '../progression/Progression.js';
 import { UIManager } from '../ui/UIManager.js';
 import { SaveManager } from '../save/SaveManager.js';
+import { RESOURCES } from '../config/resources.js';
+import { t } from '../config/i18n.js';
 
-const xpForLevel = level => 50 + level * 25;
+const COMMANDS = ['follow', 'stay', 'defend', 'attack', 'ability', 'return'];
+const _label = new THREE.Vector3();
 
-// Запуск игры и главный цикл.
+// Запуск игры и главный цикл: связывает все системы между собой.
 export class Game {
   constructor(canvas) {
     this.canvas = canvas;
@@ -22,19 +30,37 @@ export class Game {
 
     this.world = new World(this.scene);
     this.player = new Player(this.scene, this.world);
+    this.inventory = new Inventory();
     this.cameraCtl = new CameraController(this.camera);
     this.input = new InputManager(canvas);
     this.ui = new UIManager({
       isTouch: this.input.isTouch,
+      press: name => this.input.press(name),
       onStart: () => this.start(false),
       onContinue: () => this.start(true),
       onMenu: () => this.pause(),
+      onSummon: id => { this.creatures.summon(id); this.refreshPanel(); },
+    });
+    this.ui.setCamera(this.camera);
+
+    this.resources = new ResourceSystem(this.world, this.inventory);
+    this.combat = new CombatSystem({
+      scene: this.scene, world: this.world, player: this.player, ui: this.ui,
+      onKill: enemy => this.onEnemyKilled(enemy),
+    });
+    this.creatures = new CreatureManager({
+      scene: this.scene, world: this.world, player: this.player,
+      inventory: this.inventory, combat: this.combat, ui: this.ui,
     });
 
     // Меньше пикселей на слабых устройствах
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.input.isTouch ? 1.5 : 2));
     addEventListener('resize', () => this.resize());
-    addEventListener('keydown', e => { if (e.code === 'Escape' && this.playing) this.pause(); });
+    addEventListener('keydown', e => {
+      if (e.code !== 'Escape' || !this.playing) return;
+      if (this.ui.panelOpen) this.ui.showPanel(false);
+      else this.pause();
+    });
     addEventListener('beforeunload', () => this.save());
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.save(); });
     this.resize();
@@ -44,14 +70,20 @@ export class Game {
   }
 
   start(loadSave) {
-    if (loadSave) {
-      const data = SaveManager.load();
-      if (data) this.player.fromSave(data.player);
+    this.resources.reset();
+    this.combat.reset();
+    this.inventory.reset();
+    this.creatures.reset();
+    const data = loadSave ? SaveManager.load() : null;
+    if (data) {
+      this.player.fromSave(data.player);
+      this.inventory.fromSave(data.inventory);
+      this.creatures.fromSave(data.creatures);
     } else {
       SaveManager.clear();
-      this.player.respawn();
-      Object.assign(this.player, { hp: 100, level: 1, xp: 0 });
+      this.player.resetStats();
     }
+    this.input.clearActions();
     this.started = true;
     this.playing = true;
     this.input.enabled = true;
@@ -69,7 +101,12 @@ export class Game {
 
   save() {
     // Сохраняем только после начала игры, чтобы меню не затирало старое сохранение
-    if (this.started) SaveManager.save({ player: this.player.toSave() });
+    if (!this.started) return;
+    SaveManager.save({
+      player: this.player.toSave(),
+      inventory: this.inventory.toSave(),
+      creatures: this.creatures.toSave(),
+    });
   }
 
   resize() {
@@ -77,6 +114,97 @@ export class Game {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+  }
+
+  // --- Награды ---
+
+  gainXp(n) {
+    if (addXp(this.player, n)) {
+      this.ui.toast(`${t('levelUp')} ${this.player.level}`);
+      this.combat.ring(this.player.pos, 0xffe066, 4, 0.8);
+    }
+  }
+
+  onEnemyKilled(enemy) {
+    const xp = enemy.def.xp;
+    this.gainXp(xp);
+    this.creatures.gainXp(Math.ceil(xp * 0.6));
+    const p = enemy.pos.clone();
+    p.y += 1.2;
+    this.ui.floatText(p, `+${xp} XP`, '#7df9ff');
+  }
+
+  // --- Взаимодействие (E / кнопка) ---
+
+  // Что находится рядом: дикое существо (важнее) или ресурс
+  interactTarget() {
+    const wild = this.creatures.nearestWild(this.player.pos);
+    if (wild) return { kind: 'wild', ...wild };
+    const node = this.resources.nearest(this.player.pos);
+    return node ? { kind: 'node', ...node } : null;
+  }
+
+  costText(cost) {
+    return Object.entries(cost).map(([k, v]) => `${RESOURCES[k].icon}${v}`).join(' ');
+  }
+
+  updatePrompt() {
+    const target = this.player.dead ? null : this.interactTarget();
+    const key = this.input.isTouch ? '' : 'E — ';
+    if (!target) return this.ui.setPrompt(null);
+    if (target.kind === 'node') {
+      return this.ui.setPrompt(`${key}${t('collect')}: ${t('res.' + target.node.type)}`);
+    }
+    const def = target.creature.def;
+    const name = t('creature.' + def.id);
+    if (this.inventory.has(def.tame.cost)) {
+      return this.ui.setPrompt(`${key}${t('tame')}: ${name} (${this.costText(def.tame.cost)})`);
+    }
+    return this.ui.setPrompt(`${name} — ${t('need')}: ${this.costText(def.tame.cost)}`, true);
+  }
+
+  interact() {
+    const target = this.player.dead ? null : this.interactTarget();
+    if (!target) return;
+    if (target.kind === 'node') {
+      const node = target.node;
+      const got = this.resources.collect(node);
+      _label.set(node.x, 1.8, node.z);
+      this.ui.floatText(_label, `+${got.amount} ${RESOURCES[got.type].icon}`, '#ffffff');
+      this.gainXp(got.xp);
+    } else {
+      const wild = target.creature;
+      if (this.creatures.tame(wild)) {
+        this.ui.toast(`${t('tamed')} ${t('creature.' + wild.id)}`);
+        this.combat.ring(wild.pos, 0xffe066, 4, 0.8);
+      } else {
+        this.ui.toast(`${t('need')}: ${this.costText(wild.def.tame.cost)}`);
+      }
+    }
+  }
+
+  // --- Панель существ ---
+
+  togglePanel() {
+    if (this.ui.panelOpen) this.ui.showPanel(false);
+    else this.ui.showPanel(true, this.creatures.list(), this.creatures.activeId);
+  }
+
+  refreshPanel() {
+    if (this.ui.panelOpen) this.ui.renderPanel(this.creatures.list(), this.creatures.activeId);
+  }
+
+  // --- Главный цикл ---
+
+  handleActions() {
+    const input = this.input;
+    if (input.consume('attack')) this.combat.heroAttack();
+    if (input.consume('interact')) this.interact();
+    if (input.consume('panel')) this.togglePanel();
+    if (input.consume('ability')) this.creatures.command('ability');
+    for (const c of COMMANDS) {
+      if (input.consume('cmd-' + c)) this.creatures.command(c);
+    }
   }
 
   frame() {
@@ -88,7 +216,12 @@ export class Game {
       const look = this.input.consumeLook();
       this.cameraCtl.update(dt, this.player.pos, look);
       this.player.update(dt, this.input, this.cameraCtl.yaw);
-      this.ui.updateHud(this.player, xpForLevel(this.player.level));
+      this.handleActions();
+      this.resources.update(dt);
+      this.combat.update(dt, this.camera);
+      this.creatures.update(dt);
+      this.updatePrompt();
+      this.ui.updateHud(this.player, this.inventory, this.creatures.active, xpNeeded(this.player.level));
 
       this.saveTimer += dt;
       if (this.saveTimer > 5) { this.saveTimer = 0; this.save(); }

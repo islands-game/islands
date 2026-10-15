@@ -9,6 +9,7 @@ export class World {
   constructor(scene) {
     this.scene = scene;
     this.colliders = [];
+    this.nodes = []; // ресурсы, которые можно собрать (деревья, камни, кристаллы)
     this.clouds = [];
     this.crystals = [];
     this.time = 0;
@@ -97,7 +98,7 @@ export class World {
       tree.position.set(p.x, GROUND_Y, p.z);
       tree.scale.setScalar(0.8 + rand() * 0.6);
       this.scene.add(tree);
-      this.colliders.push({ x: p.x, z: p.z, r: 0.5 });
+      this.addNode('wood', tree, p.x, p.z, 0.5);
     }
     for (let i = 0; i < 8; i++) {
       const p = place(4, ISLAND_RADIUS - 1);
@@ -108,7 +109,7 @@ export class World {
       m.position.set(p.x, GROUND_Y + s * 0.4, p.z);
       m.rotation.y = rand() * 6;
       this.scene.add(m);
-      this.colliders.push({ x: p.x, z: p.z, r: s * 0.9 });
+      this.addNode('stone', m, p.x, p.z, s * 0.9);
     }
     for (let i = 0; i < 6; i++) {
       const p = place(3, ISLAND_RADIUS - 2);
@@ -118,7 +119,7 @@ export class World {
       m.position.set(p.x, GROUND_Y + 1, p.z);
       this.scene.add(m);
       this.crystals.push(m);
-      this.colliders.push({ x: p.x, z: p.z, r: 0.5 });
+      this.addNode('crystal', m, p.x, p.z, 0.5);
     }
   }
 
@@ -184,9 +185,29 @@ export class World {
     }
   }
 
+  // Объект, который можно собрать: у него есть collider, который выключается, пока ресурс "отрастает"
+  addNode(type, obj, x, z, r) {
+    const collider = { x, z, r, active: true };
+    this.colliders.push(collider);
+    this.nodes.push({ type, obj, x, z, collider, active: true, respawnAt: 0 });
+  }
+
   isFree(x, z, margin = 0) {
     if (Math.hypot(x - 0, z - 6) < 3.5) return false; // стартовая площадка
-    return !this.colliders.some(c => Math.hypot(x - c.x, z - c.z) < c.r + margin);
+    return !this.colliders.some(c => c.active && Math.hypot(x - c.x, z - c.z) < c.r + margin);
+  }
+
+  // Ближайшее свободное место рядом с точкой (для появления существ и врагов)
+  findFree(x, z, margin = 1.2) {
+    for (let r = 0; r <= 10; r++) {
+      const steps = r === 0 ? 1 : r * 6;
+      for (let i = 0; i < steps; i++) {
+        const a = (i / steps) * Math.PI * 2;
+        const cx = x + Math.cos(a) * r, cz = z + Math.sin(a) * r;
+        if (Math.hypot(cx, cz) < ISLAND_RADIUS - 1.5 && this.isFree(cx, cz, margin)) return { x: cx, z: cz };
+      }
+    }
+    return { x: 0, z: 0 };
   }
 
   // Высота земли в точке; null — за краем острова (падение)
@@ -197,6 +218,7 @@ export class World {
   // Выталкивает точку из препятствий
   resolveCollisions(pos, radius) {
     for (const c of this.colliders) {
+      if (!c.active) continue;
       const dx = pos.x - c.x, dz = pos.z - c.z;
       const dist = Math.hypot(dx, dz);
       const min = c.r + radius;
