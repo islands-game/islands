@@ -146,3 +146,27 @@ button.big.primary { background: #ff9f43; color: #3a2000; font-weight: 700; }
 #quest-text { font-weight: 600; margin-bottom: 4px; }
 #quest .bar { height: 8px; margin: 2px 0 4px; }
 #quest-reward { opacity: .85; }
+
+/* Телефон в горизонтальном положении: мало высоты, поэтому всё компактнее и ничего не перекрывается */
+@media (pointer: coarse) and (max-height: 520px) {
+  #left { gap: 4px; width: 220px; }
+  .stats, #res, #pet, #quest { padding: 4px 8px; }
+  .row { margin: 2px 0; font-size: 12px; }
+  .label { width: 80px; }
+  #res { font-size: 13px; }
+  #quest-reward, #quest .bar { display: none; }
+  #quest { font-size: 11px; }
+  #quest-text { margin-bottom: 0; }
+  #pet .bar { height: 6px; }
+  .pet-top { margin-bottom: 2px; }
+  #btn-ability { width: 32px; height: 32px; font-size: 16px; }
+  #actions { bottom: calc(14px + env(safe-area-inset-bottom)); gap: 8px; }
+  .round.small { width: 56px; height: 56px; }
+  #btn-jump { bottom: calc(14px + env(safe-area-inset-bottom)); }
+  /* между джойстиком и кнопками: сюда помещаются подсказки */
+  #hint, #prompt, #build-bar { left: 180px; transform: none; max-width: calc(100vw - 440px); }
+  #hint { bottom: calc(14px + env(safe-area-inset-bottom)); font-size: 12px; }
+  #prompt { bottom: calc(64px + env(safe-area-inset-bottom)); }
+  #build-bar { bottom: calc(64px + env(safe-area-inset-bottom)); }
+  #tutorial { width: min(300px, calc(100vw - 500px)); font-size: 12px; }
+}
