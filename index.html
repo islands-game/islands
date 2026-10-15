@@ -50,6 +50,16 @@
     </div>
   </div>
 
+  <!-- Итог матча на арене -->
+  <div id="arena-result" class="overlay hidden">
+    <div class="panel">
+      <h2 id="ar-title"></h2>
+      <div id="ar-stats"></div>
+      <button id="ar-again" class="big primary"></button>
+      <button id="ar-exit" class="big"></button>
+    </div>
+  </div>
+
   <!-- Строительство -->
   <div id="build-panel" class="overlay hidden">
     <div class="panel wide">
@@ -82,6 +92,9 @@
     </div>
 
     <div id="boss" class="hidden"><div id="boss-name"></div><div class="bar hp"><div id="boss-fill"></div></div></div>
+    <div id="arena-hud" class="hidden"><div id="arena-score"></div><div id="arena-info"></div></div>
+    <canvas id="minimap" class="hidden" width="96" height="140"></canvas>
+    <div id="arena-count" class="hidden"></div>
     <div id="toast"></div>
     <div id="hint"></div>
     <div id="prompt" class="hidden"></div>
@@ -105,6 +118,8 @@
     </div>
 
     <div id="actions">
+      <button id="btn-spell2" class="round small spell"></button>
+      <button id="btn-spell1" class="round small spell"></button>
       <button id="btn-interact" class="round small"></button>
       <button id="btn-attack" class="round"></button>
     </div>

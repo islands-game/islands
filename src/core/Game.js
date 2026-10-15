@@ -15,6 +15,7 @@ import { TUTORIAL_STEPS, TUTORIAL_DONE } from '../ui/Tutorial.js';
 import { Settings } from '../save/Settings.js';
 import { QuestManager } from '../quests/QuestManager.js';
 import { RaidSystem } from '../combat/RaidSystem.js';
+import { ArenaSystem } from '../arena/ArenaSystem.js';
 import { QUESTS } from '../config/quests.js';
 import { events } from './Events.js';
 import { initSound } from './Sound.js';
@@ -22,6 +23,7 @@ import { initSound } from './Sound.js';
 const QUALITY_SCALE = { low: 0.6, medium: 0.85, high: 1 };
 import { SaveManager } from '../save/SaveManager.js';
 import { RESOURCES } from '../config/resources.js';
+import { ARENA } from '../config/arena.js';
 import { t } from '../config/i18n.js';
 
 const COMMANDS = ['follow', 'stay', 'defend', 'attack', 'ability', 'return'];
@@ -74,6 +76,7 @@ export class Game {
     });
     this.quests = new QuestManager(this);
     this.raids = new RaidSystem(this);
+    this.arena = new ArenaSystem(this);
 
     // Качество графики: меньше пикселей на слабых устройствах. В режиме "Авто" подстраивается по FPS.
     this.autoScale = this.input.isTouch ? 0.8 : 1;
@@ -103,6 +106,7 @@ export class Game {
   }
 
   start(loadSave) {
+    this.arena.exit();
     this.resources.reset();
     this.combat.reset();
     this.inventory.reset();
@@ -112,6 +116,8 @@ export class Game {
     const data = loadSave ? SaveManager.load() : null;
     if (data) {
       this.player.fromSave(data.player);
+      // Если сохранились на арене (старая версия) — возвращаем домой
+      if (this.world.islandIdAt(this.player.pos.x, this.player.pos.z) === 'arena') this.player.respawn();
       this.inventory.fromSave(data.inventory);
       this.creatures.fromSave(data.creatures);
       this.build.fromSave(data.buildings);
@@ -151,14 +157,18 @@ export class Game {
   save() {
     // Сохраняем только после начала игры, чтобы меню не затирало старое сохранение
     if (!this.started) return;
+    // На арене сохраняем состояние основной игры, а не матча
+    const inArena = this.arena.active;
+    const playerData = this.player.toSave();
+    if (inArena) Object.assign(playerData, { x: -8.5, y: 0, z: 5, hp: this.arena.returnSave().hp });
     SaveManager.save({
-      player: this.player.toSave(),
+      player: playerData,
       inventory: this.inventory.toSave(),
       creatures: this.creatures.toSave(),
       buildings: this.build.toSave(),
       tutorial: this.tutorialStep,
       quests: this.quests.toSave(),
-      time: { day: this.world.day, count: this.world.dayCount, ...this.raids.toSave() },
+      time: { day: inArena ? this.arena.saved.day : this.world.day, count: this.world.dayCount, ...this.raids.toSave() },
     });
   }
 
@@ -349,6 +359,21 @@ export class Game {
     }
   }
 
+  // Выйти с арены обратно на домашний остров (через её портал)
+  leaveArena() {
+    const portal = this.world.portals.find(p => this.world.islandIdAt(p.x, p.z) === 'arena');
+    if (portal) this.teleport(portal);
+  }
+
+  // Матч закончился: награда в основной игре
+  onArenaEnd(win) {
+    this.gainXp(win ? ARENA.winXp : ARENA.loseXp);
+    if (win) {
+      for (const [k, v] of Object.entries(ARENA.winItems)) this.inventory.add(k, v);
+      events.emit('arenaWin');
+    }
+  }
+
   // Спать можно ночью или когда ранен
   canSleep() {
     return this.world.isNight || this.player.hp < this.player.maxHp;
@@ -382,6 +407,10 @@ export class Game {
     this.combat.ring(p.pos, 0xb388ff, 4, 0.6);
     this.ui.toast(t(portal.nameKey));
     events.emit('portal', portal.nameKey.replace('island.', ''));
+    // Арена: при входе начинается матч, при выходе он заканчивается
+    const to = this.world.islandIdAt(portal.dest.x, portal.dest.z);
+    if (this.arena.active && to !== 'arena') this.arena.exit();
+    else if (!this.arena.active && to === 'arena') this.arena.enter();
   }
 
   // Ночью деревья оживают, утром всё возвращается как было
@@ -416,6 +445,20 @@ export class Game {
 
   handleActions() {
     const input = this.input;
+    if (this.arena.active) {
+      // Арена: атака, две способности героя и кнопки итога матча
+      if (input.consume('attack')) this.arena.playerAttack();
+      if (input.consume('spell1')) this.arena.castSpell(1);
+      if (input.consume('spell2')) this.arena.castSpell(2);
+      if (input.consume('arenaAgain')) { this.ui.hideArenaResult(); this.arena.restart(); }
+      if (input.consume('arenaExit')) this.leaveArena();
+      input.consume('build'); input.consume('confirm'); input.consume('rotate'); input.consume('cancel');
+      if (input.consume('interact')) this.interact();
+      if (input.consume('panel')) this.togglePanel();
+      if (input.consume('ability')) this.creatures.command('ability');
+      for (const c of COMMANDS) if (input.consume('cmd-' + c)) this.creatures.command(c);
+      return;
+    }
     if (input.consume('build')) this.toggleBuild();
     if (this.build.active) {
       // В режиме строительства "Действие" ставит постройку, "Атака" не работает
@@ -460,6 +503,7 @@ export class Game {
       this.updateTutorial();
       this.quests.update();
       this.raids.update(dt);
+      this.arena.update(dt);
       this.updateQuestUi();
       this.updateTopBar();
       this.ui.setClock(this.world.night);

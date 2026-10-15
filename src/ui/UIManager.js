@@ -36,6 +36,10 @@ export class UIManager {
     this.$('btn-attack').onclick = () => press('attack');
     this.$('btn-interact').onclick = () => press('interact');
     this.$('btn-ability').onclick = () => press('ability');
+    this.$('btn-spell1').onclick = () => press('spell1');
+    this.$('btn-spell2').onclick = () => press('spell2');
+    this.$('ar-again').onclick = () => press('arenaAgain');
+    this.$('ar-exit').onclick = () => press('arenaExit');
     this.$('btn-creatures').onclick = () => press('panel');
     this.$('cr-close').onclick = () => this.showPanel(false);
     this.$('btn-build').onclick = () => press('build');
@@ -155,6 +159,73 @@ export class UIManager {
     this.$('fade').classList.toggle('on', on);
   }
 
+  // --- Арена ---
+
+  setArena(on) {
+    this.arenaOn = on;
+    this.$('arena-hud').classList.toggle('hidden', !on);
+    this.$('minimap').classList.toggle('hidden', !on);
+    if (!on) {
+      this.$('arena-result').classList.add('hidden');
+      this.$('arena-count').classList.add('hidden');
+    } else {
+      this.$('arena-result').classList.add('hidden');
+    }
+  }
+
+  // Большая надпись по центру: отсчёт до начала или время до возрождения
+  setArenaCountdown(n, small = false) {
+    const el = this.$('arena-count');
+    el.classList.toggle('hidden', n <= 0);
+    el.classList.toggle('small', small);
+    el.textContent = n > 0 ? (small ? `${t('arena.respawn')}: ${n}` : String(n)) : '';
+  }
+
+  updateArena(d) {
+    const mm = String(Math.floor(d.time / 60)).padStart(2, '0') + ':' + String(Math.floor(d.time % 60)).padStart(2, '0');
+    this.$('arena-score').innerHTML = `<span class="b">${d.kills.blue}</span> : <span class="r">${d.kills.red}</span>`;
+    this.$('arena-info').textContent = `${mm} · ${t('arena.towers')} ${d.towers.blue}:${d.towers.red}`;
+    ['spell1', 'spell2'].forEach((id, i) => {
+      const b = this.$('btn-' + id), cd = Math.ceil(d.spellCd[i]);
+      b.classList.toggle('cd', cd > 0);
+      b.textContent = cd > 0 ? String(cd) : t('arena.' + id);
+    });
+    if (d.phase === 'playing') this.setArenaCountdown(d.respawn, true);
+    this.drawMinimap(d.units);
+  }
+
+  drawMinimap(units) {
+    const cv = this.$('minimap'), c = cv.getContext('2d');
+    const W = cv.width, H = cv.height, sx = W / 76, sz = H / 120;
+    const X = x => W / 2 + x * sx, Z = z => H / 2 + z * sz;
+    c.fillStyle = '#16301f';
+    c.fillRect(0, 0, W, H);
+    c.strokeStyle = '#d8c590';
+    c.lineWidth = 3;
+    for (const lx of [-28, 0, 28]) { c.beginPath(); c.moveTo(X(lx), Z(-42)); c.lineTo(X(lx), Z(42)); c.stroke(); }
+    const col = { blue: '#6aa8ff', red: '#ff6a6a', neutral: '#d9c86a' };
+    for (const u of units) {
+      if (u.dead) continue;
+      const size = { crystal: 5, tower: 3.5, hero: 3, king: 4, monster: 2, minion: 1.4 }[u.kind] ?? 2;
+      c.fillStyle = col[u.team];
+      if (u.kind === 'tower' || u.kind === 'crystal') c.fillRect(X(u.x) - size, Z(u.z) - size, size * 2, size * 2);
+      else { c.beginPath(); c.arc(X(u.x), Z(u.z), size, 0, 6.3); c.fill(); }
+      if (u.me) { c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.beginPath(); c.arc(X(u.x), Z(u.z), 5, 0, 6.3); c.stroke(); }
+    }
+  }
+
+  showArenaResult(win, kills, time) {
+    this.$('ar-title').textContent = t(win ? 'arena.win' : 'arena.lose');
+    const mm = Math.floor(time / 60), ss = String(Math.floor(time % 60)).padStart(2, '0');
+    this.$('ar-stats').textContent = `${t('arena.score')} ${kills.blue}:${kills.red} · ${mm}:${ss}`;
+    this.$('arena-result').classList.remove('hidden');
+    this.$('arena-count').classList.add('hidden');
+  }
+
+  hideArenaResult() {
+    this.$('arena-result').classList.add('hidden');
+  }
+
   showFps(show) {
     this.$('fps').classList.toggle('hidden', !show);
   }
@@ -173,6 +244,10 @@ export class UIManager {
     this.$('hp-label').textContent = t('hp');
     this.$('lvl-label').textContent = `${t('level')} ${this.level ?? 1}`;
     this.$('btn-jump').textContent = t('jump');
+    this.$('btn-spell1').textContent = t('arena.spell1');
+    this.$('btn-spell2').textContent = t('arena.spell2');
+    this.$('ar-again').textContent = t('arena.again');
+    this.$('ar-exit').textContent = t('arena.exit');
     this.$('btn-attack').textContent = `⚔ ${t('attack')}`;
     this.$('btn-interact').textContent = t('interact');
     this.$('cr-title').textContent = t('creatures');
@@ -186,7 +261,7 @@ export class UIManager {
     if (this.tutorialState) this.setTutorial(...this.tutorialState);
     document.querySelectorAll('[data-lang]').forEach(b =>
       b.classList.toggle('active', b.dataset.lang === getLang()));
-    if (!this.$('hud').classList.contains('hidden')) this.showHint();
+    if (!this.$('hud').classList.contains('hidden')) this.showHint(this.hintKey);
   }
 
   showMenu(show) {
@@ -248,9 +323,11 @@ export class UIManager {
     this.$('tut-text').textContent = t(key);
   }
 
-  showHint() {
+  // Подсказка внизу: обычная или (key = 'arena') для арены
+  showHint(key = '') {
+    this.hintKey = key;
     const h = this.$('hint');
-    h.textContent = this.isTouch ? t('hintTouch') : t('hintDesktop');
+    h.textContent = this.isTouch ? t(key ? key + 'Touch' : 'hintTouch') : t(key ? key + 'Desktop' : 'hintDesktop');
     h.style.opacity = 1;
     clearTimeout(this.hintTimer);
     this.hintTimer = setTimeout(() => { h.style.opacity = 0; }, 9000);

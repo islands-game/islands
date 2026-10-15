@@ -15,6 +15,7 @@ export class QuestManager {
     events.on('tame', () => this.add('tame', 'any', 1));
     events.on('build', () => this.add('build', 'any', 1));
     events.on('portal', island => this.add('visit', island, 1));
+    events.on('arenaWin', () => this.add('arena', 'any', 1));
   }
 
   get current() {

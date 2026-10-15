@@ -11,6 +11,8 @@ const KEY_ACTIONS = {
   KeyT: 'cmd-attack',
   KeyR: 'cmd-return',
   KeyP: 'panel',
+  Digit2: 'spell1',
+  Digit3: 'spell2',
   KeyB: 'build',
   KeyZ: 'rotate',
   KeyQ: 'cancel',

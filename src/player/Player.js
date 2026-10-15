@@ -19,6 +19,7 @@ export class Player {
     this.xp = 0;
     this.dead = false;
     this.inside = null;   // дом, в котором стоит герой (там безопасно)
+    this.frozen = false;  // на арене: герой погиб и ждёт возрождения
     this.shield = 0;
     this.shieldTime = 0;
     this.recalcStats();
@@ -106,7 +107,7 @@ export class Player {
       if (this.shieldTime <= 0) this.shield = 0;
     }
     this.shieldMesh.visible = this.shield > 0;
-    if (this.dead) return;
+    if (this.dead || this.frozen) return;
 
     const mx = input.move.x, my = input.move.y;
     const len = Math.min(1, Math.hypot(mx, my));

@@ -3,6 +3,7 @@ import { events } from '../core/Events.js';
 import { BUILDINGS } from '../config/buildings.js';
 import { buildModel } from '../building/BuildingModels.js';
 import { structureRects, interiorRect, bedPosition } from '../building/Structures.js';
+import { buildArenaMap } from '../arena/ArenaMap.js';
 
 export const DAY_LENGTH = 240; // сколько секунд длятся целые сутки
 const SKY_DAY = new THREE.Color(0x8fd3ff);
@@ -34,6 +35,11 @@ export const ISLANDS = [
     trees: 8, rocks: 10, crystals: 8,
     colors: { grass: 0x4a3535, rock: 0x7a2a1a, trunk: 0x2a1a1a, leaf: 0x8a3a1f, stone: 0x5a4545, crystal: 0xffa04a, glow: 0xff4a00, pad: 0x8a5a4a },
   },
+  {
+    id: 'arena', x: 300, z: 0, r: 58, spawn: { x: 300, z: 44 }, seed: 5, nameKey: 'island.arena',
+    trees: 0, rocks: 0, crystals: 0,
+    colors: { grass: 0x5f9a58, rock: 0x6a5a4a, trunk: 0x6a4a2a, leaf: 0x2f9e44, stone: 0x9aa0a6, crystal: 0x7df9ff, glow: 0x2aa9c9, pad: 0x9cc2ff },
+  },
 ];
 
 // Порталы между островами: x, z — где стоит портал, dest — куда он переносит героя
@@ -43,6 +49,9 @@ export const PORTALS = [
   { x: 70, z: -7, rot: 0.4, color: 0x8fe3ff, glow: 0x2a9fd0, dest: { x: 8, z: -3.2 }, nameKey: 'island.home' },
   { x: -10, z: 7, rot: 0.8, color: 0xff9a4a, glow: 0xd04a10, dest: { x: 140, z: 4 }, nameKey: 'island.fire', recLevel: 6 },
   { x: 140, z: -7, rot: 0.4, color: 0xffb070, glow: 0xd04a10, dest: { x: -8.5, z: 5 }, nameKey: 'island.home' },
+  // Арена 5 на 5: портал на домашнем острове и обратный портал у синей базы
+  { x: 9, z: 8, rot: 2.2, color: 0x6aa8ff, glow: 0x1a4aa0, dest: { x: 300, z: 44 }, nameKey: 'island.arena' },
+  { x: 288, z: 50, rot: 0.4, color: 0x8fe3ff, glow: 0x2a9fd0, dest: { x: 9, z: 5 }, nameKey: 'island.home' },
 ];
 
 // Остров: земля, деревья, камни, кристаллы, дом, порталы, облака, освещение.
@@ -78,6 +87,7 @@ export class World {
       this.buildProps(island);
     }
     this.buildHouse();
+    buildArenaMap(scene);
     for (const p of PORTALS) this.buildPortal(p);
     this.buildClouds();
   }
@@ -410,10 +420,16 @@ export class World {
 
   update(dt) {
     this.time += dt;
+    if (this.timeFrozen) { this.updateVisuals(dt); return; }
     const before = this.day;
     this.day = (this.day + dt / DAY_LENGTH) % 1;
     if (this.day < before) this.dayCount++;
     this.applyLighting();
+    this.updateVisuals(dt);
+  }
+
+  // Анимация: вращающиеся кристаллы, порталы, облака
+  updateVisuals(dt) {
     this.crystals.forEach((c, i) => {
       c.rotation.y += dt;
       c.position.y = GROUND_Y + 1 + Math.sin(this.time * 2 + i) * 0.12;

@@ -39,4 +39,4 @@
 
 ## Структура
 `src/core` цикл игры · `world` остров и ресурсы · `player` герой, камера, ввод · `creatures` существа и ИИ ·
-`combat` враги и бой · `building` строительство · `inventory` · `progression` · `ui` · `save` · `config` данные.
+`arena` командная арена 5 на 5 · `combat` враги и бой · `building` строительство · `inventory` · `progression` · `ui` · `save` · `config` данные.

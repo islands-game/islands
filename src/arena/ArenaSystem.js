@@ -1,0 +1,742 @@
+import * as THREE from 'three';
+import { ARENA, lanePath } from '../config/arena.js';
+import { Unit } from './ArenaUnit.js';
+import { events } from '../core/Events.js';
+import { t } from '../config/i18n.js';
+
+const C = ARENA.center;
+const SIGN = { blue: 1, red: -1 };
+const OTHER = { blue: 'red', red: 'blue' };
+const LANES = ['left', 'mid', 'right'];
+const world = (lx, lz) => ({ x: C.x + lx, z: C.z + lz });
+const dist = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
+const edge = (a, b) => dist(a, b) - b.radius;                // расстояние до края цели
+
+// Матч 5 на 5: башни, кристаллы, крипы, герои-боты, лес с монстрами и короли.
+// Всё в этом файле работает только пока игрок на арене. Игровая логика — на уровне данных из config/arena.js.
+export class ArenaSystem {
+  constructor(game) {
+    this.game = game;
+    this.scene = game.scene;
+    this.world = game.world;
+    this.player = game.player;
+    this.ui = game.ui;
+    this.units = [];
+    this.active = false;
+    this.phase = 'idle';   // countdown | playing | ended
+    this.saved = null;     // состояние игрока в основной игре
+    this.facade = this.makeFacade();
+  }
+
+  // ---------- вход и выход ----------
+
+  enter() {
+    if (this.active) return;
+    const g = this.game, p = this.player;
+    this.active = true;
+    this.saved = { hp: p.hp, maxHp: p.maxHp, def: p.def, day: this.world.day, shield: p.shield };
+    this.world.day = 0.25;                       // на арене всегда день
+    this.world.applyLighting();
+    this.world.timeFrozen = true;
+    g.cameraCtl.tactical = true;
+    document.body.classList.add('arena');
+    // Спутник участвует в матче с одинаковыми для всех характеристиками
+    g.creatures.combat = this.facade;
+    if (g.creatures.active) g.creatures.active.normalized = true;
+    this.startMatch();
+  }
+
+  exit() {
+    if (!this.active) return;
+    const g = this.game, p = this.player;
+    this.clearMatch();
+    this.active = false;
+    this.phase = 'idle';
+    p.frozen = false;
+    p.mesh.visible = true;
+    p.recalcStats();
+    p.hp = Math.min(this.saved.hp, p.maxHp);
+    p.shield = 0;
+    this.world.timeFrozen = false;
+    this.world.day = this.saved.day;
+    this.world.applyLighting();
+    g.cameraCtl.tactical = false;
+    g.cameraCtl.pitch = 0.35;
+    g.cameraCtl.distance = 9;
+    document.body.classList.remove('arena');
+    g.creatures.combat = g.combat;
+    if (g.creatures.active) g.creatures.active.normalized = false;
+    this.ui.setArena(false);
+    this.saved = null;
+  }
+
+  // Данные для сохранения, пока игрок на арене (сохраняем состояние основной игры)
+  returnSave() {
+    return { hp: this.saved?.hp ?? 100 };
+  }
+
+  restart() {
+    this.clearMatch();
+    this.startMatch();
+  }
+
+  // ---------- создание матча ----------
+
+  startMatch() {
+    const p = this.player;
+    this.units = [];
+    this.time = 0;
+    this.phase = 'countdown';
+    this.timer = ARENA.startDelay;
+    this.waveTimer = 5;
+    this.kingTimer = ARENA.kingFirstAt;
+    this.kingIndex = 0;
+    this.king = null;
+    this.kills = { blue: 0, red: 0 };
+    this.winner = null;
+    this.playerAtkCd = 0;
+    this.spellCd = [0, 0];
+    this.respawnLeft = 0;
+    this.camps = ARENA.camps.map(c => ({ ...c, monsters: [], respawnAt: 0 }));
+
+    // Башни и кристаллы
+    for (const team of ['blue', 'red']) {
+      for (const lane of LANES) {
+        for (const tw of ARENA.towers) {
+          const pos = world(ARENA.lanes[lane], SIGN[team] * tw.z);
+          const u = this.add('tower', team, { ...ARENA.tower, hp: tw.hp, tier: tw.tier, radius: 1.3 }, pos.x, pos.z);
+          u.lane = lane;
+          u.tier = tw.tier;
+          this.addCollider(u, 1.5);
+        }
+      }
+      const cp = world(0, SIGN[team] * ARENA.baseZ);
+      const crystal = this.add('crystal', team, { hp: ARENA.crystal.hp, radius: 2.4 }, cp.x, cp.z);
+      this.addCollider(crystal, 2.6);
+    }
+    // Лесные монстры
+    for (const camp of this.camps) this.fillCamp(camp);
+    // Герои
+    this.makeHeroes();
+    this.placePlayerAtSpawn();
+    this.game.ui.setArena(true);
+    this.game.ui.toast(t('arenaGet'));
+    this.game.ui.showHint('arenaHint');
+  }
+
+  add(kind, team, stats, x, z) {
+    const u = new Unit(this, kind, team, stats, x, z);
+    this.units.push(u);
+    return u;
+  }
+
+  addCollider(u, r) {
+    u.collider = { x: u.pos.x, z: u.pos.z, r, pr: r, active: true, arena: true };
+    this.world.colliders.push(u.collider);
+  }
+
+  makeHeroes() {
+    const make = (team, spec, i, isPlayer) => {
+      const base = ARENA.heroes[spec.hero];
+      const s = { ...base, radius: 0.5 };
+      if (isPlayer) s.external = this.player;
+      const sp = this.spawnPoint(team, i);
+      const u = this.add('hero', team, s, sp.x, sp.z);
+      u.heroType = spec.hero;
+      u.lane = spec.lane;
+      u.isPlayer = isPlayer;
+      u.deaths = 0;
+      u.spellCd = 3 + Math.random() * 4;
+      u.lastHurt = -99;
+      u.retreat = false;
+      u.respawnAt = 0;
+      return u;
+    };
+    this.playerUnit = make('blue', { hero: ARENA.playerHero, lane: 'mid' }, 0, true);
+    ARENA.blueBots.forEach((b, i) => make('blue', b, i + 1, false));
+    ARENA.redBots.forEach((b, i) => make('red', b, i, false));
+    const p = this.player, hs = ARENA.heroes[ARENA.playerHero];
+    p.maxHp = hs.hp;
+    p.hp = hs.hp;
+    p.def = 0;
+    p.shield = 0;
+    p.frozen = false;
+    p.mesh.visible = true;
+  }
+
+  spawnPoint(team, i) {
+    return world(((i % 5) - 2) * 3, SIGN[team] * (ARENA.spawnZ + 4));
+  }
+
+  placePlayerAtSpawn() {
+    const sp = this.spawnPoint('blue', 0);
+    this.player.pos.set(sp.x, 0, sp.z);
+    this.game.cameraCtl.target.copy(this.player.pos);
+  }
+
+  fillCamp(camp) {
+    for (let i = 0; i < ARENA.monster.perCamp; i++) {
+      const a = (i / ARENA.monster.perCamp) * Math.PI * 2;
+      const pos = world(camp.x + Math.cos(a) * 1.6, camp.z + Math.sin(a) * 1.6);
+      const m = this.add('monster', 'neutral', { ...ARENA.monster, radius: 0.7, scale: 1 }, pos.x, pos.z);
+      m.home = { x: pos.x, z: pos.z };
+      m.camp = camp;
+      camp.monsters.push(m);
+    }
+  }
+
+  clearMatch() {
+    for (const u of this.units) u.dispose();
+    this.units = [];
+    this.world.colliders = this.world.colliders.filter(c => !c.arena);
+  }
+
+  // ---------- общие правила боя ----------
+
+  isEnemy(a, b) {
+    if (a.team === b.team) return false;
+    if (a.team === 'neutral') return true;
+    if (b.team === 'neutral') return a.kind === 'hero' || !!a.owner;  // нейтралов бьют герои и спутники
+    return true;
+  }
+
+  targetable(b) {
+    return !b.dead && !b.shielded;
+  }
+
+  // Лучшая цель для a в радиусе range (от края цели). bias — предпочтения по типам: меньше = важнее
+  findTarget(a, range, bias) {
+    let best = null, bestScore = Infinity;
+    for (const b of this.units) {
+      if (b === a || !this.targetable(b) || !this.isEnemy(a, b)) continue;
+      const d = edge(a, b);
+      if (d > range) continue;
+      const score = d + (bias[b.kind] ?? 0);
+      if (score < bestScore) { bestScore = score; best = b; }
+    }
+    return best;
+  }
+
+  // Ближайший враг к точке (для спутника игрока): нейтралы тоже считаются
+  nearestEnemyTo(pos, range, team) {
+    let best = null, bestD = range;
+    for (const b of this.units) {
+      if (b.team === team || !this.targetable(b)) continue;
+      const d = Math.hypot(b.pos.x - pos.x, b.pos.z - pos.z);
+      if (d < bestD) { bestD = d; best = b; }
+    }
+    return best;
+  }
+
+  makeFacade() {
+    const sys = this;
+    return {
+      nearestEnemy: (pos, range) => sys.nearestEnemyTo(pos, range, 'blue'),
+      enemyNear: (pos, range) => !!sys.nearestEnemyTo(pos, range, 'blue'),
+      ring: (...a) => sys.game.combat.ring(...a),
+      creatureHit(c, target, dmg) {
+        const hit = () => { if (!target.dead) target.takeDamage(dmg, sys.playerUnit); };
+        if (c.def.basicRange > 3) sys.game.combat.projectile(c.pos, target, c.def.color, hit);
+        else hit();
+      },
+      fireball(c, target, dmg, color = 0xff5a1a) {
+        sys.game.combat.projectile(c.pos, target, color, () => {
+          if (target.dead) return;
+          sys.game.combat.ring(target.pos, color, 2.5, 0.35);
+          target.takeDamage(Math.round(dmg), sys.playerUnit);
+        }, 0.35, 0.45);
+      },
+    };
+  }
+
+  // Атака: ближняя бьёт сразу, дальняя пускает снаряд
+  attack(a, b) {
+    if (a.atkCd > 0 || !this.targetable(b)) return false;
+    a.atkCd = a.cooldown;
+    a.facing = Math.atan2(b.pos.x - a.pos.x, b.pos.z - a.pos.z);
+    const dmg = a.atk;
+    const apply = () => {
+      if (b.dead) return;
+      const dealt = b.takeDamage(dmg, a);
+      if (dealt > 0 && (a.isPlayer || b.isPlayer)) this.number(b, dealt, b.isPlayer ? '#ff6b6b' : '#ffffff');
+    };
+    if (a.range > 3.2) this.game.combat.projectile(a.pos, b, a.team === 'blue' ? 0x7ab8ff : a.team === 'red' ? 0xff7a7a : 0xffd27a, apply, 0.28);
+    else apply();
+    if (a.isPlayer) events.emit('swing');
+    return true;
+  }
+
+  number(unit, amount, color) {
+    const p = unit.pos.clone();
+    p.y += 2.2;
+    this.ui.floatText(p, `-${Math.round(amount)}`, color);
+  }
+
+  // Движение в точку (остановиться на stop от неё). Возвращает true, если двигался
+  moveTo(u, tx, tz, dt, stop = 0.1, speedMul = 1) {
+    const dx = tx - u.pos.x, dz = tz - u.pos.z, d = Math.hypot(dx, dz);
+    if (d <= stop + 0.08) return false;   // запас, чтобы юнит не застревал у самой границы
+    const step = Math.min(u.speed * speedMul * dt, d - stop);
+    const ox = u.pos.x, oz = u.pos.z;
+    u.pos.x += (dx / d) * step;
+    u.pos.z += (dz / d) * step;
+    this.world.resolveCollisions(u.pos, u.radius);
+    if (this.world.groundAt(u.pos.x, u.pos.z) === null) { u.pos.x = ox; u.pos.z = oz; }
+    u.facing = Math.atan2(dx, dz);
+    return true;
+  }
+
+  // ---------- смерти ----------
+
+  killUnit(u, killer) {
+    if (u.dead) return;
+    const kteam = killer?.team ?? null;
+    // Лесной монстр и король, побеждённые героем (или его спутником), переходят на его сторону
+    if ((u.kind === 'monster' || u.kind === 'king') && u.team === 'neutral') {
+      const owner = killer?.kind === 'hero' ? killer : killer?.owner;
+      if (owner) return this.convert(u, owner);
+    }
+    u.dead = true;
+    u.hp = 0;
+    if (u.collider) u.collider.active = false;
+    if (u.kind === 'hero') this.onHeroDeath(u, killer);
+    else if (u.kind === 'tower') this.fall(u);
+    else if (u.kind === 'crystal') { this.fall(u); this.endMatch(kteam ?? OTHER[u.team]); }
+    else if (u.kind === 'king') this.onKingDeath(u);
+    else if (u.kind === 'monster') this.onMonsterDeath(u);
+    if (u.kind !== 'hero') {
+      // Остальные исчезают
+      this.game.combat.ring(u.pos, TEAM_RING[u.team] ?? 0xffffff, u.kind === 'tower' || u.kind === 'crystal' ? 6 : 2, 0.5);
+      u.dispose();
+    }
+  }
+
+  fall(u) {
+    events.emit('slam');
+    this.ui.toast(u.kind === 'crystal' ? t('arenaCrystalFell') : `${t(u.team === 'blue' ? 'arenaBlueTower' : 'arenaRedTower')}`);
+  }
+
+  convert(u, owner) {
+    u.setTeam(owner.team);
+    u.owner = owner;
+    u.hp = Math.round(u.maxHp * ARENA.followerHealRatio);
+    u.lastAttacker = null;
+    u.provoked = null;
+    if (u.camp) u.camp.monsters = u.camp.monsters.filter(m => m !== u);
+    if (u.kind === 'king') {
+      u.path = lanePath('mid', owner.team);
+      u.wp = 1;
+      u.slamCd = 3;
+      this.ui.toast(`${t('enemy.' + u.kingId)}: ${t(owner.team === 'blue' ? 'arenaKingBlue' : 'arenaKingRed')}`);
+      events.emit('levelUp');
+    } else if (owner.isPlayer) {
+      this.ui.toast(t('arenaFollower'));
+      events.emit('tame');
+    }
+    this.game.combat.ring(u.pos, TEAM_RING[owner.team], 4, 0.6);
+  }
+
+  onMonsterDeath(u) {
+    if (u.camp) {
+      u.camp.monsters = u.camp.monsters.filter(m => m !== u);
+      if (!u.camp.monsters.length && !u.camp.respawnAt) u.camp.respawnAt = this.time + ARENA.monster.respawn;
+    }
+  }
+
+  onKingDeath(u) {
+    this.king = null;
+    this.kingIndex++;
+    this.kingTimer = ARENA.kingGap;
+    this.ui.toast(`${t('enemy.' + u.kingId)}: ${t('arenaKingGone')}`);
+  }
+
+  onHeroDeath(u, killer) {
+    u.deaths++;
+    const scorer = killer && killer.team !== u.team && killer.team !== 'neutral' ? killer.team : OTHER[u.team];
+    this.kills[scorer]++;
+    u.respawnAt = this.time + Math.min(ARENA.respawnMax, ARENA.respawnBase + ARENA.respawnPerDeath * u.deaths);
+    u.mesh.visible = false;
+    u.retreat = false;
+    if (u.isPlayer) {
+      this.player.frozen = true;
+      this.player.mesh.visible = false;
+      this.ui.toast(t('arenaDied'));
+    }
+    events.emit('kill');
+  }
+
+  respawnHero(u) {
+    u.dead = false;
+    u.mesh.visible = true;
+    const idx = this.units.filter(x => x.kind === 'hero' && x.team === u.team).indexOf(u);
+    const sp = this.spawnPoint(u.team, idx);
+    u.pos.set(sp.x, 0, sp.z);
+    if (u.isPlayer) {
+      this.player.hp = this.player.maxHp;
+      this.player.frozen = false;
+      this.player.mesh.visible = true;
+      this.player.pos.set(sp.x, 0, sp.z);
+      this.game.cameraCtl.target.copy(this.player.pos);
+    }
+    u.hp = u.maxHp;
+  }
+
+  endMatch(winner) {
+    if (this.phase === 'ended') return;
+    this.phase = 'ended';
+    this.winner = winner;
+    const win = winner === 'blue';
+    this.ui.showArenaResult(win, this.kills, this.time);
+    events.emit(win ? 'levelUp' : 'hurt');
+    this.game.onArenaEnd(win);
+  }
+
+  // ---------- каждый кадр ----------
+
+  update(dt) {
+    if (!this.active) return;
+    const cam = this.game.camera;
+    this.time += dt;
+    if (this.phase === 'countdown') {
+      this.timer -= dt;
+      this.ui.setArenaCountdown(Math.ceil(this.timer));
+      if (this.timer <= 0) { this.phase = 'playing'; this.ui.setArenaCountdown(0); this.time = 0; this.ui.toast(t('arenaGo')); events.emit('raid'); }
+    } else if (this.phase === 'playing') {
+      this.spawnLogic(dt);
+      this.updateShields();
+      this.playerAtkCd = Math.max(0, this.playerAtkCd - dt);
+      for (let i = 0; i < 2; i++) this.spellCd[i] = Math.max(0, this.spellCd[i] - dt);
+      const p = this.player, pu = this.playerUnit;
+      pu.hp = p.hp;
+      pu.maxHp = p.maxHp;
+      for (const u of this.units.slice()) {
+        u.atkCd = Math.max(0, u.atkCd - dt);
+        if (u.dead && u.kind !== 'hero') continue;
+        this.think(u, dt);
+      }
+      this.units = this.units.filter(u => !u.dead || u.kind === 'hero');
+    }
+    for (const u of this.units) if (!u.dead || u.kind === 'hero') u.syncMesh(dt, cam);
+    this.drawHud(dt);
+  }
+
+  // Башни уязвимы по порядку: внутренняя — после внешней, кристалл — после разрушения любой внутренней
+  updateShields() {
+    for (const team of ['blue', 'red']) {
+      const towers = this.units.filter(u => u.kind === 'tower' && u.team === team && !u.dead);
+      const innerDown = LANES.some(l => !this.units.some(u => u.kind === 'tower' && u.team === team && u.lane === l && u.tier === 2 && !u.dead));
+      for (const u of this.units) {
+        if (u.team !== team) continue;
+        if (u.kind === 'tower' && u.tier === 2) u.shielded = towers.some(o => o.lane === u.lane && o.tier === 1);
+        if (u.kind === 'crystal') u.shielded = !innerDown;
+      }
+    }
+  }
+
+  spawnLogic(dt) {
+    // Волны крипов
+    this.waveTimer -= dt;
+    if (this.waveTimer <= 0) {
+      this.waveTimer = ARENA.waveEvery;
+      for (const team of ['blue', 'red']) for (const lane of LANES) this.spawnWave(team, lane);
+    }
+    // Возрождение лагерей
+    for (const camp of this.camps) {
+      if (camp.respawnAt && this.time >= camp.respawnAt) { camp.respawnAt = 0; this.fillCamp(camp); }
+    }
+    // Короли по очереди
+    if (!this.king) {
+      this.kingTimer -= dt;
+      if (this.kingTimer <= 0) this.spawnKing();
+    }
+    // Возрождение героев
+    for (const u of this.units) if (u.kind === 'hero' && u.dead && this.time >= u.respawnAt) this.respawnHero(u);
+    this.respawnLeft = this.playerUnit.dead ? Math.max(0, Math.ceil(this.playerUnit.respawnAt - this.time)) : 0;
+  }
+
+  spawnWave(team, lane) {
+    const path = lanePath(lane, team);
+    const n = ARENA.minion.count;
+    for (let i = 0; i < n + 1; i++) {
+      const ranged = i === n;
+      const s = ranged ? { ...ARENA.ranged, ranged: true, radius: 0.45, cooldown: ARENA.ranged.cooldown }
+        : { ...ARENA.minion, radius: 0.45 };
+      const pos = world(path[0].x + (i - n / 2) * 0.9, path[0].z);
+      const u = this.add('minion', team, s, pos.x, pos.z);
+      u.lane = lane;
+      u.path = path;
+      u.wp = 1;
+    }
+  }
+
+  spawnKing() {
+    const def = ARENA.kings[this.kingIndex % ARENA.kings.length];
+    const pos = world(0, 0);
+    const k = this.add('king', 'neutral', { hp: def.hp, atk: def.atk, range: 3.2, speed: 2.8, cooldown: 1.5, radius: 1.6, scale: def.scale, color: def.color }, pos.x, pos.z);
+    k.kingId = def.id;
+    k.slam = def.slam;
+    k.slamCd = 4;
+    k.home = { x: pos.x, z: pos.z };
+    this.king = k;
+    this.ui.toast(`${t('enemy.' + def.id)}: ${t('arenaKingAppears')}`);
+    events.emit('raidWarn');
+  }
+
+  // ---------- мышление юнитов ----------
+
+  think(u, dt) {
+    if (u.kind === 'tower') return this.thinkTower(u);
+    if (u.kind === 'crystal') return;
+    if (u.kind === 'hero') return u.isPlayer ? this.thinkPlayerUnit(u, dt) : this.thinkBot(u, dt);
+    if (u.team === 'neutral') return this.thinkNeutral(u, dt);
+    if (u.kind === 'monster' && u.owner) return this.thinkFollower(u, dt);
+    return this.thinkMarcher(u, dt);
+  }
+
+  thinkTower(u) {
+    const target = this.findTarget(u, u.range, { minion: -4, hero: 0, monster: 3, king: 0 });
+    if (target) this.attack(u, target);
+  }
+
+  // Игрок сам управляет героем: юнит лишь следит за регенерацией
+  thinkPlayerUnit(u, dt) {
+    const p = this.player;
+    if (p.frozen) return;
+    const crystal = this.units.find(x => x.kind === 'crystal' && x.team === 'blue' && !x.dead);
+    const atBase = crystal && dist(u, crystal) < 10;
+    if (atBase) p.heal(ARENA.baseRegen * dt);
+  }
+
+  heroRegen(u, dt) {
+    const crystal = this.units.find(x => x.kind === 'crystal' && x.team === u.team && !x.dead);
+    if (crystal && dist(u, crystal) < 10) u.heal(ARENA.baseRegen * dt);
+    else if (this.time - u.lastHurt > 4) u.heal(4 * dt);
+  }
+
+  // Герой-бот
+  thinkBot(u, dt) {
+    if (u.dead) return;
+    this.heroRegen(u, dt);
+    u.spellCd = Math.max(0, u.spellCd - dt);
+    const hr = u.hp / u.maxHp;
+    const home = this.units.find(x => x.kind === 'crystal' && x.team === u.team && !x.dead);
+    const base = home ? home.pos : world(0, SIGN[u.team] * ARENA.baseZ);
+    if (u.retreat) {
+      this.moveTo(u, base.x, base.z + SIGN[u.team] * -4, dt, 1);
+      if (hr > 0.85) u.retreat = false;
+      return;
+    }
+    if (hr < 0.3) { u.retreat = true; return; }
+
+    // Способность: удар по области, когда рядом несколько врагов
+    if (u.spellCd <= 0) {
+      const near = this.units.filter(b => this.targetable(b) && this.isEnemy(u, b) && b.kind !== 'tower' && b.kind !== 'crystal' && edge(u, b) < ARENA.spells.slam.radius);
+      if (near.length >= 2 || near.some(b => b.kind === 'hero')) { this.areaDamage(u, ARENA.spells.slam.radius, ARENA.spells.slam.damage); u.spellCd = ARENA.spells.slam.cooldown + 4; }
+    }
+
+    // Цель: герой (если здоров), потом крипы, потом постройки
+    const bias = hr > 0.5 ? { hero: -3, minion: 0, monster: 1, king: 2, tower: 5, crystal: 5 } : { minion: 0, monster: 1, hero: 4, king: 6, tower: 6, crystal: 6 };
+    let role = u.lane;
+    if (role === 'jungle') {
+      // Лесной бот: сначала лес, потом король
+      if (this.king && this.king.team === 'neutral' && hr > 0.7 && this.time > ARENA.kingFirstAt - 5) {
+        return this.engage(u, this.king, dt);
+      }
+      const camp = this.nearestCamp(u);
+      if (camp) {
+        const target = camp.monsters.find(m => !m.dead && m.team === 'neutral');
+        if (target) return this.engage(u, target, dt);
+        const c = world(camp.x, camp.z);
+        this.moveTo(u, c.x, c.z, dt, 1.5);
+        return;
+      }
+      role = 'mid';
+    }
+    const target = this.findTarget(u, u.range + 3, bias);
+    if (target && this.safeToEngage(u, target)) return this.engage(u, target, dt);
+    // Иначе идём за своими крипами по линии
+    const path = lanePath(role, u.team);
+    const anchor = this.laneAnchor(u, role, path);
+    this.moveTo(u, anchor.x, anchor.z, dt, 2);
+  }
+
+  nearestCamp(u) {
+    let best = null, bestD = Infinity;
+    for (const c of this.camps) {
+      if (!c.monsters.some(m => !m.dead && m.team === 'neutral')) continue;
+      if (Math.sign(c.z) !== SIGN[u.team] && Math.abs(c.z) > 1) continue;      // только свой край леса
+      const w = world(c.x, c.z);
+      const d = Math.hypot(w.x - u.pos.x, w.z - u.pos.z);
+      if (d < bestD) { bestD = d; best = c; }
+    }
+    return best;
+  }
+
+  // Точка на линии, куда идёт бот: за самым дальним своим крипом, иначе у своей внешней башни
+  laneAnchor(u, lane, path) {
+    let front = null, bestProgress = -Infinity;
+    for (const m of this.units) {
+      if (m.kind !== 'minion' || m.team !== u.team || m.lane !== lane || m.dead) continue;
+      const progress = -SIGN[u.team] * m.pos.z;       // чем дальше к чужой базе, тем больше
+      if (progress > bestProgress) { bestProgress = progress; front = m; }
+    }
+    if (front) return { x: front.pos.x, z: front.pos.z + SIGN[u.team] * 2.5 };
+    const tower = this.units.find(x => x.kind === 'tower' && x.team === u.team && x.lane === lane && !x.dead && x.tier === 1)
+      ?? this.units.find(x => x.kind === 'tower' && x.team === u.team && x.lane === lane && !x.dead);
+    const w = tower ? tower.pos : world(ARENA.lanes[lane], SIGN[u.team] * ARENA.spawnZ);
+    return { x: w.x, z: w.z + SIGN[u.team] * 3 };
+  }
+
+  // Не лезть под башню без поддержки крипов
+  safeToEngage(u, target) {
+    for (const tw of this.units) {
+      if (tw.kind !== 'tower' || tw.dead || tw.team === u.team) continue;
+      if (Math.hypot(tw.pos.x - target.pos.x, tw.pos.z - target.pos.z) < ARENA.tower.range + 1) {
+        const allies = this.units.filter(m => m.kind === 'minion' && m.team === u.team && !m.dead && dist(m, tw) < ARENA.tower.range + 3).length;
+        return allies >= 2 || target.kind === 'tower' && allies >= 1;
+      }
+    }
+    return true;
+  }
+
+  engage(u, target, dt) {
+    const d = edge(u, target);
+    if (d > u.range) this.moveTo(u, target.pos.x, target.pos.z, dt, u.range * 0.8 + target.radius);
+    else {
+      if (u.range > 3.2 && d < u.range * 0.5) this.moveTo(u, u.pos.x, u.pos.z + SIGN[u.team] * 3, dt, 0.1);   // лучники отходят
+      this.attack(u, target);
+    }
+  }
+
+  // Крип, король-союзник и лесной монстр без хозяина: идут по линии и бьют встречных
+  thinkMarcher(u, dt) {
+    const bias = { minion: 0, hero: 1, monster: 1, king: 1, tower: 5, crystal: 5 };
+    const aggro = u.kind === 'king' ? 10 : 7;
+    const target = this.findTarget(u, aggro, bias);
+    if (u.kind === 'king' && u.slam) this.kingSlam(u, target);
+    if (target) return this.engage(u, target, dt);
+    const wp = u.path[Math.min(u.wp, u.path.length - 1)];
+    const w = world(wp.x, wp.z);
+    if (!this.moveTo(u, w.x, w.z, dt, 1.5) && u.wp < u.path.length - 1) u.wp++;
+    else if (u.wp >= u.path.length - 1) {
+      // У вражеской базы: бьём кристалл
+      const crystal = this.units.find(x => x.kind === 'crystal' && x.team === OTHER[u.team] && !x.dead);
+      if (crystal) this.engage(u, crystal, dt);
+    }
+  }
+
+  // Лесной монстр, ставший спутником героя: ходит за ним и защищает
+  thinkFollower(u, dt) {
+    const owner = u.owner;
+    const target = this.findTarget(u, 7, { minion: 0, hero: -1, monster: 1, king: 1, tower: 6, crystal: 6 });
+    if (target && (owner.dead || dist(u, owner) < 14)) return this.engage(u, target, dt);
+    if (owner.dead) {
+      const crystal = this.units.find(x => x.kind === 'crystal' && x.team === u.team && !x.dead);
+      if (crystal) this.moveTo(u, crystal.pos.x, crystal.pos.z - SIGN[u.team] * 4, dt, 1);
+      return;
+    }
+    this.moveTo(u, owner.pos.x + 1.6, owner.pos.z + 1.6, dt, 2, dist(u, owner) > 8 ? 1.5 : 1);
+  }
+
+  // Нейтралы (лес и король): не нападают, пока их не тронули; отбегают назад, если герой убежал
+  thinkNeutral(u, dt) {
+    const attacker = u.lastAttacker;
+    if (attacker && !attacker.dead && Math.hypot(attacker.pos.x - u.home.x, attacker.pos.z - u.home.z) < 16) {
+      if (u.kind === 'king' && u.slam) this.kingSlam(u, attacker);
+      return this.engage(u, attacker, dt);
+    }
+    u.lastAttacker = null;
+    this.moveTo(u, u.home.x, u.home.z, dt, 0.6);
+    u.heal(u.maxHp * 0.04 * dt);
+  }
+
+  // Удар короля по области: красное кольцо, потом урон врагам внутри
+  kingSlam(k, target) {
+    if (!target || k.slamCd > 0 || k.slamming) return;
+    const s = k.slam;
+    if (edge(k, target) > s.radius) return;
+    k.slamming = true;
+    k.slamCd = s.cooldown;
+    const center = { x: k.pos.x, y: 0, z: k.pos.z };
+    this.game.combat.telegraph(center, s.radius, s.windup, () => {
+      k.slamming = false;
+      if (k.dead) return;
+      this.game.combat.ring(center, 0xff6a2a, s.radius * 1.5, 0.5);
+      events.emit('slam');
+      for (const b of this.units) {
+        if (!this.targetable(b) || !this.isEnemy(k, b) || b.kind === 'tower' || b.kind === 'crystal') continue;
+        if (Math.hypot(b.pos.x - center.x, b.pos.z - center.z) < s.radius + b.radius) {
+          const dealt = b.takeDamage(s.damage, k);
+          if (b.isPlayer && dealt > 0) this.number(b, dealt, '#ff6b6b');
+        }
+      }
+    });
+  }
+
+  // Удар по области вокруг героя
+  areaDamage(u, radius, damage) {
+    this.game.combat.ring(u.pos, 0xffd27a, radius * 1.2, 0.4);
+    events.emit('slam');
+    for (const b of this.units) {
+      if (b === u || !this.targetable(b) || !this.isEnemy(u, b)) continue;
+      if (edge(u, b) < radius) {
+        const dealt = b.takeDamage(damage, u);
+        if (u.isPlayer && dealt > 0) this.number(b, dealt, '#ffd27a');
+      }
+    }
+  }
+
+  // ---------- действия игрока ----------
+
+  playerAttack() {
+    if (this.phase !== 'playing' || this.playerUnit.dead || this.playerAtkCd > 0) return;
+    const u = this.playerUnit;
+    const target = this.findTarget(u, u.range, { hero: -2, minion: 0, monster: 0, king: 0, tower: 3, crystal: 3 });
+    this.playerAtkCd = u.cooldown;
+    u.atkCd = 0;
+    if (!target) {
+      events.emit('swing');
+      const f = new THREE.Vector3(Math.sin(this.player.facing), 0, Math.cos(this.player.facing)).multiplyScalar(1.4).add(this.player.pos);
+      this.game.combat.ring(f, 0xffffff, 1.2, 0.2);
+      return;
+    }
+    this.player.facing = Math.atan2(target.pos.x - this.player.pos.x, target.pos.z - this.player.pos.z);
+    u.pos.copy(this.player.pos);
+    this.attack(u, target);
+  }
+
+  // 1 — удар по области, 2 — лечение
+  castSpell(n) {
+    if (this.phase !== 'playing' || this.playerUnit.dead || this.spellCd[n - 1] > 0) return;
+    const u = this.playerUnit;
+    u.pos.copy(this.player.pos);
+    if (n === 1) {
+      this.areaDamage(u, ARENA.spells.slam.radius, ARENA.spells.slam.damage);
+      this.spellCd[0] = ARENA.spells.slam.cooldown;
+    } else {
+      const healed = this.player.heal(ARENA.spells.heal.amount);
+      this.game.combat.ring(this.player.pos, 0x5de08a, 3, 0.5);
+      const pos = this.player.pos.clone();
+      pos.y += 2.2;
+      this.ui.floatText(pos, `+${healed}`, '#6bff9a');
+      this.spellCd[1] = ARENA.spells.heal.cooldown;
+      events.emit('ability');
+    }
+  }
+
+  // ---------- интерфейс ----------
+
+  drawHud(dt) {
+    this.hudTimer = (this.hudTimer ?? 0) - dt;
+    if (this.hudTimer > 0) return;
+    this.hudTimer = 0.15;
+    const towers = team => this.units.filter(u => u.kind === 'tower' && u.team === team && !u.dead).length;
+    this.ui.updateArena({
+      kills: this.kills, time: this.time, towers: { blue: towers('blue'), red: towers('red') },
+      spellCd: this.spellCd, respawn: this.respawnLeft, phase: this.phase,
+      units: this.units.filter(u => !u.dead || u.kind === 'hero').map(u => ({ x: u.pos.x - C.x, z: u.pos.z - C.z, team: u.team, kind: u.kind, dead: u.dead, me: u.isPlayer })),
+    });
+  }
+}
+
+const TEAM_RING = { blue: 0x4a8dff, red: 0xff5a5a, neutral: 0xffd27a };

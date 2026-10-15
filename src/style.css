@@ -180,3 +180,31 @@ button.big.primary { background: #ff9f43; color: #3a2000; font-weight: 700; }
 /* Сон */
 #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 15; transition: opacity .6s; }
 #fade.on { opacity: 1; }
+
+/* Арена */
+.spell { display: none; }
+body.arena .spell { display: block; }
+body.arena #btn-build, body.arena #quest, body.arena #res { display: none !important; }
+body.arena #left { width: 190px; }
+#minimap { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: calc(72px + env(safe-area-inset-right));
+  width: 96px; height: 140px; border: 2px solid #ffffff66; border-radius: 8px; background: #10202acc; pointer-events: none; }
+#arena-hud { position: absolute; top: calc(160px + env(safe-area-inset-top)); right: calc(72px + env(safe-area-inset-right));
+  width: 96px; background: #1e2a4acc; border-radius: 10px; padding: 4px 6px; text-align: center; font-size: 12px; pointer-events: none; }
+#arena-score { font-size: 18px; font-weight: 800; }
+#arena-score .b { color: #7ab8ff; }
+#arena-score .r { color: #ff8a8a; }
+#arena-info { opacity: .9; }
+#arena-count { position: absolute; top: 28%; left: 50%; transform: translateX(-50%); font-size: 64px; font-weight: 800;
+  text-shadow: 0 4px 12px #000a; pointer-events: none; text-align: center; }
+#arena-count.small { font-size: 28px; }
+.spell.cd { opacity: .45; }
+#ar-stats { margin-bottom: 14px; opacity: .9; }
+@media (pointer: coarse) and (max-height: 520px) {
+  #minimap { width: 80px; height: 117px; right: calc(70px + env(safe-area-inset-right)); }
+  #arena-hud { top: calc(134px + env(safe-area-inset-top)); width: 80px; right: calc(70px + env(safe-area-inset-right)); font-size: 11px; }
+  body.arena #left { width: 170px; }
+}
+/* Арена на телефоне в горизонтальном положении: миникарта и счёт по центру, чтобы не мешать кнопкам справа */
+@media (pointer: coarse) and (max-height: 520px) {
+  body.arena #minimap, body.arena #arena-hud { right: auto; left: calc(50% - 40px); }
+}
