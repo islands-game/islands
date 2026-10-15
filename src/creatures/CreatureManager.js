@@ -2,6 +2,7 @@ import { Creature } from './Creature.js';
 import { updateCreature, tryAbility } from './CreatureAI.js';
 import { CREATURES } from '../config/creatures.js';
 import { t } from '../config/i18n.js';
+import { events } from '../core/Events.js';
 
 const TAME_RANGE = 2.8;
 
@@ -83,6 +84,7 @@ export class CreatureManager {
     if (this.active?.addXp(n)) {
       this.ui.toast(`${t('creature.' + this.active.id)}: ${t('levelUp')} ${this.active.level}`);
       this.combat.ring(this.active.pos, 0xffe066, 3, 0.6);
+      events.emit('levelUp');
     }
   }
 

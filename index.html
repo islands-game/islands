@@ -22,8 +22,22 @@
         <button data-lang="en">English</button>
         <button data-lang="ka">ქართული</button>
       </div>
+      <button id="btn-settings" class="big"></button>
     </div>
   </div>
+
+  <!-- Настройки -->
+  <div id="settings-panel" class="overlay hidden">
+    <div class="panel wide">
+      <h2 id="st-title"></h2>
+      <div class="st-row"><span id="st-sound-l"></span><button id="st-sound"></button></div>
+      <div class="st-row"><span id="st-vol-l"></span><input type="range" id="st-vol" min="0" max="100" /></div>
+      <div class="st-row col"><span id="st-q-l"></span><div id="st-q"></div></div>
+      <div class="st-row"><span id="st-fps-l"></span><button id="st-fps"></button></div>
+      <button id="st-close" class="big"></button>
+    </div>
+  </div>
+  <div id="fps" class="hidden"></div>
 
   <!-- Существа -->
   <div id="creatures-panel" class="overlay hidden">

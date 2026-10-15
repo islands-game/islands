@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Enemy } from './Enemy.js';
 import { ENEMIES, ENEMY_SPAWNS } from '../config/enemies.js';
 import { t } from '../config/i18n.js';
+import { events } from '../core/Events.js';
 
 const HERO_RANGE = 2.8;
 const HERO_COOLDOWN = 0.5;
@@ -58,6 +59,7 @@ export class CombatSystem {
     const p = this.player;
     if (p.dead || this.heroCd > 0) return;
     this.heroCd = HERO_COOLDOWN;
+    events.emit('swing');
     const target = this.nearestEnemy(p.pos, HERO_RANGE);
     const front = new THREE.Vector3(Math.sin(p.facing), 0, Math.cos(p.facing)).multiplyScalar(1.2).add(p.pos);
     this.ring(front, 0xffffff, 1.2, 0.2);
@@ -89,7 +91,9 @@ export class CombatSystem {
     const pos = enemy.pos.clone();
     pos.y += 1.6;
     this.ui.floatText(pos, `-${amount}`, color);
-    if (enemy.takeDamage(amount)) {
+    const killed = enemy.takeDamage(amount);
+    events.emit(killed ? 'kill' : 'hit');
+    if (killed) {
       this.ring(enemy.pos, 0x8bd450, 2.5, 0.4);
       this.onKill(enemy);
     }
@@ -102,7 +106,7 @@ export class CombatSystem {
     const pos = p.pos.clone();
     pos.y += 2;
     this.ui.floatText(pos, dealt > 0 ? `-${dealt}` : '🛡', dealt > 0 ? '#ff6b6b' : '#7ab8ff');
-    if (dealt > 0) this.ui.flashHurt();
+    if (dealt > 0) { this.ui.flashHurt(); events.emit('hurt'); }
     if (p.hp <= 0) {
       p.die();
       this.deadTimer = RESPAWN_DELAY;

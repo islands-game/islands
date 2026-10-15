@@ -12,6 +12,11 @@ import { UIManager } from '../ui/UIManager.js';
 import { BuildSystem, DEMOLISH } from '../building/BuildSystem.js';
 import { BUILDINGS } from '../config/buildings.js';
 import { TUTORIAL_STEPS, TUTORIAL_DONE } from '../ui/Tutorial.js';
+import { Settings } from '../save/Settings.js';
+import { events } from './Events.js';
+import { initSound } from './Sound.js';
+
+const QUALITY_SCALE = { low: 0.6, medium: 0.85, high: 1 };
 import { SaveManager } from '../save/SaveManager.js';
 import { RESOURCES } from '../config/resources.js';
 import { t } from '../config/i18n.js';
@@ -65,8 +70,15 @@ export class Game {
       onPlaced: () => { this.stats.built++; },
     });
 
-    // Меньше пикселей на слабых устройствах
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.input.isTouch ? 1.5 : 2));
+    // Качество графики: меньше пикселей на слабых устройствах. В режиме "Авто" подстраивается по FPS.
+    this.autoScale = this.input.isTouch ? 0.8 : 1;
+    this.ratio = 0;
+    this.fpsFrames = 0;
+    this.fpsStart = performance.now();
+    this.goodSeconds = 0;
+    events.on('settings', () => this.applyQuality());
+    initSound();
+    this.applyQuality();
     addEventListener('resize', () => this.resize());
     addEventListener('keydown', e => {
       if (e.code !== 'Escape' || !this.playing) return;
@@ -138,12 +150,54 @@ export class Game {
     this.camera.updateProjectionMatrix();
   }
 
+  // --- Качество графики и FPS ---
+
+  applyQuality() {
+    const s = Settings.get();
+    const cap = Math.min(devicePixelRatio, this.input.isTouch ? 1.5 : 2);
+    const scale = s.quality === 'auto' ? this.autoScale : QUALITY_SCALE[s.quality];
+    const ratio = Math.max(0.5, cap * scale);
+    if (Math.abs(ratio - this.ratio) > 0.01) {
+      this.ratio = ratio;
+      this.renderer.setPixelRatio(ratio);
+      this.renderer.setSize(innerWidth, innerHeight, false);
+    }
+    this.ui.showFps(s.showFps);
+  }
+
+  // Считаем FPS раз в секунду; в режиме "Авто" снижаем или повышаем разрешение
+  sampleFps() {
+    this.fpsFrames++;
+    const now = performance.now();
+    if (now - this.fpsStart < 1000) return;
+    const fps = (this.fpsFrames * 1000) / (now - this.fpsStart);
+    this.fpsFrames = 0;
+    this.fpsStart = now;
+    this.ui.setFps(fps, this.ratio);
+    if (Settings.get().quality !== 'auto' || document.hidden || fps < 5 || !this.playing) return;
+    if (fps < 24 && this.autoScale > 0.5) {
+      this.autoScale = Math.max(0.5, this.autoScale - 0.15);
+      this.goodSeconds = 0;
+      this.applyQuality();
+    } else if (fps > 55) {
+      this.goodSeconds++;
+      if (this.goodSeconds >= 4 && this.autoScale < 1) {
+        this.autoScale = Math.min(1, this.autoScale + 0.1);
+        this.goodSeconds = 0;
+        this.applyQuality();
+      }
+    } else {
+      this.goodSeconds = 0;
+    }
+  }
+
   // --- Награды ---
 
   gainXp(n) {
     if (addXp(this.player, n)) {
       this.ui.toast(`${t('levelUp')} ${this.player.level}`);
       this.combat.ring(this.player.pos, 0xffe066, 4, 0.8);
+      events.emit('levelUp');
     }
   }
 
@@ -223,6 +277,7 @@ export class Game {
       const node = target.node;
       const got = this.resources.collect(node);
       this.stats.collected++;
+      events.emit('collect');
       _label.set(node.x, 1.8, node.z);
       this.ui.floatText(_label, `+${got.amount} ${RESOURCES[got.type].icon}`, '#ffffff');
       this.gainXp(got.xp);
@@ -230,6 +285,7 @@ export class Game {
       const wild = target.creature;
       if (this.creatures.tame(wild)) {
         this.ui.toast(`${t('tamed')} ${t('creature.' + wild.id)}`);
+        events.emit('tame');
         this.combat.ring(wild.pos, 0xffe066, 4, 0.8);
       } else {
         this.ui.toast(`${t('need')}: ${this.costText(wild.def.tame.cost)}`);
@@ -281,6 +337,7 @@ export class Game {
 
   frame() {
     const dt = Math.min(this.clock.getDelta(), 0.05);
+    this.sampleFps();
     this.world.update(dt);
 
     if (this.playing) {

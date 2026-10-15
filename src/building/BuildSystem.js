@@ -3,6 +3,7 @@ import { BUILDINGS, MAX_BUILDINGS, REFUND_RATIO } from '../config/buildings.js';
 import { buildModel, disposeModel } from './BuildingModels.js';
 import { rectOf, rectsOverlap, circleRectOverlap, samplePoints } from './geometry.js';
 import { t } from '../config/i18n.js';
+import { events } from '../core/Events.js';
 
 const DEMOLISH = 'demolish';
 const MAX_COORD = 40;
@@ -143,6 +144,7 @@ export class BuildSystem {
     this.add({ id: def.id, x: this.x, z: this.z, rot: this.rot });
     this.combat.ring({ x: this.x, y: 0, z: this.z }, 0xffe066, 3, 0.5);
     this.ui.toast(t('built'));
+    events.emit('build');
     this.onPlaced?.(def);
   }
 
@@ -153,6 +155,7 @@ export class BuildSystem {
     for (const [k, v] of Object.entries(def.cost)) this.inventory.add(k, Math.floor(v * REFUND_RATIO));
     this.remove(b);
     this.ui.toast(t('demolished'));
+    events.emit('demolish');
   }
 
   // --- Список построек ---

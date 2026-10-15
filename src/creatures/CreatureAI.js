@@ -1,3 +1,5 @@
+import { events } from '../core/Events.js';
+
 // Поведение спутника. Состояния: idle (стоит), follow (идёт за героем),
 // attack (бьёт врага), return (бежит к герою). Команды игрока: follow, stay, defend, attack.
 const OWNER_FAR = 22;   // дальше этого расстояния существо возвращается
@@ -64,6 +66,7 @@ export function tryAbility(c, ctx, target, force = false) {
     return false;
   }
   c.cd = a.cooldown;
+  events.emit('ability');
   return true;
 }
 

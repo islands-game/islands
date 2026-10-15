@@ -124,3 +124,17 @@ button.big.primary { background: #ff9f43; color: #3a2000; font-weight: 700; }
 @media (pointer: coarse) {
   #build-bar { bottom: calc(225px + env(safe-area-inset-bottom)); z-index: 2; }
 }
+
+/* Настройки */
+#settings-panel { z-index: 12; }
+.st-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: #ffffff1a; padding: 10px 12px; border-radius: 12px; margin-bottom: 8px; text-align: left; }
+.st-row.col { flex-direction: column; align-items: stretch; }
+.st-row button { padding: 8px 14px; border-radius: 10px; background: #3d5a99; min-width: 70px; }
+.st-row button.on { background: #3fbf6f; }
+#st-q { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
+#st-q button { padding: 8px 4px; min-width: 0; font-size: 13px; }
+#st-q button.active { background: #ff9f43; color: #3a2000; font-weight: 700; }
+#st-vol { flex: 1; touch-action: pan-x; }
+#fps { position: fixed; top: 4px; left: 50%; transform: translateX(-50%); z-index: 20;
+  background: #000a; padding: 2px 8px; border-radius: 6px; font: 12px monospace; pointer-events: none; }

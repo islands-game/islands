@@ -3,6 +3,8 @@ import { t, setLang, getLang, LANGS } from '../config/i18n.js';
 import { SaveManager } from '../save/SaveManager.js';
 import { RESOURCES, RESOURCE_ORDER } from '../config/resources.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
+import { Settings, QUALITIES } from '../save/Settings.js';
+import { events } from '../core/Events.js';
 
 const COMMANDS = ['follow', 'stay', 'defend', 'attack', 'ability', 'return'];
 const _v = new THREE.Vector3();
@@ -41,6 +43,7 @@ export class UIManager {
     this.$('bb-ok').onclick = () => press('confirm');
     this.$('bb-cancel').onclick = () => press('cancel');
     this.$('tut-skip').onclick = onSkipTutorial;
+    this.initSettings();
     document.querySelectorAll('[data-lang]').forEach(b => {
       b.onclick = () => {
         setLang(b.dataset.lang);
@@ -64,6 +67,54 @@ export class UIManager {
     this.camera = camera;
   }
 
+  // --- Настройки (звук, качество, FPS) ---
+
+  initSettings() {
+    this.$('btn-settings').onclick = () => this.$('settings-panel').classList.remove('hidden');
+    this.$('st-close').onclick = () => this.$('settings-panel').classList.add('hidden');
+    this.$('st-sound').onclick = () => { Settings.set({ sound: !Settings.get().sound }); this.refreshSettings(); };
+    this.$('st-fps').onclick = () => { Settings.set({ showFps: !Settings.get().showFps }); this.refreshSettings(); };
+    this.$('st-vol').oninput = e => Settings.set({ volume: e.target.value / 100 });
+    this.$('st-vol').onchange = () => events.emit('collect'); // пробный звук нужной громкости
+    const q = this.$('st-q');
+    for (const name of QUALITIES) {
+      const b = document.createElement('button');
+      b.dataset.q = name;
+      b.onclick = () => { Settings.set({ quality: name }); this.refreshSettings(); };
+      q.appendChild(b);
+    }
+  }
+
+  refreshSettings() {
+    const s = Settings.get();
+    this.$('st-title').textContent = t('settings');
+    this.$('st-close').textContent = t('close');
+    this.$('st-sound-l').textContent = t('sound');
+    this.$('st-vol-l').textContent = t('volume');
+    this.$('st-q-l').textContent = t('quality');
+    this.$('st-fps-l').textContent = t('showFps');
+    const sound = this.$('st-sound');
+    sound.textContent = s.sound ? t('on') : t('off');
+    sound.classList.toggle('on', s.sound);
+    const fps = this.$('st-fps');
+    fps.textContent = s.showFps ? t('on') : t('off');
+    fps.classList.toggle('on', s.showFps);
+    this.$('st-vol').value = Math.round(s.volume * 100);
+    this.$('st-q').querySelectorAll('button').forEach(b => {
+      b.textContent = t('q.' + b.dataset.q);
+      b.classList.toggle('active', b.dataset.q === s.quality);
+    });
+  }
+
+  showFps(show) {
+    this.$('fps').classList.toggle('hidden', !show);
+  }
+
+  setFps(fps, ratio) {
+    const el = this.$('fps');
+    if (!el.classList.contains('hidden')) el.textContent = `${Math.round(fps)} FPS · x${ratio.toFixed(2)}`;
+  }
+
   refreshTexts() {
     document.documentElement.lang = getLang();
     this.$('menu-sub').textContent = t('subtitle');
@@ -79,6 +130,8 @@ export class UIManager {
     this.$('cr-close').textContent = t('close');
     this.$('bp-title').textContent = t('buildMenu');
     this.$('bp-close').textContent = t('close');
+    this.$('btn-settings').textContent = `⚙ ${t('settings')}`;
+    this.refreshSettings();
     this.$('tut-title').textContent = t('tut.title');
     this.$('tut-skip').textContent = t('skip');
     if (this.tutorialState) this.setTutorial(...this.tutorialState);
