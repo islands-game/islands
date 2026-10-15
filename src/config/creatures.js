@@ -62,6 +62,24 @@ export const CREATURES = {
     ],
     spawn: { x: 3, z: -10 },
   },
+  // Живёт на Ледяном острове (попасть туда можно через портал). Пример того, как добавить существо одной записью.
+  frost_fox: {
+    id: 'frost_fox',
+    model: 'fox',
+    color: 0x7fd8ff,
+    element: 'ice',
+    role: 'attacker',
+    stats: { hp: 45, atk: 10, def: 1, speed: 5.5 },
+    growth: { hp: 6, atk: 2, def: 0.5 },
+    ability: { id: 'fireball', cooldown: 4, power: 16, range: 9, color: 0x7fd8ff },
+    basicRange: 5,
+    tame: { cost: { crystal: 5 } },
+    evolutions: [
+      { level: 4, scale: 1.25, color: 0x4fb8ff, statMult: 1.25 },
+      { level: 8, scale: 1.5, color: 0xe0f8ff, statMult: 1.6 },
+    ],
+    spawn: { x: 74, z: 5 },
+  },
 };
 
 // Стадия развития (1, 2, 3...) для существа данного вида и уровня

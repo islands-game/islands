@@ -68,6 +68,7 @@ const SOUNDS = {
   tame: () => arpeggio([523, 659, 784, 1046], 'sine'),
   levelUp: () => arpeggio([392, 523, 659, 784, 1046], 'triangle', 0.09),
   evolve: () => { arpeggio([392, 494, 587, 784, 988, 1175], 'triangle', 0.1); tone(200, 0.6, { type: 'sawtooth', vol: 0.12, slideTo: 800 }); },
+  portal: () => { tone(200, 0.5, { type: 'sine', vol: 0.2, slideTo: 1200 }); tone(1200, 0.4, { type: 'triangle', vol: 0.12, slideTo: 300, delay: 0.25 }); },
   build: () => { tone(130, 0.16, { type: 'square', vol: 0.22, slideTo: 60 }); noise(0.1, { vol: 0.15 }); },
   demolish: () => { noise(0.25, { vol: 0.2, freq: 900 }); tone(90, 0.2, { type: 'square', vol: 0.15, slideTo: 50 }); },
 };

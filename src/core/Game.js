@@ -236,6 +236,8 @@ export class Game {
   interactTarget() {
     const wild = this.creatures.nearestWild(this.player.pos);
     if (wild) return { kind: 'wild', ...wild };
+    const portal = this.world.nearestPortal(this.player.pos);
+    if (portal) return { kind: 'portal', ...portal };
     const node = this.resources.nearest(this.player.pos);
     return node ? { kind: 'node', ...node } : null;
   }
@@ -262,6 +264,9 @@ export class Game {
     if (target.kind === 'node') {
       return this.ui.setPrompt(`${key}${t('collect')}: ${t('res.' + target.node.type)}`);
     }
+    if (target.kind === 'portal') {
+      return this.ui.setPrompt(`${key}${t('portal')}: ${t(target.portal.nameKey)}`);
+    }
     const def = target.creature.def;
     const name = t('creature.' + def.id);
     if (this.inventory.has(def.tame.cost)) {
@@ -281,6 +286,8 @@ export class Game {
       _label.set(node.x, 1.8, node.z);
       this.ui.floatText(_label, `+${got.amount} ${RESOURCES[got.type].icon}`, '#ffffff');
       this.gainXp(got.xp);
+    } else if (target.kind === 'portal') {
+      this.teleport(target.portal);
     } else {
       const wild = target.creature;
       if (this.creatures.tame(wild)) {
@@ -291,6 +298,19 @@ export class Game {
         this.ui.toast(`${t('need')}: ${this.costText(wild.def.tame.cost)}`);
       }
     }
+  }
+
+  // Перенос героя через портал. Спутник догонит сам (если он далеко, существо переносится к герою).
+  teleport(portal) {
+    const p = this.player;
+    this.combat.ring(p.pos, 0xb388ff, 4, 0.6);
+    p.pos.set(portal.dest.x, 0, portal.dest.z);
+    p.vy = 0;
+    p.mesh.position.copy(p.pos);
+    this.cameraCtl.target.copy(p.pos);
+    this.combat.ring(p.pos, 0xb388ff, 4, 0.6);
+    this.ui.toast(t(portal.nameKey));
+    events.emit('portal');
   }
 
   // --- Панель существ ---

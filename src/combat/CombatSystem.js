@@ -78,10 +78,10 @@ export class CombatSystem {
     }
   }
 
-  fireball(creature, enemy, damage) {
+  fireball(creature, enemy, damage, color = 0xff5a1a) {
     const dmg = Math.round(damage);
-    this.projectile(creature.pos, enemy, 0xff5a1a, () => {
-      this.ring(enemy.pos, 0xff5a1a, 2.5, 0.35);
+    this.projectile(creature.pos, enemy, color, () => {
+      this.ring(enemy.pos, color, 2.5, 0.35);
       this.damageEnemy(enemy, dmg, '#ff8a3d');
     }, 0.35, 0.45);
   }

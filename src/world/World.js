@@ -1,10 +1,33 @@
 import * as THREE from 'three';
 
-export const ISLAND_RADIUS = 14;
+export const ISLAND_RADIUS = 14; // радиус домашнего острова
 export const GROUND_Y = 0;
 export const WALK_Y = 0.1; // высота платформ и мостов
 
-// Остров: земля, деревья, камни, кристаллы, дом, портал, облака, освещение.
+// Острова мира. Чтобы добавить новый остров: допиши запись сюда, портал в PORTALS,
+// врагов в config/enemies.js (ENEMY_SPAWNS) и, если хочешь, существо в config/creatures.js.
+//   x, z, r — центр и радиус;  spawn — где появляется герой;  seed — "зерно" расстановки деревьев и камней
+//   trees / rocks / crystals — сколько деревьев, камней и кристаллов;  colors — краски острова
+export const ISLANDS = [
+  {
+    id: 'home', x: 0, z: 0, r: 14, spawn: { x: 0, z: 6 }, seed: 42,
+    trees: 16, rocks: 8, crystals: 6,
+    colors: { grass: 0x6cd05a, rock: 0x8a6f55, trunk: 0x7a4e2d, leaf: 0x2f9e44, stone: 0x9aa0a6, crystal: 0x7df9ff, glow: 0x2aa9c9, pad: 0xe9dfae },
+  },
+  {
+    id: 'ice', x: 70, z: 0, r: 12, spawn: { x: 70, z: 4 }, seed: 99, nameKey: 'island.ice',
+    trees: 10, rocks: 8, crystals: 9,
+    colors: { grass: 0xeaf6ff, rock: 0x7aa6c4, trunk: 0x8a9db0, leaf: 0xcfeaff, stone: 0xa8c4d8, crystal: 0xb8f0ff, glow: 0x4aa8e0, pad: 0xbfe3ff },
+  },
+];
+
+// Порталы между островами: x, z — где стоит портал, dest — куда он переносит героя
+export const PORTALS = [
+  { x: 8, z: -6, rot: -0.6, color: 0xb388ff, glow: 0x6a3fd1, dest: { x: 70, z: 4 }, nameKey: 'island.ice' },
+  { x: 70, z: -7, rot: 0.4, color: 0x8fe3ff, glow: 0x2a9fd0, dest: { x: 8, z: -3.2 }, nameKey: 'island.home' },
+];
+
+// Остров: земля, деревья, камни, кристаллы, дом, порталы, облака, освещение.
 // colliders — круги {x, z, r}, через которые персонаж не проходит.
 export class World {
   constructor(scene) {
@@ -13,18 +36,25 @@ export class World {
     this.rects = [];      // твёрдые прямоугольники (стены, дома): { x, z, hw, hd }
     this.walkables = [];  // платформы и мосты: по ним можно ходить
     this.nodes = []; // ресурсы, которые можно собрать (деревья, камни, кристаллы)
+    this.portals = [];
     this.clouds = [];
     this.crystals = [];
+    this.portalRings = [];
     this.time = 0;
+    // Места, где ничего не должно стоять: точки появления и порталы дальних островов
+    this.reserved = ISLANDS.map(i => ({ x: i.spawn.x, z: i.spawn.z, r: 3.5 }));
+    this.reserved.push({ x: 70, z: -7, r: 3 });
 
     scene.background = new THREE.Color(0x8fd3ff);
-    scene.fog = new THREE.Fog(0x8fd3ff, 40, 120);
+    scene.fog = new THREE.Fog(0x8fd3ff, 40, 140);
 
     this.buildLights();
-    this.buildIsland();
-    this.buildProps();
+    for (const island of ISLANDS) {
+      this.buildIsland(island);
+      this.buildProps(island);
+    }
     this.buildHouse();
-    this.buildPortal();
+    for (const p of PORTALS) this.buildPortal(p);
     this.buildClouds();
   }
 
@@ -35,28 +65,29 @@ export class World {
     this.scene.add(sun);
   }
 
-  buildIsland() {
+  buildIsland(island) {
+    const { x, z, r, colors } = island;
     const grass = new THREE.Mesh(
-      new THREE.CylinderGeometry(ISLAND_RADIUS, ISLAND_RADIUS, 1, 32),
-      new THREE.MeshLambertMaterial({ color: 0x6cd05a, flatShading: true })
+      new THREE.CylinderGeometry(r, r, 1, 32),
+      new THREE.MeshLambertMaterial({ color: colors.grass, flatShading: true })
     );
-    grass.position.y = GROUND_Y - 0.5;
+    grass.position.set(x, GROUND_Y - 0.5, z);
     this.scene.add(grass);
 
     const rock = new THREE.Mesh(
-      new THREE.ConeGeometry(ISLAND_RADIUS, 12, 8),
-      new THREE.MeshLambertMaterial({ color: 0x8a6f55, flatShading: true })
+      new THREE.ConeGeometry(r, 12, 8),
+      new THREE.MeshLambertMaterial({ color: colors.rock, flatShading: true })
     );
     rock.rotation.x = Math.PI;
-    rock.position.y = GROUND_Y - 1 - 6;
+    rock.position.set(x, GROUND_Y - 1 - 6, z);
     this.scene.add(rock);
 
     // Стартовая площадка
     const pad = new THREE.Mesh(
       new THREE.CylinderGeometry(2.5, 2.5, 0.1, 24),
-      new THREE.MeshLambertMaterial({ color: 0xe9dfae })
+      new THREE.MeshLambertMaterial({ color: colors.pad })
     );
-    pad.position.set(0, GROUND_Y + 0.05, 6);
+    pad.position.set(island.spawn.x, GROUND_Y + 0.05, island.spawn.z);
     this.scene.add(pad);
   }
 
@@ -66,31 +97,32 @@ export class World {
     return () => ((s = (s * 16807) % 2147483647) / 2147483647);
   }
 
-  buildProps() {
-    const rand = this.rng(42);
+  buildProps(island) {
+    const { x: cx, z: cz, r: R, colors } = island;
+    const rand = this.rng(island.seed);
     const trunkGeo = new THREE.CylinderGeometry(0.25, 0.35, 1.4, 6);
     const leafGeo = new THREE.ConeGeometry(1.3, 2.8, 7);
     const rockGeo = new THREE.DodecahedronGeometry(1, 0);
     const crystalGeo = new THREE.OctahedronGeometry(0.6, 0);
-    const trunkMat = new THREE.MeshLambertMaterial({ color: 0x7a4e2d });
-    const leafMat = new THREE.MeshLambertMaterial({ color: 0x2f9e44, flatShading: true });
-    const rockMat = new THREE.MeshLambertMaterial({ color: 0x9aa0a6, flatShading: true });
+    const trunkMat = new THREE.MeshLambertMaterial({ color: colors.trunk });
+    const leafMat = new THREE.MeshLambertMaterial({ color: colors.leaf, flatShading: true });
+    const rockMat = new THREE.MeshLambertMaterial({ color: colors.stone, flatShading: true });
     const crystalMat = new THREE.MeshLambertMaterial({
-      color: 0x7df9ff, emissive: 0x2aa9c9, flatShading: true,
+      color: colors.crystal, emissive: colors.glow, flatShading: true,
     });
 
     const place = (minR, maxR) => {
       for (let i = 0; i < 20; i++) {
         const a = rand() * Math.PI * 2;
         const r = minR + rand() * (maxR - minR);
-        const x = Math.cos(a) * r, z = Math.sin(a) * r;
+        const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
         if (this.isFree(x, z, 1.8)) return { x, z };
       }
       return null;
     };
 
-    for (let i = 0; i < 16; i++) {
-      const p = place(5, ISLAND_RADIUS - 1.5);
+    for (let i = 0; i < island.trees; i++) {
+      const p = place(5, R - 1.5);
       if (!p) continue;
       const tree = new THREE.Group();
       const trunk = new THREE.Mesh(trunkGeo, trunkMat);
@@ -103,8 +135,8 @@ export class World {
       this.scene.add(tree);
       this.addNode('wood', tree, p.x, p.z, 0.5);
     }
-    for (let i = 0; i < 8; i++) {
-      const p = place(4, ISLAND_RADIUS - 1);
+    for (let i = 0; i < island.rocks; i++) {
+      const p = place(4, R - 1);
       if (!p) continue;
       const m = new THREE.Mesh(rockGeo, rockMat);
       const s = 0.6 + rand() * 0.7;
@@ -114,8 +146,8 @@ export class World {
       this.scene.add(m);
       this.addNode('stone', m, p.x, p.z, s * 0.9);
     }
-    for (let i = 0; i < 6; i++) {
-      const p = place(3, ISLAND_RADIUS - 2);
+    for (let i = 0; i < island.crystals; i++) {
+      const p = place(3, R - 2);
       if (!p) continue;
       const m = new THREE.Mesh(crystalGeo, crystalMat);
       m.scale.set(1, 1.8, 1);
@@ -150,29 +182,31 @@ export class World {
     this.colliders.push({ x: -7, z: -4, r: 2.9 });
   }
 
-  buildPortal() {
+  // Портал: кольцо со светящимся центром. Подойди и нажми "Действие", чтобы перенестись на другой остров.
+  buildPortal(p) {
     const ring = new THREE.Mesh(
       new THREE.TorusGeometry(1.6, 0.25, 8, 28),
-      new THREE.MeshLambertMaterial({ color: 0xb388ff, emissive: 0x6a3fd1 })
+      new THREE.MeshLambertMaterial({ color: p.color, emissive: p.glow })
     );
-    ring.position.set(8, GROUND_Y + 2, -6);
-    ring.rotation.y = -0.6;
+    ring.position.set(p.x, GROUND_Y + 2, p.z);
+    ring.rotation.y = p.rot;
     const core = new THREE.Mesh(
       new THREE.CircleGeometry(1.4, 24),
       new THREE.MeshBasicMaterial({ color: 0xd9c2ff, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
     );
     core.position.copy(ring.position);
     core.rotation.copy(ring.rotation);
-    this.portal = ring;
+    this.portalRings.push(ring);
     this.scene.add(ring, core);
-    this.colliders.push({ x: 8, z: -6, r: 1.2 });
+    this.colliders.push({ x: p.x, z: p.z, r: 1.2 });
+    this.portals.push({ x: p.x, z: p.z, r: 1.2, dest: p.dest, nameKey: p.nameKey });
   }
 
   buildClouds() {
     const geo = new THREE.SphereGeometry(1, 8, 6);
     const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
     const rand = this.rng(7);
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 24; i++) {
       const cloud = new THREE.Group();
       for (let j = 0; j < 4; j++) {
         const puff = new THREE.Mesh(geo, mat);
@@ -182,7 +216,9 @@ export class World {
       }
       const a = rand() * Math.PI * 2;
       const r = 28 + rand() * 40;
-      cloud.position.set(Math.cos(a) * r, -6 + rand() * 22, Math.sin(a) * r);
+      // Первые 14 облаков — вокруг домашнего острова, остальные — возле дальнего
+      const ox = i < 14 ? 0 : 70;
+      cloud.position.set(ox + Math.cos(a) * r, -6 + rand() * 22, Math.sin(a) * r);
       this.scene.add(cloud);
       this.clouds.push(cloud);
     }
@@ -196,8 +232,13 @@ export class World {
   }
 
   isFree(x, z, margin = 0) {
-    if (Math.hypot(x - 0, z - 6) < 3.5) return false; // стартовая площадка
+    if (this.reserved.some(p => Math.hypot(x - p.x, z - p.z) < p.r)) return false; // площадки и порталы
     return !this.colliders.some(c => c.active && Math.hypot(x - c.x, z - c.z) < c.r + margin);
+  }
+
+  // Находится ли точка на острове (с отступом от края)
+  onIsland(x, z, inset = 0) {
+    return ISLANDS.some(i => Math.hypot(x - i.x, z - i.z) <= i.r - inset);
   }
 
   // Ближайшее свободное место рядом с точкой (для появления существ и врагов)
@@ -207,15 +248,25 @@ export class World {
       for (let i = 0; i < steps; i++) {
         const a = (i / steps) * Math.PI * 2;
         const cx = x + Math.cos(a) * r, cz = z + Math.sin(a) * r;
-        if (Math.hypot(cx, cz) < ISLAND_RADIUS - 1.5 && this.isFree(cx, cz, margin)) return { x: cx, z: cz };
+        if (this.onIsland(cx, cz, 1.5) && this.isFree(cx, cz, margin)) return { x: cx, z: cz };
       }
     }
-    return { x: 0, z: 0 };
+    return { x, z };
+  }
+
+  // Ближайший портал, до которого можно дотянуться (расстояние до края портала)
+  nearestPortal(pos, range = 2.2) {
+    let best = null, bestD = range;
+    for (const p of this.portals) {
+      const d = Math.hypot(pos.x - p.x, pos.z - p.z) - p.r;
+      if (d < bestD) { bestD = d; best = p; }
+    }
+    return best ? { portal: best, dist: bestD } : null;
   }
 
   // Высота земли в точке; null — за краем острова (падение)
   groundAt(x, z) {
-    let y = Math.hypot(x, z) <= ISLAND_RADIUS ? GROUND_Y : null;
+    let y = this.onIsland(x, z) ? GROUND_Y : null;
     // Платформы и мосты — тоже земля (можно стоять и выходить за край острова)
     for (const w of this.walkables) {
       if (Math.abs(x - w.x) <= w.hw && Math.abs(z - w.z) <= w.hd) y = WALK_Y;
@@ -258,10 +309,10 @@ export class World {
       c.rotation.y += dt;
       c.position.y = GROUND_Y + 1 + Math.sin(this.time * 2 + i) * 0.12;
     });
-    this.portal.rotation.z += dt * 0.8;
+    this.portalRings.forEach(p => { p.rotation.z += dt * 0.8; });
     this.clouds.forEach((c, i) => {
       c.position.x += dt * (0.3 + (i % 3) * 0.1);
-      if (c.position.x > 70) c.position.x = -70;
+      if (c.position.x > 140) c.position.x = -70;
     });
   }
 }

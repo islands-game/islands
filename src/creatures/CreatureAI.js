@@ -50,7 +50,7 @@ export function tryAbility(c, ctx, target, force = false) {
   if (a.id === 'fireball') {
     const t = target ?? (force ? combat.nearestEnemy(c.pos, a.range) : null);
     if (!t || dist(c.pos, t.pos) > a.range) return false;
-    combat.fireball(c, t, a.power + st.atk * 0.5);
+    combat.fireball(c, t, a.power + st.atk * 0.5, a.color);
   } else if (a.id === 'shield') {
     if (!force && !combat.enemyNear(player.pos, 6)) return false;
     player.addShield(a.power + st.def * 3, a.duration);
