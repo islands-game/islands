@@ -233,3 +233,8 @@ body.arena #left { width: 190px; }
 @media (pointer: coarse) and (min-height: 521px) {
   body.arena #left { width: min(190px, calc(100vw - 195px)); }
 }
+
+/* iPhone: запрет увеличения страницы двойным касанием и щипком (кнопки реагируют сразу, без задержки) */
+html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+button, .round, .icon, #btn-ability { touch-action: manipulation; }
+#game, #stick, #knob { touch-action: none; }
