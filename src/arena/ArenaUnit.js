@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { HealthBar } from '../combat/HealthBar.js';
 
+// Цвет полоски здоровья = команда (красный на красном теле не виден, поэтому цвета яркие и с белой рамкой)
+const BAR_COLOR = { blue: 0x2fd0ff, red: 0xff3b30, neutral: 0xffd23f };
+
 // Участники матча: герои, крипы, башни, кристаллы, лесные монстры и короли.
 // Общие геометрии и материалы используются повторно — так арена работает и на слабых телефонах.
 export const TEAM_COLOR = { blue: 0x4a8dff, red: 0xff5a5a, neutral: 0xb8a56a };
@@ -111,7 +114,8 @@ export class Unit {
 
     // Полоска здоровья (у минионов видна только когда они ранены)
     const w = { hero: 1.5, minion: 1, tower: 2.4, crystal: 3.2, monster: 1.4, king: 3.2 }[kind];
-    this.bar = new HealthBar(w);
+    this.bar = new HealthBar(w, true);
+    this.bar.setColor(BAR_COLOR[team] ?? BAR_COLOR.neutral);
     this.bar.group.position.y = { hero: 2.5, minion: 1.4, tower: 6.2, crystal: 6.8, monster: 3.2, king: 3.2 }[kind];
     this.bar.group.scale.setScalar(1 / scale);
     this.mesh.add(this.bar.group);
@@ -126,6 +130,7 @@ export class Unit {
   // Смена стороны (лесной монстр или король победили — и теперь на стороне победителя)
   setTeam(team) {
     this.team = team;
+    this.bar.setColor(BAR_COLOR[team] ?? BAR_COLOR.neutral);
     const crown = this.mesh.userData.crown;
     if (crown) crown.material = mat(TEAM_COLOR[team]);
   }
@@ -164,7 +169,7 @@ export class Unit {
     const tint = this.flash > 0 ? 1.6 : 1;
     this.body.scale.setScalar(tint > 1 ? 1.08 : 1); // вспышка при попадании
     this.bar.set(this.hp / this.maxHp);
-    if (this.kind === 'tower' || this.kind === 'crystal') this.bar.group.visible = true;
+    if (this.kind !== 'minion') this.bar.group.visible = !this.dead;
     this.bar.face(camera);
   }
 

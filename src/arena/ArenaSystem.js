@@ -158,6 +158,7 @@ export class ArenaSystem {
       u.heroType = spec.hero;
       u.lane = spec.lane;
       u.isPlayer = isPlayer;
+      if (isPlayer) u.bar.setColor(0x7dff5a);     // у героя-игрока полоска зелёная
       u.deaths = 0;
       u.spellCd = 3 + Math.random() * 4;
       u.lastHurt = -99;
