@@ -94,7 +94,34 @@ function pen({ w, d }, color) {
   return g;
 }
 
-const BUILDERS = { platform, wall, bridge, house, pen };
+// Амбар: красный сарай с двускатной крышей и большими воротами спереди (+z)
+function barn({ w, d }, color) {
+  const g = new THREE.Group();
+  const red = lambert(color), dark = lambert(0x6a2a20), roof = lambert(0x5a4a3a), white = lambert(0xf2e8d8);
+  g.add(box(w, 2.2, d, red, 0, 1.1, 0));
+  // двускатная крыша: два наклонных листа
+  for (const side of [-1, 1]) {
+    const sheet = box(w + 0.5, 0.15, d * 0.62, roof, 0, 2.2 + d * 0.16, side * d * 0.22);
+    sheet.rotation.x = side * -0.55;
+    g.add(sheet);
+  }
+  g.add(box(1.6, 1.7, 0.1, dark, 0, 0.85, d / 2 + 0.02));                       // ворота
+  g.add(box(1.7, 0.1, 0.12, white, 0, 1.75, d / 2 + 0.03));
+  g.add(box(0.08, 1.7, 0.12, white, 0, 0.85, d / 2 + 0.03));
+  return g;
+}
+
+// Ферма: грядки рисует Economy (они меняются по мере роста), здесь только земля и бордюр
+function farm({ w, d }, color) {
+  const g = new THREE.Group();
+  g.add(box(w, 0.06, d, lambert(0x8a6a40), 0, 0.03, 0));
+  const edge = lambert(color);
+  g.add(box(w, 0.2, 0.15, edge, 0, 0.1, -d / 2 + 0.07), box(w, 0.2, 0.15, edge, 0, 0.1, d / 2 - 0.07));
+  g.add(box(0.15, 0.2, d, edge, -w / 2 + 0.07, 0.1, 0), box(0.15, 0.2, d, edge, w / 2 - 0.07, 0.1, 0));
+  return g;
+}
+
+const BUILDERS = { platform, wall, bridge, house, pen, barn, farm };
 
 export function buildModel(def, opts) {
   return (BUILDERS[def.model] ?? platform)(def.size, def.color, def, opts);
@@ -103,6 +130,6 @@ export function buildModel(def, opts) {
 // Освобождает память модели
 export function disposeModel(group) {
   group.traverse(o => {
-    if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); }
+    if (o.isMesh && !o.userData.keep) { o.geometry.dispose(); o.material.dispose(); }   // keep — общие геометрии грядок и животных
   });
 }

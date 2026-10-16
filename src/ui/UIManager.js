@@ -6,6 +6,7 @@ import { CREATURES, beastTitle } from '../config/creatures.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
 import { Settings, QUALITIES } from '../save/Settings.js';
 import { events } from '../core/Events.js';
+import { FOOD_CARRY } from '../config/food.js';
 import { HEROES, CLASSES, CLASS_ORDER, ELEMENT_ORDER, ENABLED_ELEMENTS, DEFAULT_HERO, SKILLS, arenaStats } from '../config/heroes.js';
 
 const COMMANDS = ['follow', 'stay', 'defend', 'attack', 'ability', 'return'];
@@ -13,12 +14,15 @@ const _v = new THREE.Vector3();
 
 // Интерфейс: меню, полоски, ресурсы, спутник, подсказки, панель существ, всплывающий урон.
 export class UIManager {
-  constructor({ onStart, onContinue, onMenu, onSummon, onRelease, onSelectBuilding, onSkipTutorial, press, isTouch }) {
+  constructor({ onStart, onContinue, onMenu, onSummon, onRelease, onBarn, onSelectBuilding, onSkipTutorial, press, isTouch }) {
     this.$ = id => document.getElementById(id);
     this.isTouch = isTouch;
     this.press = press;
     this.onSummon = onSummon;
     this.onRelease = onRelease;
+    this.onBarn = onBarn;
+    this.$('barn-deposit').onclick = () => onBarn('deposit');
+    this.$('barn-close').onclick = () => onBarn('close');
     this.onSelectBuilding = onSelectBuilding;
     this.buildPanelOpen = false;
     this.hintTimer = 0;
@@ -74,6 +78,9 @@ export class UIManager {
       this.$('res').appendChild(span);
       this.resEls[k] = span;
     }
+    // Еда в рюкзаке: одной строкой (всего не больше FOOD_CARRY)
+    this.foodEl = document.createElement('span');
+    this.$('res').appendChild(this.foodEl);
     // Часы: солнце или луна
     this.clockEl = document.createElement('span');
     this.$('res').appendChild(this.clockEl);
@@ -197,6 +204,32 @@ export class UIManager {
     this.setSkills(d.skillIds, d.spellCd);
     if (d.phase === 'playing') this.setArenaCountdown(d.respawn, true);
     this.drawMinimap(d.units);
+  }
+
+  // Амбар: что лежит на складе и что в рюкзаке; кнопки «взять» и «сдать всё»
+  showBarn(show, view) {
+    this.$('barn-panel').classList.toggle('hidden', !show);
+    if (!show) return;
+    this.$('barn-title').textContent = `${t('building.barn')} · ${t('barn.cap')} ${view.cap}`;
+    this.$('barn-deposit').textContent = t('barn.deposit');
+    this.$('barn-close').textContent = t('close');
+    const list = this.$('barn-list');
+    list.textContent = '';
+    for (const r of view.rows) {
+      const row = document.createElement('div');
+      row.className = 'cr-row';
+      const info = document.createElement('div');
+      info.textContent = `${r.icon} ${r.name}: ${r.stored}`;
+      const small = document.createElement('small');
+      small.textContent = `${t('barn.carried')}: ${r.carried}`;
+      info.appendChild(small);
+      const btn = document.createElement('button');
+      btn.textContent = t('barn.take');
+      btn.disabled = r.stored <= 0;
+      btn.onclick = () => this.onBarn('take', r.key);
+      row.append(info, btn);
+      list.appendChild(row);
+    }
   }
 
   // Кнопка действия: нажатие считается сразу при касании; repeatMs — повтор, пока палец держит кнопку
@@ -449,14 +482,18 @@ export class UIManager {
     this.$('lvl-label').textContent = `${t('level')} ${player.level}`;
     for (const k of RESOURCE_ORDER) {
       const el = this.resEls[k], n = inventory.items[k], cap = inventory.capacity(k);
-      el.textContent = `${RESOURCES[k].icon} ${n}/${cap}`;
+      el.textContent = `${RESOURCES[k].icon} ${n}`;       // в рюкзаке; когда полон — число красное
+      el.title = `${n}/${cap}`;
       el.classList.toggle('full', n >= cap);
     }
 
+    this.foodEl.textContent = `🍎 ${inventory.foodTotal()}`;
+    this.foodEl.title = `${inventory.foodTotal()}/${FOOD_CARRY}`;
+    this.foodEl.classList.toggle('full', inventory.foodTotal() >= FOOD_CARRY);
     this.$('pet').classList.toggle('hidden', !pet);
     document.body.classList.toggle('has-pet', !!pet);
     if (pet) {
-      this.$('pet-name').textContent = `${pet.displayName} · ${t('level')} ${pet.level}${petCount > 1 ? ` +${petCount - 1}` : ''}`;
+      this.$('pet-name').textContent = `${pet.hunger >= 1 ? '😟 ' : ''}${pet.displayName} · ${t('level')} ${pet.level}${petCount > 1 ? ` +${petCount - 1}` : ''}`;
       for (const c of ['follow', 'stay', 'defend', 'attack']) this.$('pc-' + c).classList.toggle('on', pet.command === c);
       this.$('pet-cd').style.width = `${Math.max(0, Math.min(1, pet.abilityReady)) * 100}%`;
       this.$('btn-ability').title = t('ability.' + pet.def.ability.id);
@@ -487,7 +524,7 @@ export class UIManager {
       const def = CREATURES[r.id];
       info.textContent = beastTitle(def, r.level);
       const small = document.createElement('small');
-      small.textContent = `${t('level')} ${r.level} · ${activeIds.includes(r.id) ? t('active') : t('guarding')}`;
+      small.textContent = `${t('level')} ${r.level} · ${activeIds.includes(r.id) ? t('active') : t('guarding')} · ${r.fed === false ? '😟 ' + t('beast.statusHungry') : '😋 ' + t('beast.statusFed')}`;
       info.appendChild(small);
       const btn = document.createElement('button');
       const isActive = activeIds.includes(r.id);

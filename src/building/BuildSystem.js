@@ -161,18 +161,19 @@ export class BuildSystem {
 
   // --- Список построек ---
 
-  add({ id, x, z, rot }) {
+  add({ id, x, z, rot, state }) {
     const def = BUILDINGS[id];
     const mesh = buildModel(def);
     mesh.position.set(x, 0, z);
     mesh.rotation.y = (rot * Math.PI) / 2;
     this.scene.add(mesh);
     const rect = this.rectFor(def, x, z, rot);
-    const rec = { id, x, z, rot, mesh, rect, walk: null, solid: null, struct: null };
+    const rec = { id, x, z, rot, mesh, rect, walk: null, solid: null, struct: null, state: state ?? null };
     if (def.structure) rec.struct = this.world.registerStructure(def, x, z, rot, mesh);
     if (def.solid) { rec.solid = { ...rect }; this.world.rects.push(rec.solid); }
     if (def.walkable) { rec.walk = { ...rect }; this.world.walkables.push(rec.walk); }
     this.placed.push(rec);
+    this.onAdded?.(rec);                  // хозяйство (грядки, животные) подключается здесь
     return rec;
   }
 
@@ -192,7 +193,7 @@ export class BuildSystem {
   }
 
   toSave() {
-    return this.placed.map(b => ({ id: b.id, x: b.x, z: b.z, rot: b.rot }));
+    return this.placed.map(b => (b.state ? { id: b.id, x: b.x, z: b.z, rot: b.rot, state: b.state } : { id: b.id, x: b.x, z: b.z, rot: b.rot }));
   }
 
   fromSave(list) {

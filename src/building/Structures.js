@@ -27,7 +27,7 @@ export function localWalls(def) {
 }
 
 // Поворот точки из локальных координат в мировые (rot = 0..3)
-function toWorld(lx, lz, x, z, rot) {
+export function toWorld(lx, lz, x, z, rot) {
   const c = [1, 0, -1, 0][rot % 4], s = [0, 1, 0, -1][rot % 4];
   return { x: x + lx * c + lz * s, z: z - lx * s + lz * c };
 }

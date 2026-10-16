@@ -60,7 +60,7 @@ export class CreatureManager {
       if (following.has(r.id)) continue;
       const a = Math.PI * 0.25 + (i++ / 5) * Math.PI * 2;           // посты по кругу вокруг центра острова
       const post = this.world.findFree(Math.cos(a) * 6, Math.sin(a) * 6, 1.4);
-      const c = new Creature(r.id, this.scene, { level: r.level, xp: r.xp });
+      const c = new Creature(r.id, this.scene, { level: r.level, xp: r.xp, fed: r.fed, hunger: r.hunger });
       c.post = { x: post.x, z: post.z };
       c.pos.set(post.x, 0, post.z);
       this.applyMode(c);
@@ -85,9 +85,29 @@ export class CreatureManager {
   // Зверя освободили из клетки: он попадает в коллекцию и сразу идёт за героем
   addFreed(id, at) {
     if (this.has(id)) return;
-    this.collection.push({ id, level: 1, xp: 0 });
+    this.collection.push({ id, level: 1, xp: 0, fed: true, hunger: 0 });
     this.summon(id, at);
     this.rebuildGuards();
+  }
+
+  // После кормления: передаёт сытость и голод из записей в живых зверей
+  applyHunger() {
+    for (const c of [...this.actives, ...this.guards]) {
+      const rec = this.collection.find(r => r.id === c.id);
+      if (rec) { c.fed = rec.fed !== false; c.hunger = rec.hunger ?? 0; }
+    }
+  }
+
+  // Опыт за еду (любимая еда даёт больше)
+  addXpToRecord(rec, xp) {
+    const c = [...this.actives, ...this.guards].find(x => x.id === rec.id);
+    if (c) this.gainOne(c, xp);
+    this.syncActive();
+  }
+
+  // Зверь убегает от голода: уходит из коллекции
+  runAway(id) {
+    this.release(id);
   }
 
   // Отпустить зверя на свободу: он уходит из коллекции навсегда (получить такого же можно в портале снова)
@@ -108,7 +128,7 @@ export class CreatureManager {
     if (!rec || this.actives.some(c => c.id === id)) return;
     this.syncActive();
     while (this.actives.length >= this.limit) this.actives.shift().dispose();
-    const c = new Creature(id, this.scene, { level: rec.level, xp: rec.xp });
+    const c = new Creature(id, this.scene, { level: rec.level, xp: rec.xp, fed: rec.fed, hunger: rec.hunger });
     const p = at ?? { x: this.player.pos.x + 1.5, z: this.player.pos.z + 1.5 };
     c.pos.set(p.x, 0, p.z);
     this.applyMode(c);

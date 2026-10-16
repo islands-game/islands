@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { BEAST_FOOD } from '../config/food.js';
 import { CREATURES, ELEMENT_FX, stageForLevel, creatureNameKey, beastTitle } from '../config/creatures.js';
 import { buildCreatureModel } from './CreatureModels.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
@@ -7,12 +8,14 @@ const ringGeo = new THREE.RingGeometry(0.9, 1.1, 24).rotateX(-Math.PI / 2);
 
 // Одно существо: дикое (wild) или приручённое спутник героя.
 export class Creature {
-  constructor(id, scene, { level = 1, xp = 0, wild = false } = {}) {
+  constructor(id, scene, { level = 1, xp = 0, wild = false, fed = true, hunger = 0 } = {}) {
     this.id = id;
     this.def = CREATURES[id];
     this.level = level;
     this.xp = xp;
     this.wild = wild;
+    this.fed = fed;          // сыт: сильнее на 10%
+    this.hunger = hunger;    // сколько дней подряд без еды (1 — слабее на 15%, 2 — убегает)
     this.pos = new THREE.Vector3();
     this.facing = 0;
     this.t = Math.random() * 10;
@@ -67,7 +70,8 @@ export class Creature {
     const m = evo ? evo.statMult : 1;
     const k = this.normalized ? (this.arenaMul ?? 1) : 1;     // на арене сила зверей зависит от класса героя
     const fx = this.fx;
-    return { hp: (s.hp + g.hp * l) * m * k, atk: (s.atk + g.atk * l) * m * k, def: (s.def + g.def * l) * m * (fx.defMul ?? 1), speed: s.speed * (fx.speedMul ?? 1) };
+    const feed = this.normalized ? 1 : 1 + (this.fed ? BEAST_FOOD.fedPower : 0) + (this.hunger >= 1 ? BEAST_FOOD.hungryPower : 0);
+    return { hp: (s.hp + g.hp * l) * m * k * feed, atk: (s.atk + g.atk * l) * m * k * feed, def: (s.def + g.def * l) * m * (fx.defMul ?? 1), speed: s.speed * (fx.speedMul ?? 1) };
   }
 
   // Рисует модель под текущую стадию: после эволюции существо крупнее и меняет цвет

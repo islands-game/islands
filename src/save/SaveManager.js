@@ -5,9 +5,12 @@
 // Версия 7: + список зверей рядом с героем (creatures.actives, у поддержки до 3). Старые читаются с одним зверем (active).
 // Версия 8: звери из порталов (виды × стихии, creatures.*), освобождённые звери по дням (realms.freed), новый порядок заданий.
 // Старые существа превращаются в новых зверей (LEGACY_CREATURES).
+// Версия 10: еда в рюкзаке (inventory.food), состояние построек (ферма, загон, амбар) и сытость зверей (fed, hunger).
 // Версия 9: золото вместо кристаллов (старые кристаллы становятся золотом), лимит рюкзака. Старые версии читаются без потерь.
 import { isCreature, LEGACY_CREATURES } from '../config/creatures.js';
 import { REALM_ORDER } from '../config/realms.js';
+import { FOOD_ORDER, FOOD_CARRY } from '../config/food.js';
+import { cleanState } from '../building/BuildingState.js';
 import { BUILDINGS, MAX_BUILDINGS } from '../config/buildings.js';
 import { TUTORIAL_DONE } from '../ui/Tutorial.js';
 import { QUESTS } from '../config/quests.js';
@@ -17,7 +20,7 @@ import { DEFAULT_HERO, isHero } from '../config/heroes.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
@@ -34,7 +37,7 @@ function validateCreatures(raw) {
     const id = creatureId(r?.id);
     if (!r || !isCreature(id) || seen.has(id)) continue;
     seen.add(id);
-    collection.push({ id, level: int(r.level, 1, MAX_LEVEL, 1), xp: Math.max(0, num(r.xp, 0)) });
+    collection.push({ id, level: int(r.level, 1, MAX_LEVEL, 1), xp: Math.max(0, num(r.xp, 0)), fed: r.fed !== false, hunger: int(r.hunger, 0, 2, 0) });
   }
   const activeId = creatureId(raw?.active);
   const active = typeof activeId === 'string' && seen.has(activeId) ? activeId : null;
@@ -87,7 +90,7 @@ function validate(raw) {
       xp: Math.max(0, num(p.xp, 0)),
     },
     // Версия 9: кристаллы стали золотом; рюкзак ограничен (CARRY)
-    inventory: Object.fromEntries(RESOURCE_ORDER.map(k => [k, int(k === 'gold' ? (inv.gold ?? inv.crystal) : inv[k], 0, CARRY[k] ?? 9999, 0)])),
+    inventory: { ...Object.fromEntries(RESOURCE_ORDER.map(k => [k, int(k === 'gold' ? (inv.gold ?? inv.crystal) : inv[k], 0, CARRY[k] ?? 9999, 0)])), food: validateFood(inv.food) },
     creatures: validateCreatures(raw.creatures),
     buildings: validateBuildings(raw.buildings),
     // В старых сохранениях обучения не было — считаем его пройденным
@@ -105,6 +108,14 @@ function validate(raw) {
   };
 }
 
+// Еда в рюкзаке: целые числа, всего не больше FOOD_CARRY
+function validateFood(raw) {
+  const food = Object.fromEntries(FOOD_ORDER.map(k => [k, int(raw?.[k], 0, FOOD_CARRY, 0)]));
+  let total = FOOD_ORDER.reduce((s, k) => s + food[k], 0);
+  for (const k of FOOD_ORDER) while (total > FOOD_CARRY && food[k] > 0) { food[k]--; total--; }
+  return food;
+}
+
 function validateBuildings(raw) {
   const list = [];
   for (const b of Array.isArray(raw) ? raw : []) {
@@ -116,6 +127,7 @@ function validateBuildings(raw) {
       x: Math.max(-MAX_COORD, Math.min(MAX_COORD, b.x)),
       z: Math.max(-MAX_COORD, Math.min(MAX_COORD, b.z)),
       rot: int(b.rot, 0, 3, 0),
+      state: cleanState(b.id, b.state),     // ферма, загон, амбар хранят своё состояние (у остальных постройки null)
     });
   }
   return list;

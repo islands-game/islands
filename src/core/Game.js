@@ -18,6 +18,9 @@ import { RaidSystem } from '../combat/RaidSystem.js';
 import { ArenaSystem } from '../arena/ArenaSystem.js';
 import { HeroSkills } from '../player/HeroSkills.js';
 import { Realms } from '../world/Realms.js';
+import { Economy } from '../building/Economy.js';
+import { BARN, BARN_ITEMS, FOODS } from '../config/food.js';
+import { CREATURES, beastTitle } from '../config/creatures.js';
 import { DEFAULT_HERO } from '../config/heroes.js';
 import { QUESTS } from '../config/quests.js';
 import { events } from './Events.js';
@@ -59,6 +62,7 @@ export class Game {
       onContinue: () => this.start(true),
       onMenu: () => this.pause(),
       onSummon: id => { this.creatures.toggle(id); this.refreshPanel(); },
+      onBarn: (action, key) => this.barnAction(action, key),
       onRelease: id => { if (this.creatures.release(id)) { this.ui.toast(t('released')); this.refreshPanel(); } },
       onSelectBuilding: id => { this.ui.showBuildPanel(false); this.build.select(id); },
       onSkipTutorial: () => this.setTutorialStep(TUTORIAL_DONE),
@@ -84,6 +88,8 @@ export class Game {
     this.arena = new ArenaSystem(this);
     this.skills = new HeroSkills(this);
     this.realms = new Realms(this);
+    this.economy = new Economy(this);
+    this.build.onAdded = rec => this.economy.attach(rec);
 
     // Качество графики: меньше пикселей на слабых устройствах. В режиме "Авто" подстраивается по FPS.
     this.autoScale = this.input.isTouch ? 0.8 : 1;
@@ -121,6 +127,7 @@ export class Game {
     this.build.reset();
     this.stats = { kills: 0, collected: 0, built: 0, portals: 0 };
     this.realms.reset();
+    this.barnRec = null;
     const data = loadSave ? SaveManager.load() : null;
     this.player.setHero(data ? data.hero : heroId);
     this.skills.reset();
@@ -138,6 +145,7 @@ export class Game {
       this.world.applyLighting();
       this.raids.fromSave(data.time);
       this.setTutorialStep(data.tutorial, false);
+      this.economy.reset();
     } else {
       SaveManager.clear();
       this.player.resetStats();
@@ -147,6 +155,7 @@ export class Game {
       this.world.applyLighting();
       this.raids.reset();
       this.setTutorialStep(0, false);
+      this.economy.reset();
     }
     this.input.clearActions();
     this.started = true;
@@ -312,6 +321,8 @@ export class Game {
   interactTarget() {
     const cage = this.realms.nearest(this.player.pos);
     if (cage) return { kind: 'cage', ...cage };
+    const eco = this.economy.target(this.player.pos);
+    if (eco) return { kind: 'econ', tg: eco };
     const portal = this.world.nearestPortal(this.player.pos);
     if (portal) return { kind: 'portal', ...portal };
     const room = this.player.inside;
@@ -351,6 +362,7 @@ export class Game {
       const rec = p.recLevel > 1 ? ` (${t('recLevel')} ${p.recLevel})` : '';
       return this.ui.setPrompt(`${key}${t('portal')}: ${t(p.nameKey)}${rec}`, this.player.level < p.recLevel);
     }
+    if (target.kind === 'econ') return this.ui.setPrompt(`${key}${target.tg.text}`, !!target.tg.disabled);
     if (target.kind === 'cage') {
       const name = this.realms.beastName(target.element);
       if (target.state === 'ready') return this.ui.setPrompt(`${key}${t('cage.free')}: ${name}`);
@@ -375,6 +387,8 @@ export class Game {
       this.sleep();
     } else if (target.kind === 'portal') {
       this.teleport(target.portal);
+    } else if (target.kind === 'econ') {
+      this.economy.act(target.tg);
     } else if (target.kind === 'cage') {
       const name = this.realms.beastName(target.element);
       const res = this.realms.free(target.element);
@@ -383,6 +397,34 @@ export class Game {
       else if (res === 'freed') this.ui.toast(t('cage.empty'));
       else this.ui.toast(t('cage.locked'));
     }
+  }
+
+  // --- Амбар: панель хранилища ---
+
+  creatureName(id) {
+    return beastTitle(CREATURES[id], 1);
+  }
+
+  barnView() {
+    const inv = this.inventory, items = this.barnRec.state.items;
+    const rows = BARN_ITEMS.map(k => {
+      const food = Object.hasOwn(FOODS, k);
+      return { key: k, icon: food ? FOODS[k].icon : RESOURCES[k].icon, name: t(food ? 'food.' + k : 'res.' + k), stored: items[k], carried: food ? inv.food[k] : inv.items[k] };
+    });
+    return { rows, cap: BARN.cap };
+  }
+
+  openBarn(rec) {
+    this.barnRec = rec;
+    this.ui.showBarn(true, this.barnView());
+  }
+
+  barnAction(action, key) {
+    if (!this.barnRec) return;
+    if (action === 'close') { this.barnRec = null; return this.ui.showBarn(false); }
+    if (action === 'deposit') this.economy.deposit(this.barnRec);
+    else if (action === 'take') this.economy.take(this.barnRec, key, 10);
+    this.ui.showBarn(true, this.barnView());
   }
 
   // Выйти с арены обратно на домашний остров (через её портал)
@@ -525,6 +567,7 @@ export class Game {
       this.combat.update(dt, this.camera);
       this.skills.update(dt);
       this.realms.update(dt);
+      this.economy.update(dt);
       this.creatures.update(dt);
       this.build.update();
       this.updateBuildBar();
