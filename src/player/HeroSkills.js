@@ -33,7 +33,7 @@ export class HeroSkills {
     if (!id || p.dead || p.inside) return;
     if (this.cd[i] > 0) return g.ui.toast(t('notReady'));
     const rank = masteryRank(p.level, i);          // сколько вех усилило это умение
-    if (!castSkill(this.context(), id, 1 + LEVELS.masteryPower * rank)) return g.ui.toast(t('noTarget'));
+    if (!castSkill(this.context(), id, (1 + LEVELS.masteryPower * rank) * (1 + p.itemFx.skillPower))) return g.ui.toast(t('noTarget'));
     this.cd[i] = SKILLS[id].cooldown * (1 - LEVELS.masteryCooldown) ** rank * p.itemMul.cd;
     events.emit('slam');
   }
@@ -43,7 +43,8 @@ export class HeroSkills {
     const g = this.game, p = g.player, combat = g.combat;
     if (p.dead || combat.heroCd > 0) return;
     const st = mainStats(p.heroId);
-    combat.heroCd = st.cooldown;
+    const fx = p.itemFx;
+    combat.heroCd = st.cooldown / (1 + fx.atkSpeed);
     events.emit('swing');
     const ctx = this.context();
     const target = ctx.foes(st.range)[0];
@@ -53,8 +54,28 @@ export class HeroSkills {
     }
     if (!target) return;
     p.facing = Math.atan2(target.pos.x - p.pos.x, target.pos.z - p.pos.z);
-    const dmg = Math.round(combat.heroHit(p) * (0.9 + Math.random() * 0.2));
+    let dmg = Math.round(combat.heroHit(p) * (0.9 + Math.random() * 0.2));
+    if (fx.crit && Math.random() < fx.crit) {                        // критический удар: двойной урон
+      dmg *= 2;
+      g.ui.floatText(p.pos.clone().setY(2.7), t('crit'), '#ffe066');
+    }
     performHeroAttack(ctx, p.heroId, target, dmg);
+    this.itemHit(ctx, target, dmg, fx);
+  }
+
+  // Особые эффекты предметов при ударе (config/items.js: TRAITS, SUPERS, COMBOS)
+  itemHit(ctx, target, dmg, fx) {
+    if (fx.burnHit) target.burn(dmg * fx.burnHit, 3);
+    if (fx.healHit) ctx.lifesteal(dmg * fx.healHit);
+    if (fx.burnSpread) {
+      for (const f of ctx.foes(14)) {
+        if (f.pos !== target.pos && Math.hypot(f.pos.x - target.pos.x, f.pos.z - target.pos.z) < 3) f.burn(dmg * 0.2, 3);
+      }
+    }
+    if (fx.freezeEvery) {
+      this.hits = (this.hits ?? 0) + 1;
+      if (this.hits % fx.freezeEvery === 0) { target.slow(0.95, 1); ctx.ring(target.pos, 0x8fe3ff, 2.5, 0.4); }
+    }
   }
 
   // Подключение к миру островов

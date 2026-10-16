@@ -166,6 +166,25 @@ body.has-pet #pet-cmds { display: flex; }
 .it-btns .big { margin: 6px 0 0; padding: 10px; font-size: 15px; }
 .it-btns .big:disabled { opacity: .45; }
 
+/* Книга открытий */
+#book-panel { z-index: 13; }
+#bk-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; text-align: left; }
+.bk-row { background: #ffffff1a; border-radius: 12px; padding: 8px 10px; }
+.bk-row small { display: block; opacity: .8; margin-top: 2px; }
+.bk-row.secret { opacity: .55; }
+.bk-head { font-weight: 700; margin: 8px 0 2px; text-align: left; }
+#it-sets { white-space: pre-line; text-align: left; margin-bottom: 6px; }
+#discover { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-start; justify-content: center; padding-top: calc(12vh + env(safe-area-inset-top)); pointer-events: none; }   /* сверху, чтобы не закрывать героя */
+#discover.hidden { display: none; }
+.dc-box { background: radial-gradient(circle at 50% 0%, #ffe066cc, #ff9f43dd); color: #3a2000; padding: 22px 26px; border-radius: 26px; text-align: center;
+  max-width: 88vw; box-shadow: 0 0 60px #ffd23fcc; animation: dc-pop 4.6s ease-out forwards; }
+.dc-big { font-size: 54px; }
+#dc-t { font-size: 16px; font-weight: 700; }
+#dc-n { font-size: 32px; font-weight: 800; margin: 4px 0; }
+#dc-d { font-size: 15px; }
+@media (max-height: 460px) { .dc-box { padding: 8px 16px; } .dc-big { font-size: 26px; } #dc-n { font-size: 20px; margin: 0; } #dc-d, #dc-t { font-size: 12px; } #discover { padding-top: 6px; } }
+@keyframes dc-pop { 0% { transform: scale(.4); opacity: 0; } 8% { transform: scale(1.08); opacity: 1; } 14% { transform: scale(1); } 85% { opacity: 1; } 100% { opacity: 0; transform: scale(1.04); } }
+
 /* Аккаунт и облако */
 #cloud-panel { z-index: 13; }
 .cl-small { font-size: 12px; opacity: .75; }

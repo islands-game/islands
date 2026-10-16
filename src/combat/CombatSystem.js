@@ -251,6 +251,10 @@ export class CombatSystem {
   damagePlayer(raw) {
     const p = this.player;
     if (p.dead || p.inside) return; // в доме безопасно
+    if (p.itemFx.miss && Math.random() < p.itemFx.miss) {      // тайное сочетание: враг промахнулся
+      this.ui.floatText(p.pos.clone().setY(2), t('miss'), '#7ab8ff');
+      return;
+    }
     const { dealt } = p.takeDamage(raw);
     const pos = p.pos.clone();
     pos.y += 2;

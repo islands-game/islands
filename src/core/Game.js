@@ -11,6 +11,7 @@ import { addXp, xpNeeded, xpFactor, isMilestone, milestoneSkill } from '../progr
 import { LEVELS } from '../config/levels.js';
 import { Items } from '../inventory/Items.js';
 import { ItemsPanel } from '../ui/ItemsPanel.js';
+import { BookPanel } from '../ui/BookPanel.js';
 import { SLOT_INFO, ITEMS, ENEMY_DROP } from '../config/items.js';
 import { itemName, rollItem } from '../inventory/Items.js';
 import { UIManager } from '../ui/UIManager.js';
@@ -123,7 +124,9 @@ export class Game {
     this.merchant = new Merchant(this);
     this.items = new Items(this);
     this.itemsPanel = new ItemsPanel(id => document.getElementById(id), this);
+    this.bookPanel = new BookPanel(id => document.getElementById(id), this);
     this.ui.itemsPanel = this.itemsPanel;
+    this.ui.bookPanel = this.bookPanel;
     this.build.extraTargets = () => [this.economy.startHouse];
     this.build.canUpgrade = rec => this.economy.canUpgrade(rec);
     this.build.upgradeText = rec => this.economy.upgradeText(rec);
@@ -147,7 +150,8 @@ export class Game {
     addEventListener('resize', () => this.resize());
     addEventListener('keydown', e => {
       if (e.code !== 'Escape' || !this.playing) return;
-      if (this.itemsPanel.open) this.itemsPanel.show(false);
+      if (this.bookPanel.open) this.bookPanel.show(false);
+      else if (this.itemsPanel.open) this.itemsPanel.show(false);
       else if (this.ui.panelOpen) this.ui.showPanel(false);
       else if (this.ui.buildPanelOpen) this.ui.showBuildPanel(false);
       else if (this.build.active) this.build.cancel();
@@ -217,6 +221,7 @@ export class Game {
   }
 
   pause() {
+    this.bookPanel.show(false);
     this.itemsPanel.show(false);
     this.playing = false;
     this.input.enabled = false;
@@ -378,6 +383,14 @@ export class Game {
   onEnemyKilled(enemy) {
     this.stats.kills++;
     this.giveDrop(ENEMY_DROP[enemy.def.id], enemy.pos);
+    const ifx = this.player.itemFx;
+    if (ifx.explode) {                                  // сочетание «Вулкан»: убитый враг взрывается
+      this.combat.ring(enemy.pos, 0xff6a2a, 5, 0.5);
+      for (const e of this.combat.enemies.slice()) {
+        if (e.dead || e === enemy || Math.hypot(e.pos.x - enemy.pos.x, e.pos.z - enemy.pos.z) > 3.2) continue;
+        this.combat.damageEnemy(e, Math.round(this.player.atk * ifx.explode), '#ff8a3d');
+      }
+    }
     if (enemy.def.boss) {
       this.ui.toast(`${t('bossDefeated')} ${t('enemy.' + enemy.def.id)}`);
       this.combat.ring(enemy.pos, 0xffd23f, 8, 1);
@@ -720,6 +733,7 @@ export class Game {
       this.updateNightMonsters();
       this.combat.update(dt, this.camera);
       this.skills.update(dt);
+      this.items.update(dt);
       this.realms.update(dt);
       this.economy.update(dt);
       this.gnomes.update(dt);

@@ -5,6 +5,7 @@
 // Версия 7: + список зверей рядом с героем (creatures.actives, у поддержки до 3). Старые читаются с одним зверем (active).
 // Версия 8: звери из порталов (виды × стихии, creatures.*), освобождённые звери по дням (realms.freed), новый порядок заданий.
 // Старые существа превращаются в новых зверей (LEGACY_CREATURES).
+// Версия 18: Книга открытий (items.book: открытые тайные сочетания). Старые сохранения читаются с пустой книгой.
 // Версия 17: торговец помнит купленные сегодня предметы дня (merchant.bought). Старые сохранения читаются без потерь.
 // Версия 16: предметы героя (items: сумка bag и надетые equipped). Старые сохранения читаются с пустой сумкой.
 // Версия 15: уровни героя до 30, зверей до 15, новая кривая опыта (config/levels.js). Старые сохранения читаются без потерь:
@@ -25,12 +26,12 @@ import { QUESTS } from '../config/quests.js';
 import { RESOURCE_ORDER, CARRY } from '../config/resources.js';
 import { MAX_LEVEL, BEAST_MAX_LEVEL } from '../progression/Progression.js';
 import { DEFAULT_HERO, isHero } from '../config/heroes.js';
-import { SLOTS, ITEMS, BAG_SIZE, isItem } from '../config/items.js';
+import { SLOTS, ITEMS, BAG_SIZE, isItem, isCombo } from '../config/items.js';
 import { events } from '../core/Events.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 17;
+export const SAVE_VERSION = 18;
 const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
@@ -132,7 +133,8 @@ function validateItems(raw) {
     const id = raw?.equipped && typeof raw.equipped === 'object' && Object.hasOwn(raw.equipped, slot) ? raw.equipped[slot] : null;
     if (isItem(id) && ITEMS[id].slot === slot) equipped[slot] = id;
   }
-  return { bag, equipped };
+  const book = [...new Set((Array.isArray(raw?.book) ? raw.book : []).filter(isCombo))];
+  return { bag, equipped, book };
 }
 
 // Еда в рюкзаке: целые числа, всего не больше FOOD_CARRY

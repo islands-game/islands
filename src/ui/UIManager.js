@@ -505,6 +505,7 @@ export class UIManager {
     this.refreshSettings();
     this.cloudPanel?.render();
     this.itemsPanel?.render();
+    this.bookPanel?.render();
     this.$('tut-title').textContent = t('tut.title');
     this.$('tut-skip').textContent = t('skip');
     if (this.tutorialState) this.setTutorial(...this.tutorialState);

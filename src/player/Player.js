@@ -3,6 +3,7 @@ import { GROUND_Y } from '../world/World.js';
 import { DEFAULT_HERO, HEROES, ELEMENTS, mainStats } from '../config/heroes.js';
 import { buildHeroModel } from './HeroModels.js';
 import { heroBaseHp, heroBaseAtk } from '../progression/Progression.js';
+import { noFx } from '../inventory/ItemEffects.js';
 
 const SPEED = 6;
 const JUMP_SPEED = 8;
@@ -32,6 +33,7 @@ export class Player {
     this.heroId = DEFAULT_HERO;
     this.modelHolder = null;
     this.itemMul = { dmg: 1, hp: 1, effect: 1, speed: 1, cd: 1 };     // бонусы предметов
+    this.itemFx = noFx();                                             // особые эффекты предметов
     this.recalcStats();
     this.hp = this.maxHp;
 
@@ -107,7 +109,7 @@ export class Player {
 
   // Возвращает { dealt, absorbed }
   takeDamage(raw) {
-    let dmg = Math.max(1, Math.round((raw - this.def) * mainStats(this.heroId).dmgTaken));
+    let dmg = Math.max(1, Math.round((raw - this.def) * mainStats(this.heroId).dmgTaken * (1 - this.itemFx.dr)));
     const absorbed = Math.min(this.shield, dmg);
     this.shield -= absorbed;
     dmg -= absorbed;

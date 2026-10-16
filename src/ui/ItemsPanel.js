@@ -1,6 +1,10 @@
 import { ITEMS, SLOTS, SLOT_INFO, BAG_SIZE, ROMAN, NEUTRAL } from '../config/items.js';
 import { events } from '../core/Events.js';
 import { itemName, itemBonus } from '../inventory/Items.js';
+import { SET_BONUS, SET_FULL } from '../config/items.js';
+import { ELEMENT_ORDER } from '../config/heroes.js';
+
+export const EL_ICON = { fire: '🔥', water: '💧', ice: '❄', earth: '⛰', air: '🌪' };
 import { t } from '../config/i18n.js';
 
 const hex = c => `#${c.toString(16).padStart(6, '0')}`;
@@ -17,6 +21,7 @@ export class ItemsPanel {
     $('btn-items').onclick = () => game.input.press('items');
     $('it-act').onclick = () => this.act();
     $('it-drop').onclick = () => this.drop();
+    $('it-book').onclick = () => game.bookPanel.show(true);
     events.on('items', () => { if (this.open) this.render(); });
   }
 
@@ -127,6 +132,15 @@ export class ItemsPanel {
     if (m.effect > 1) parts.push(`+${pct(m.effect - 1)} ${t('items.stat.effect')}`);
     if (m.speed > 1) parts.push(`+${pct(m.speed - 1)} ${t('items.stat.speed')}`);
     if (m.cd < 1) parts.push(`−${pct(1 - m.cd)} ${t('items.stat.cd')}`);
+    // Наборы стихий и открытые сочетания
+    const info = items.info, lines = [];
+    for (const el of ELEMENT_ORDER) {
+      const c = info.counts[el];
+      if (c >= 2) lines.push(`${EL_ICON[el]} ${t('el.' + el)} ${c}/${SET_FULL}: +${Math.round(SET_BONUS[c] * 100)}%${c >= SET_FULL ? ' · ' + t('super.' + el) : ''}`);
+    }
+    for (const id of info.combos) lines.push(`✨ ${t('combo.' + id)}`);
+    $('it-sets').textContent = lines.join('\n');
+    $('it-book').textContent = `📖 ${t('book.title')} (${items.book.length})`;
     $('it-total').textContent = parts.length ? `${t('items.total')}: ${parts.join(' · ')}` : t('items.noneWorn');
 
     // Выбранный предмет
