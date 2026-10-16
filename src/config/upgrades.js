@@ -9,6 +9,7 @@ export const UPGRADES = {
   farm: { cost: costSeries({ gold: 30, wood: 8 }, SCALING.building, 2), yield: [1, 1.5, 2] },                        // урожай с грядки
   pen: { cost: costSeries({ gold: 30, wood: 8 }, SCALING.building, 2), rate: [1, 1.5, 2], max: [1, 1.5, 2] },        // скорость и запас
   cave: { cost: costSeries({ gold: 50, stone: 10 }, SCALING.building, 2) },      // больше мест для гномов (config/gnomes.js, caveSlots)
+  pier: { cost: costSeries({ gold: 25, wood: 20 }, SCALING.boat, 2) },       // плот -> лодка -> корабль (config/vessels.js)
   tower: { cost: costSeries({ gold: 35, stone: 8 }, SCALING.building, 2), damage: [9, 14, 22], range: [11, 13, 15], cooldown: [1.5, 1.3, 1.1] },
 };
 export const MAX_BUILDING_LEVEL = 3;

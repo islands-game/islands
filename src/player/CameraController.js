@@ -14,6 +14,7 @@ export class CameraController {
     this.tacticalPitch = 1.0;
     this.touch = false;        // на телефоне наклон ограничен и сам возвращается
     this.idle = 0;             // сколько секунд игрок не трогал камеру
+    this.extra = 0;            // добавка к расстоянию (на судне, чтобы парус не закрывал героя)
   }
 
   // Мгновенно ставит камеру в позу арены (или возвращает прежнюю), чтобы вид не "сбивался" при входе и выходе
@@ -42,7 +43,7 @@ export class CameraController {
       // Если камеру давно не трогали, наклон плавно возвращается к обычному
       if (look.x || look.y) this.idle = 0;
       else if (this.touch && (this.idle += dt) > 2) this.pitch += (0.35 - this.pitch) * Math.min(1, dt * 0.9);
-      this.distance += (this.baseDistance - this.distance) * Math.min(1, dt * 4);
+      this.distance += (this.baseDistance + this.extra - this.distance) * Math.min(1, dt * 4);        // extra: на судне камера дальше
     }
 
     this.target.lerp(new THREE.Vector3(playerPos.x, playerPos.y + 1.4, playerPos.z), Math.min(1, dt * 12));

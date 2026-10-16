@@ -30,7 +30,7 @@ export class HeroSkills {
   cast(i) {
     const g = this.game, p = g.player;
     const id = this.ids[i];
-    if (!id || p.dead || p.inside) return;
+    if (!id || p.dead || p.inside || p.vessel) return;
     if (this.cd[i] > 0) return g.ui.toast(t('notReady'));
     const rank = masteryRank(p.level, i);          // сколько вех усилило это умение
     if (!castSkill(this.context(), id, (1 + LEVELS.masteryPower * rank) * (1 + p.itemFx.skillPower))) return g.ui.toast(t('noTarget'));
@@ -41,7 +41,7 @@ export class HeroSkills {
   // Автоатака героя: у каждого оружия своя механика (combat/Attacks.js)
   attack() {
     const g = this.game, p = g.player, combat = g.combat;
-    if (p.dead || combat.heroCd > 0) return;
+    if (p.dead || p.vessel || combat.heroCd > 0) return;
     const st = mainStats(p.heroId);
     const fx = p.itemFx;
     combat.heroCd = st.cooldown / (1 + fx.atkSpeed);

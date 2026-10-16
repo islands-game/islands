@@ -13,6 +13,9 @@ import { Items } from '../inventory/Items.js';
 import { ItemsPanel } from '../ui/ItemsPanel.js';
 import { BookPanel } from '../ui/BookPanel.js';
 import { Fishing } from '../world/Fishing.js';
+import { Vessels } from '../world/Vessels.js';
+import { ISLANDS } from '../world/World.js';
+import { VESSELS } from '../config/vessels.js';
 import { SLOT_INFO, ITEMS, ENEMY_DROP } from '../config/items.js';
 import { itemName, rollItem } from '../inventory/Items.js';
 import { UIManager } from '../ui/UIManager.js';
@@ -126,6 +129,8 @@ export class Game {
     this.merchant = new Merchant(this);
     this.items = new Items(this);
     this.fishing = new Fishing(this);
+    this.vessels = new Vessels(this);
+    this.player.onRevive = () => this.vessels.returnAll();
     this.itemsPanel = new ItemsPanel(id => document.getElementById(id), this);
     this.bookPanel = new BookPanel(id => document.getElementById(id), this);
     this.ui.itemsPanel = this.itemsPanel;
@@ -175,6 +180,8 @@ export class Game {
     this.inventory.reset();
     this.items.reset();
     this.fishing.cancel();
+    this.player.vessel = null;
+    for (const v of this.vessels.list) v.boarded = false;
     this.creatures.reset();
     this.build.reset();
     this.stats = { kills: 0, collected: 0, built: 0, portals: 0 };
@@ -242,6 +249,7 @@ export class Game {
     const inArena = this.arena.active;
     const playerData = this.player.toSave();
     if (inArena) Object.assign(playerData, { x: -8.5, y: 0, z: 5, hp: this.arena.returnSave().hp });
+    this.vessels.writeBack();
     SaveManager.save({
       hero: this.player.heroId,
       player: playerData,
@@ -371,6 +379,18 @@ export class Game {
     }
   }
 
+  // «Остров · расстояние» для подсказки на судне
+  seaInfo() {
+    const p = this.player.pos;
+    let best = null, bd = Infinity;
+    for (const i of ISLANDS) {
+      if (i.id === 'arena') continue;
+      const d = Math.hypot(p.x - i.x, p.z - i.z) - i.r;
+      if (d < bd) { bd = d; best = i; }
+    }
+    return best ? `${t(best.nameKey ?? 'island.home')} · ${Math.max(0, Math.round(bd))} ${t('unit.m')}   ` : '';
+  }
+
   // Упал в воду: вытаскивают на ближайший берег, небольшой урон (5%), ничего не теряется
   rescueFromWater() {
     const p = this.player;
@@ -435,6 +455,9 @@ export class Game {
   // Что находится рядом: дикое существо (важнее) или ресурс
   interactTarget() {
     if (this.fishing.busy) return { kind: 'fish' };                    // удочка заброшена: «Действие» подсекает
+    if (this.player.vessel) return { kind: 'vessel' };                  // на судне: «Действие» причаливает
+    const nearVessel = this.vessels.nearest(this.player.pos);
+    if (nearVessel) return { kind: 'vessel', v: nearVessel };
     const cage = this.realms.nearest(this.player.pos);
     if (cage) return { kind: 'cage', ...cage };
     const vein = this.realms.nearestVein(this.player.pos);
@@ -482,6 +505,13 @@ export class Game {
       return this.ui.setPrompt(`${key}${t('sleep')}`, !this.canSleep());
     }
     if (target.kind === 'fish') return this.ui.setPrompt(`${key}${this.fishing.promptText()}`);
+    if (target.kind === 'vessel') {
+      if (!target.v) {
+        const can = this.vessels.canDock();
+        return this.ui.setPrompt(`${this.seaInfo()}${can ? key + t('vessel.land') : t('vessel.noLand')}`, !can);
+      }
+      return this.ui.setPrompt(`${key}${t('vessel.board')}: ${t('vessel.' + VESSELS[Math.min(3, target.v.lvl) - 1].id)}`);
+    }
     if (target.kind === 'portal') {
       // Если уровень героя ниже рекомендуемого, подсказка предупреждает (но пройти всё равно можно)
       const p = target.portal;
@@ -510,6 +540,9 @@ export class Game {
       _label.set(node.x, 1.8, node.z);
       this.ui.floatText(_label, `+${got.amount} ${RESOURCES[got.type].icon}`, '#ffffff');
       this.gainXp(got.xp);
+    } else if (target.kind === 'vessel') {
+      if (target.v) this.vessels.board(target.v);
+      else if (!this.vessels.dock()) this.ui.toast(t('vessel.noLand'));
     } else if (target.kind === 'fish') {
       this.fishing.act();
     } else if (target.kind === 'bed') {
@@ -758,6 +791,8 @@ export class Game {
       this.skills.update(dt);
       this.items.update(dt);
       this.fishing.update(dt);
+      this.vessels.update(dt);
+      this.cameraCtl.extra = this.player.vessel ? this.player.vessel.v.lvl * 1.5 + 1.5 : 0;
       this.realms.update(dt);
       this.economy.update(dt);
       this.gnomes.update(dt);

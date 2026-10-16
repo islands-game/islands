@@ -211,7 +211,7 @@ export class BuildSystem {
 
   // --- Список построек ---
 
-  add({ id, x, z, rot, state, hp, def: defense, lvl }) {
+  add({ id, x, z, rot, state, hp, def: defense, lvl, vx, vz, vr }) {
     const def = BUILDINGS[id];
     const mesh = buildModel(def);
     mesh.position.set(x, 0, z);
@@ -224,6 +224,7 @@ export class BuildSystem {
     if (BUILDINGS[id].hp) { rec.maxHp = BUILDINGS[id].hp; rec.hp = Number.isFinite(hp) ? Math.min(hp, rec.maxHp) : rec.maxHp; }
     if (BUILDINGS[id].defense) { rec.maxDef = BUILDINGS[id].defense; rec.def = Number.isFinite(defense) ? Math.min(defense, 480) : rec.maxDef; }      // 480 — защита амбара 3 уровня
     rec.lvl = Number.isFinite(lvl) ? Math.max(1, Math.min(3, Math.floor(lvl))) : 1;
+    if (id === 'pier' && Number.isFinite(vx) && Number.isFinite(vz)) { rec.vx = vx; rec.vz = vz; rec.vr = Number.isFinite(vr) ? vr : 0; }      // где стоит судно пирса
     if (def.structure) { rec.struct = this.world.registerStructure(def, x, z, rot, mesh); rec.struct.lvl = rec.lvl; }
     if (def.solid) { rec.solid = { ...rect }; this.world.rects.push(rec.solid); }
     if (def.walkable) { rec.walk = { ...rect }; this.world.walkables.push(rec.walk); }
@@ -254,6 +255,7 @@ export class BuildSystem {
       if (b.lvl > 1) o.lvl = b.lvl;
       if (b.hp !== undefined) o.hp = Math.round(b.hp);
       if (b.def !== undefined) o.def = Math.round(b.def);
+      if (b.vx !== undefined) { o.vx = b.vx; o.vz = b.vz; o.vr = b.vr; }
       return o;
     });
   }

@@ -39,6 +39,7 @@ export const ENEMY_LEVELS = {
   slime: 1, tree_monster: 3,
   frost_slime: 3, rock_slime: 4, tide_slime: 5, gust_slime: 5, lava_slime: 7,
   stone_king: 6, tide_king: 7, storm_king: 8, frost_giant: 9, lava_king: 11,
+  reef_slime: 12, reef_king: 15, abyss_slime: 20, abyss_king: 22, void_slime: 28, void_king: 30,       // острова в открытом море
 };
 
 // Опыт героя за арену: каждому из убитых героем (или его зверем) и разрушенное командой

@@ -60,10 +60,10 @@ export class Fishing {
   // Куда можно забросить удочку: вода перед героем у берега. null — нельзя.
   castTarget() {
     const g = this.game, p = g.player, w = g.world;
-    if (g.arena.active || p.dead || p.inside || w.groundAt(p.pos.x, p.pos.z) === null) return null;
+    if (g.arena.active || p.dead || p.inside || (!p.vessel && w.groundAt(p.pos.x, p.pos.z) === null)) return null;
     for (const d of FISHING.castDist) {
       const x = p.pos.x + Math.sin(p.facing) * d, z = p.pos.z + Math.cos(p.facing) * d;
-      if (w.groundAt(x, z) === null && this.nearIsland(x, z)) return { x, z };
+      if (w.groundAt(x, z) === null && (p.vessel || this.nearIsland(x, z))) return { x, z };      // с лодки можно ловить в открытом море
     }
     return null;
   }

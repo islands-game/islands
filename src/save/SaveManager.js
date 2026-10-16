@@ -5,6 +5,7 @@
 // Версия 7: + список зверей рядом с героем (creatures.actives, у поддержки до 3). Старые читаются с одним зверем (active).
 // Версия 8: звери из порталов (виды × стихии, creatures.*), освобождённые звери по дням (realms.freed), новый порядок заданий.
 // Старые существа превращаются в новых зверей (LEGACY_CREATURES).
+// Версия 20: судно у пирса (пирс помнит, где оно стоит: vx, vz, vr), острова в открытом море. Старые сохранения читаются без потерь.
 // Версия 19: рыба (еда fish в рюкзаке и амбаре), пирс, специальность гнома fisher. Старые сохранения читаются без потерь.
 // Версия 18: Книга открытий (items.book: открытые тайные сочетания). Старые сохранения читаются с пустой книгой.
 // Версия 17: торговец помнит купленные сегодня предметы дня (merchant.bought). Старые сохранения читаются без потерь.
@@ -32,7 +33,7 @@ import { events } from '../core/Events.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 19;
+export const SAVE_VERSION = 20;
 const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
@@ -160,6 +161,9 @@ function validateBuildings(raw) {
       rot: int(b.rot, 0, 3, 0),
       state: cleanState(b.id, b.state),     // ферма, загон, амбар хранят своё состояние (у остальных постройки null)
       lvl: int(b.lvl, 1, 3, 1),
+      vx: Number.isFinite(b.vx) ? Math.max(-600, Math.min(600, b.vx)) : undefined,
+      vz: Number.isFinite(b.vz) ? Math.max(-600, Math.min(600, b.vz)) : undefined,
+      vr: Number.isFinite(b.vr) ? Math.max(-7, Math.min(7, b.vr)) : undefined,
       hp: Number.isFinite(b.hp) ? Math.max(1, Math.min(2000, b.hp)) : undefined,
       def: Number.isFinite(b.def) ? Math.max(0, Math.min(2000, b.def)) : undefined,
     });

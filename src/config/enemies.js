@@ -2,6 +2,7 @@
 // aggro — с какого расстояния враг замечает героя, xp — опыт за победу, respawn — секунд до возвращения.
 // Сколько золота падает с врага [от, до]. Только на островах стихий (на домашнем острове золота нет).
 export const GOLD_DROPS = {
+  reef_slime: [4, 8], abyss_slime: [8, 14], void_slime: [14, 24], reef_king: [45, 60], abyss_king: [70, 95], void_king: [110, 150],
   frost_slime: [1, 3], lava_slime: [2, 4], rock_slime: [1, 3], tide_slime: [1, 3], gust_slime: [1, 3],
   stone_king: [15, 22], tide_king: [20, 28], frost_giant: [22, 30], storm_king: [22, 32], lava_king: [30, 40],
 };
@@ -118,6 +119,22 @@ export const ENEMIES = {
     xp: 30,
     respawn: 99999,
   },
+  // Острова в открытом море (попасть можно на лодке). Показатели записаны для базового уровня врага (config/levels.js: ENEMY_LEVELS).
+  reef_slime: { id: 'reef_slime', color: 0x38c9b0, hp: 114, atk: 17, speed: 3.1, aggro: 8, attackRange: 1.5, attackCooldown: 1, xp: 105, respawn: 30 },
+  abyss_slime: { id: 'abyss_slime', color: 0x7a4ad0, hp: 242, atk: 25, speed: 3.3, aggro: 8.5, attackRange: 1.5, attackCooldown: 0.95, xp: 260, respawn: 30 },
+  void_slime: { id: 'void_slime', color: 0x2a2a3a, hp: 490, atk: 36, speed: 3.5, aggro: 9, attackRange: 1.6, attackCooldown: 0.9, xp: 650, respawn: 30 },
+  reef_king: {
+    id: 'reef_king', color: 0x20a090, boss: true, crown: true, scale: 2.4, hp: 760, atk: 18, speed: 2.6, aggro: 10,
+    attackRange: 3.4, attackCooldown: 1.4, slam: { cooldown: 7, windup: 1.2, radius: 5, damage: 36 }, xp: 470, respawn: 400,
+  },
+  abyss_king: {
+    id: 'abyss_king', color: 0x5a2aa8, boss: true, crown: true, scale: 2.6, hp: 1140, atk: 28, speed: 2.8, aggro: 10.5,
+    attackRange: 3.5, attackCooldown: 1.3, slam: { cooldown: 6.5, windup: 1.1, radius: 5.5, damage: 55 }, xp: 1040, respawn: 400,
+  },
+  void_king: {
+    id: 'void_king', color: 0x14142a, boss: true, crown: true, scale: 2.9, hp: 1820, atk: 42, speed: 3, aggro: 11,
+    attackRange: 3.7, attackCooldown: 1.2, slam: { cooldown: 6, windup: 1, radius: 6, damage: 85 }, xp: 2600, respawn: 400,
+  },
 };
 
 // Сколько деревьев оживает за ночь
@@ -150,4 +167,8 @@ export const ENEMY_SPAWNS = [
   { type: 'gust_slime', x: -132, z: -2 },
   { type: 'gust_slime', x: -137, z: -4 },
   { type: 'storm_king', x: -149, z: -2 },
+  // Острова в открытом море: чем дальше от дома, тем выше уровень врагов (12-15, 20-22, 28-30)
+  { type: 'reef_slime', x: 55, z: -131 }, { type: 'reef_slime', x: 66, z: -135 }, { type: 'reef_slime', x: 62, z: -124 }, { type: 'reef_king', x: 60, z: -134 },
+  { type: 'abyss_slime', x: -65, z: 148 }, { type: 'abyss_slime', x: -54, z: 153 }, { type: 'abyss_slime', x: -58, z: 142 }, { type: 'abyss_king', x: -60, z: 152 },
+  { type: 'void_slime', x: 124, z: -212 }, { type: 'void_slime', x: 137, z: -216 }, { type: 'void_slime', x: 132, z: -204 }, { type: 'void_king', x: 130, z: -216 },
 ];

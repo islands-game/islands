@@ -53,6 +53,27 @@ export const ISLANDS = [
     trees: 6, rocks: 6, gold: 10,
     colors: { grass: 0xe8f6f0, rock: 0x9ab8c0, trunk: 0xb0c8d0, leaf: 0xd8f0e8, stone: 0xc0d4d8, crystal: 0xffc93c, glow: 0x9ae0d0, pad: 0xf0fcf8 },
   },
+  // Острова в открытом море: попасть можно только на лодке (пирс), чем дальше от дома, тем сильнее враги
+  {
+    id: 'cove', x: -20, z: -72, r: 10, spawn: { x: -20, z: -66 }, seed: 611, nameKey: 'island.cove',
+    trees: 8, rocks: 6, gold: 3,
+    colors: { grass: 0x78d08a, rock: 0x7a8a6a, trunk: 0x7a4e2d, leaf: 0x2fa060, stone: 0xa0a8a0, crystal: 0xffc93c, glow: 0x2ac9a0, pad: 0xf0e8b8 },
+  },
+  {
+    id: 'reef', x: 60, z: -132, r: 11, spawn: { x: 60, z: -126 }, seed: 711, nameKey: 'island.reef',
+    trees: 5, rocks: 8, gold: 5,
+    colors: { grass: 0x4fb8a8, rock: 0x2a7a78, trunk: 0x3a6a60, leaf: 0x28a090, stone: 0x80b8b0, crystal: 0xffc93c, glow: 0x20e0c0, pad: 0xd0f0e8 },
+  },
+  {
+    id: 'abyss', x: -60, z: 150, r: 12, spawn: { x: -60, z: 144 }, seed: 811, nameKey: 'island.abyss',
+    trees: 4, rocks: 9, gold: 6,
+    colors: { grass: 0x6a5aa8, rock: 0x3a2a6a, trunk: 0x3a2a5a, leaf: 0x7a5ac8, stone: 0x8a80b8, crystal: 0xffc93c, glow: 0x9a6aff, pad: 0xc8c0e8 },
+  },
+  {
+    id: 'void', x: 130, z: -212, r: 14, spawn: { x: 130, z: -206 }, seed: 911, nameKey: 'island.void',
+    trees: 3, rocks: 10, gold: 8,
+    colors: { grass: 0x3a3a4a, rock: 0x1a1a2a, trunk: 0x2a2a3a, leaf: 0x5a4a7a, stone: 0x6a6a7a, crystal: 0xffc93c, glow: 0xff4aa0, pad: 0x8a8aa0 },
+  },
   {
     id: 'arena', x: 300, z: 0, r: 58, spawn: { x: 300, z: 44 }, seed: 5, nameKey: 'island.arena',
     trees: 0, rocks: 0, gold: 0,

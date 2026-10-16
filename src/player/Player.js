@@ -34,6 +34,7 @@ export class Player {
     this.modelHolder = null;
     this.itemMul = { dmg: 1, hp: 1, effect: 1, speed: 1, cd: 1 };     // бонусы предметов
     this.itemFx = noFx();                                             // особые эффекты предметов
+    this.vessel = null;                                               // судно, на котором плывёт герой (world/Vessels.js)
     this.recalcStats();
     this.hp = this.maxHp;
 
@@ -123,6 +124,8 @@ export class Player {
   }
 
   reviveAtSpawn() {
+    this.vessel = null;
+    this.onRevive?.();
     this.dead = false;
     this.hp = this.maxHp;
     this.shield = 0;
@@ -140,6 +143,7 @@ export class Player {
     if (this.slowT > 0) this.slowT -= dt;
     if (this.hasteT > 0) this.hasteT -= dt;
     if (this.dead || this.frozen) return;
+    if (this.vessel) { this.sail(dt, input, yaw); return; }
 
     const mx = input.move.x, my = input.move.y;
     const len = Math.min(1, Math.hypot(mx, my));
@@ -180,6 +184,32 @@ export class Player {
     if (ground === null && this.pos.y < WATER_Y - 0.6) this.onWater?.();
     if (this.pos.y < -25) this.respawn();
 
+    this.mesh.position.copy(this.pos);
+    this.mesh.rotation.y = this.facing;
+  }
+
+  // Плавание: джойстик ведёт судно, плыть можно только по воде (в берег и пляж судно не заходит)
+  sail(dt, input, yaw) {
+    input.consumeJump();
+    const mx = input.move.x, my = input.move.y;
+    const len = Math.min(1, Math.hypot(mx, my));
+    const w = this.world;
+    if (len > 0.05) {
+      const sin = Math.sin(yaw), cos = Math.cos(yaw);
+      const dx = mx * cos + my * sin, dz = -mx * sin + my * cos;
+      const n = Math.hypot(dx, dz) || 1;
+      const step = this.vessel.speed * len * dt;
+      const nx = this.pos.x + (dx / n) * step, nz = this.pos.z + (dz / n) * step;
+      if (w.groundAt(nx, nz) === null) { this.pos.x = nx; this.pos.z = nz; }
+      else if (w.groundAt(nx, this.pos.z) === null) this.pos.x = nx;
+      else if (w.groundAt(this.pos.x, nz) === null) this.pos.z = nz;
+      let diff = Math.atan2(dx, dz) - this.facing;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+      this.facing += diff * Math.min(1, dt * 3);
+    }
+    this.pos.y = WATER_Y + 0.3;
+    this.vy = 0;
+    this.onGround = true;
     this.mesh.position.copy(this.pos);
     this.mesh.rotation.y = this.facing;
   }

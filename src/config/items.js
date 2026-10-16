@@ -63,6 +63,9 @@ export const ENEMY_DROP = {
   tide_slime: { element: 'water', tiers: [1, 2] }, gust_slime: { element: 'air', tiers: [1, 2] }, lava_slime: { element: 'fire', tiers: [1, 2] },
   stone_king: { element: 'earth', tiers: [2, 3] }, tide_king: { element: 'water', tiers: [2, 3] }, storm_king: { element: 'air', tiers: [2, 3] },
   frost_giant: { element: 'ice', tiers: [2, 3] }, lava_king: { element: 'fire', tiers: [2, 3] },
+  // Дальние острова: любая стихия, ступени выше
+  reef_slime: { element: null, tiers: [1, 2] }, abyss_slime: { element: null, tiers: [2, 3] }, void_slime: { element: null, tiers: [2, 3] },
+  reef_king: { element: null, tiers: [2, 3] }, abyss_king: { element: null, tiers: [3, 3] }, void_king: { element: null, tiers: [3, 3] },
 };
 // Арена: предметы падают из убитых героем врагов (на арене сами предметы не действуют)
 export const ARENA_DROP = {
