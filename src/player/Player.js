@@ -104,7 +104,7 @@ export class Player {
 
   // Возвращает { dealt, absorbed }
   takeDamage(raw) {
-    let dmg = Math.max(1, Math.round(raw - this.def));
+    let dmg = Math.max(1, Math.round((raw - this.def) * mainStats(this.heroId).dmgTaken));
     const absorbed = Math.min(this.shield, dmg);
     this.shield -= absorbed;
     dmg -= absorbed;

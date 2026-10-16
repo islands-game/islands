@@ -172,11 +172,14 @@ button.big.primary { background: #ff9f43; color: #3a2000; font-weight: 700; }
 }
 
 /* Выбор героя */
-#hs-list { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
-#hs-list button { flex: 1; min-width: 0; padding: 8px 2px; border-radius: 14px; background: #ffffff1f; border: 2px solid transparent;
+#hs-list, #hs-elements { display: flex; gap: 8px; justify-content: center; margin-bottom: 10px; }
+#hs-elements button { padding: 6px 2px; }
+#hs-elements button .ic { font-size: 20px; }
+#hs-list button, #hs-elements button { flex: 1; min-width: 0; padding: 8px 2px; border-radius: 14px; background: #ffffff1f; border: 2px solid transparent;
   color: #fff; font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 #hs-list button .ic { font-size: 26px; line-height: 1; }
-#hs-list button.sel { border-color: #ff9f43; background: #ff9f4333; }
+#hs-elements button .ic { line-height: 1; }
+#hs-list button.sel, #hs-elements button.sel { border-color: #ff9f43; background: #ff9f4333; }
 #hs-info { text-align: left; font-size: 13px; line-height: 1.4; margin-bottom: 10px; }
 #hs-info .desc { opacity: .9; margin-bottom: 6px; }
 #hs-info .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px; margin-bottom: 6px; opacity: .95; }

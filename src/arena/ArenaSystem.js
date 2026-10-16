@@ -13,6 +13,13 @@ const OTHER = { blue: 'red', red: 'blue' };
 const LANES = ['left', 'mid', 'right'];
 const world = (lx, lz) => ({ x: C.x + lx, z: C.z + lz });
 const dist = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
+// Лечит героя и показывает число (для лечения от удара воды)
+function allyHeal(sys, u, n) {
+  const before = u.s.external ? sys.player.hp : u.hp;
+  u.heal(n);
+  const got = Math.round((u.s.external ? sys.player.hp : u.hp) - before);
+  if (got > 0 && u.isPlayer) { const at = u.pos.clone(); at.y += 2.2; sys.ui.floatText(at, `+${got}`, '#6bff9a'); }
+}
 const edge = (a, b) => dist(a, b) - b.radius;                // расстояние до края цели
 
 // Матч 5 на 5: башни, кристаллы, крипы, герои-боты, лес с монстрами и короли.
@@ -154,6 +161,7 @@ export class ArenaSystem {
     const make = (team, spec, i, isPlayer) => {
       const base = arenaStats(spec.hero);
       const s = { ...base, radius: 0.5, scale: HERO_SCALE, heroId: spec.hero };
+      s.dmgTaken = base.dmgTaken;
       if (isPlayer) s.external = this.player;
       const sp = this.spawnPoint(team, i);
       const u = this.add('hero', team, s, sp.x, sp.z);
@@ -360,8 +368,12 @@ export class ArenaSystem {
       if (b.dead) return;
       const dealt = b.takeDamage(dmg, a);
       if (dealt > 0 && (a.isPlayer || b.isPlayer)) this.number(b, dealt, b.isPlayer ? '#ff6b6b' : '#ffffff');
-      const burn = a.element ? ELEMENTS[a.element].burn : null;
-      if (burn && dealt > 0 && !b.dead) this.burnUnit(b, a, dmg * burn.ratio, burn.time);
+      const el = a.element ? ELEMENTS[a.element] : null;
+      if (el && dealt > 0 && !b.dead) {
+        if (el.burn) this.burnUnit(b, a, dmg * el.burn.ratio, el.burn.time);
+        if (el.slow) this.slowUnit(b, el.slow.mul, el.slow.time);
+      }
+      if (el?.drain && dealt > 0) allyHeal(this, a, dmg * el.drain);
     };
     if (a.range > 3.2) this.game.combat.projectile(a.pos, b, a.team === 'blue' ? 0x7ab8ff : a.team === 'red' ? 0xff7a7a : 0xffd27a, apply, 0.28);
     else apply();
@@ -914,6 +926,7 @@ export class ArenaSystem {
         }
         return { x: Math.sin(u.facing), z: Math.cos(u.facing) };
       },
+      lifesteal: n => allyAdapter(u).heal(n),
       haste: (mul, s) => {
         if (isPlayer) { p.hasteMul = mul; p.hasteT = s; } else { u.hasteMul = mul; u.hasteT = s; }
       },

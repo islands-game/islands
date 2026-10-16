@@ -131,14 +131,19 @@ export class CombatSystem {
   // Урон одного удара героя: базовый урон уровня × класс. Перезарядка дольше — удар сильнее, урон в секунду тот же.
   heroHit(p) {
     const st = mainStats(p.heroId);
-    return p.atk * st.dpsMul * (st.cooldown / 0.5);
+    return p.atk * st.dpsMul * (st.hitCooldown / 0.5);
   }
 
   // Удар героя по врагу + эффект стихии
   heroDamage(enemy, dmg, hero) {
     this.damageEnemy(enemy, dmg, '#ffffff');
-    const burn = ELEMENTS[hero.element].burn;
-    if (burn && !enemy.dead) this.applyBurn(enemy, dmg * burn.ratio, burn.time);
+    const el = ELEMENTS[hero.element];
+    if (el.burn && !enemy.dead) this.applyBurn(enemy, dmg * el.burn.ratio, el.burn.time);
+    if (el.slow && !enemy.dead) this.applySlow(enemy, el.slow.mul, el.slow.time);
+    if (el.drain) {
+      const got = this.player.heal(dmg * el.drain);
+      if (got > 0) this.ui.floatText(this.player.pos.clone().setY(2.2), `+${got}`, '#6bff9a');
+    }
   }
 
   // Горение: урон раз в секунду, всего total за time секунд

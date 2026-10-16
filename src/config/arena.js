@@ -28,12 +28,12 @@ export const ARENA = {
   baseRegen: 30,                               // лечение у своей базы (хп в секунду)
   // Состав команд (первый синий герой — игрок, он выбирает героя при старте). Герои — из config/heroes.js. lane: left | mid | right | jungle
   blueBots: [
-    { hero: 'warrior_fire', lane: 'left' }, { hero: 'mage_fire', lane: 'mid' },
-    { hero: 'archer_fire', lane: 'right' }, { hero: 'assassin_fire', lane: 'jungle' },
+    { hero: 'warrior_water', lane: 'left' }, { hero: 'mage_ice', lane: 'mid' },
+    { hero: 'archer_air', lane: 'right' }, { hero: 'assassin_earth', lane: 'jungle' },
   ],
   redBots: [
-    { hero: 'warrior_fire', lane: 'left' }, { hero: 'support_fire', lane: 'left' },
-    { hero: 'mage_fire', lane: 'mid' }, { hero: 'archer_fire', lane: 'right' }, { hero: 'assassin_fire', lane: 'jungle' },
+    { hero: 'warrior_earth', lane: 'left' }, { hero: 'support_water', lane: 'left' },
+    { hero: 'mage_fire', lane: 'mid' }, { hero: 'archer_ice', lane: 'right' }, { hero: 'assassin_air', lane: 'jungle' },
   ],
 
   // Лес: лагеря лесных монстров. Победивший монстра забирает его себе, пока тот не погибнет

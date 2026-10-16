@@ -6,11 +6,12 @@
 // ctx.allies(r) — союзники рядом, включая героя: { pos, maxHp, heal(n), shield(n, сек) }
 // ctx.slide(dx, dz, dist) — сдвиг героя (не проходит сквозь стены), возвращает пройденное
 // ctx.dir()     — куда герой хочет двигаться (для рывка и телепорта)
-// ctx.haste(mul, сек), ctx.face(угол), ctx.ring(pos, color, size, dur), ctx.shot(from, toPos, color, onHit)
+// ctx.lifesteal(n) — лечит героя; ctx.haste(mul, сек), ctx.face(угол), ctx.ring(pos, color, size, dur), ctx.shot(from, toPos, color, onHit)
 import { SKILLS } from '../config/heroes.js';
 
 const BURN_RATIO = 0.3;     // горение от умения: 30% урона за 3 секунды
 const BURN_TIME = 3;
+const DRAIN_RATIO = 0.4;    // умения воды: 40% урона возвращается героем здоровьем
 
 const dist2d = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
@@ -18,6 +19,7 @@ function strike(ctx, def, foe, dmg) {
   foe.hit(Math.round(dmg));
   if (def.burn) foe.burn(dmg * BURN_RATIO, BURN_TIME);
   if (def.slow) foe.slow(def.slow, def.slowTime ?? 2);
+  if (def.drain) ctx.lifesteal(dmg * DRAIN_RATIO);
 }
 
 const HANDLERS = {

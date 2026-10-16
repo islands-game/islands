@@ -69,6 +69,7 @@ export class HeroSkills {
         }
         return { x: Math.sin(p.facing), z: Math.cos(p.facing) };
       },
+      lifesteal: n => playerAlly.heal(n),
       haste: (mul, s) => { p.hasteMul = mul; p.hasteT = s; },
       face: a => { p.facing = a; },
       ring: (pos, c, size, dur) => combat.ring(pos, c, size, dur),

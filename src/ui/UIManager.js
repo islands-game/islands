@@ -6,7 +6,7 @@ import { CREATURES, creatureNameKey } from '../config/creatures.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
 import { Settings, QUALITIES } from '../save/Settings.js';
 import { events } from '../core/Events.js';
-import { HEROES, HERO_IDS, DEFAULT_HERO, SKILLS, arenaStats } from '../config/heroes.js';
+import { HEROES, CLASS_ORDER, ELEMENT_ORDER, ENABLED_ELEMENTS, DEFAULT_HERO, SKILLS, arenaStats } from '../config/heroes.js';
 
 const COMMANDS = ['follow', 'stay', 'defend', 'attack', 'ability', 'return'];
 const _v = new THREE.Vector3();
@@ -206,15 +206,24 @@ export class UIManager {
     this.$('hs-title').textContent = t('heroTitle');
     this.$('hs-go').textContent = t('heroGo');
     this.$('hs-back').textContent = t('heroBack');
-    const list = this.$('hs-list');
+    const list = this.$('hs-list'), els = this.$('hs-elements');
     list.innerHTML = '';
+    els.innerHTML = '';
     const ICON = { warrior: '⚔', archer: '🏹', mage: '🔮', assassin: '🗡', support: '💚' };
-    for (const id of HERO_IDS) {
-      const h = HEROES[id];
+    const EL_ICON = { fire: '🔥', water: '💧', ice: '❄', earth: '⛰', air: '🌪' };
+    const cur = HEROES[this.selectedHero];
+    for (const el of ELEMENT_ORDER.filter(e => ENABLED_ELEMENTS.includes(e))) {
       const b = document.createElement('button');
-      b.className = id === this.selectedHero ? 'sel' : '';
-      b.innerHTML = `<span class="ic">${ICON[h.cls]}</span><span>${t('cls.' + h.cls)}</span>`;
-      b.onclick = () => { this.selectedHero = id; this.renderHeroSelect(); };
+      b.className = el === cur.element ? 'sel' : '';
+      b.innerHTML = `<span class="ic">${EL_ICON[el]}</span><span>${t('el.' + el)}</span>`;
+      b.onclick = () => { this.selectedHero = `${cur.cls}_${el}`; this.renderHeroSelect(); };
+      els.appendChild(b);
+    }
+    for (const cls of CLASS_ORDER) {
+      const b = document.createElement('button');
+      b.className = cls === cur.cls ? 'sel' : '';
+      b.innerHTML = `<span class="ic">${ICON[cls]}</span><span>${t('cls.' + cls)}</span>`;
+      b.onclick = () => { this.selectedHero = `${cls}_${cur.element}`; this.renderHeroSelect(); };
       list.appendChild(b);
     }
     const h = HEROES[this.selectedHero], st = arenaStats(this.selectedHero);

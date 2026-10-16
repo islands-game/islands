@@ -143,6 +143,7 @@ export class Unit {
       this.hp = player.hp;
       this.sys.ui.flashHurt();
     } else {
+      amount *= this.s.dmgTaken ?? 1;           // земля: меньше получаемого урона
       if (this.shieldAmt > 0) {            // щит от умений поглощает урон
         const absorbed = Math.min(this.shieldAmt, amount);
         this.shieldAmt -= absorbed;
