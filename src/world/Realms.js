@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { REALMS, REALM_ORDER } from '../config/realms.js';
+import { REALMS, REALM_ORDER, VEINS, VEIN_SPOTS } from '../config/realms.js';
 import { CREATURES, SPECIES_ORDER, beastTitle } from '../config/creatures.js';
 import { ELEMENTS } from '../config/heroes.js';
 import { buildCreatureModel } from '../creatures/CreatureModels.js';
@@ -32,11 +32,85 @@ export class Realms {
   constructor(game) {
     this.game = game;
     this.freed = {};          // { стихия: 'ГГГГ-ММ-ДД' } — когда зверя стихии освободили в последний раз
+    this.veins = {};          // { стихия: 'ГГГГ-ММ-ДД' } — когда добыли золотую жилу дня
+    this.veinObjs = {};
     this.day = todayKey();
     this.cages = {};
     this.timer = 0;
     this.t = 0;
-    for (const el of REALM_ORDER) this.buildCage(el);
+    for (const el of REALM_ORDER) { this.buildCage(el); this.buildVein(el); }
+  }
+
+
+  // ---------- золотая жила дня ----------
+
+  veinSpot(el, day = this.day) {
+    const isl = this.game.world.islandOf(REALMS[el].island);
+    const sp = VEIN_SPOTS[hash(`${day}:${el}:vein`) % VEIN_SPOTS.length];
+    return { x: isl.x + Math.cos(sp.a) * sp.r, z: isl.z + Math.sin(sp.a) * sp.r };
+  }
+
+  buildVein(el) {
+    const world = this.game.world;
+    const grp = new THREE.Group();
+    const mat = new THREE.MeshLambertMaterial({ color: 0xffc93c, emissive: 0x9a6a00, flatShading: true });
+    for (const [x, z, s] of [[0, 0, 1], [0.7, 0.3, 0.7], [-0.6, -0.4, 0.75]]) {
+      const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.6 * s, 0), mat);
+      m.scale.set(1, 1.9, 1);
+      m.position.set(x, 0.6 * s * 1.9, z);
+      grp.add(m);
+    }
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.4, 1.7, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.7, depthWrite: false }));
+    ring.position.y = 0.1;
+    grp.add(ring);
+    world.scene.add(grp);
+    const collider = { x: 0, z: 0, r: 0.9, pr: 1.2, active: true };
+    world.colliders.push(collider);
+    this.veinObjs[el] = { grp, ring, collider, day: null };
+    this.refreshVein(el);
+  }
+
+  // Жила дня стоит в новом месте каждый день; после добычи пропадает до завтра
+  refreshVein(el) {
+    const v = this.veinObjs[el];
+    const mined = this.veins[el] === this.day;
+    if (v.day !== this.day) {
+      const p = this.game.world.findFree(...Object.values(this.veinSpot(el)), 1.5);
+      this.game.world.clearArea(p.x - 1.6, p.z - 1.6, p.x + 1.6, p.z + 1.6);
+      v.grp.position.set(p.x, 0, p.z);
+      v.collider.x = p.x; v.collider.z = p.z;
+      v.day = this.day;
+    }
+    v.grp.visible = !mined;
+    v.collider.active = !mined;
+  }
+
+  // Ближайшая доступная жила рядом с героем
+  nearestVein(pos, range = 2.4) {
+    for (const el of REALM_ORDER) {
+      const v = this.veinObjs[el];
+      if (this.veins[el] === this.day) continue;
+      if (Math.hypot(pos.x - v.grp.position.x, pos.z - v.grp.position.z) < range) return { element: el, range: VEINS[el] };
+    }
+    return null;
+  }
+
+  // Добыть жилу: золото в рюкзак (сколько влезает)
+  mineVein(el) {
+    const g = this.game;
+    if (this.veins[el] === this.day) return 0;
+    const [a, b] = VEINS[el];
+    const amount = a + Math.floor(Math.random() * (b - a + 1));
+    const got = g.inventory.add('gold', amount);
+    if (got <= 0) { g.ui.toast(`${t('bagFull')}: ${t('res.gold')}`); return 0; }
+    this.veins[el] = this.day;
+    const v = this.veinObjs[el];
+    g.combat.ring({ x: v.grp.position.x, y: 0, z: v.grp.position.z }, 0xffd23f, 4, 0.7);
+    g.ui.floatText(g.player.pos.clone().setY(2.4), `+${got} 🪙`, '#ffd23f');
+    g.gainXp(20);
+    events.emit('collect', 'gold', got);
+    this.refreshVein(el);
+    return got;
   }
 
   state(el) {
@@ -149,27 +223,31 @@ export class Realms {
       this.timer = 1;
       const day = todayKey();
       if (day !== this.day) this.day = day;               // наступил новый день: в клетках другие звери
-      for (const el of REALM_ORDER) this.refresh(el);
+      for (const el of REALM_ORDER) { this.refresh(el); this.refreshVein(el); }
     }
     for (const el of REALM_ORDER) {
       const c = this.cages[el];
+      this.veinObjs[el].grp.rotation.y += dt * 0.6;
       if (c.beast) c.beast.rotation.y += dt * 0.8;
       c.ring.material.opacity = 0.45 + Math.sin(this.t * 3) * 0.25;
     }
   }
 
   toSave() {
-    return { freed: { ...this.freed } };
+    return { freed: { ...this.freed }, veins: { ...this.veins } };
   }
 
   fromSave(data) {
     this.freed = {};
     for (const el of REALM_ORDER) if (typeof data?.freed?.[el] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.freed[el])) this.freed[el] = data.freed[el];
-    for (const el of REALM_ORDER) this.refresh(el);
+    this.veins = {};
+    for (const el of REALM_ORDER) if (typeof data?.veins?.[el] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.veins[el])) this.veins[el] = data.veins[el];
+    for (const el of REALM_ORDER) { this.refresh(el); this.refreshVein(el); }
   }
 
   reset() {
     this.freed = {};
-    for (const el of REALM_ORDER) this.refresh(el);
+    this.veins = {};
+    for (const el of REALM_ORDER) { this.refresh(el); this.refreshVein(el); }
   }
 }

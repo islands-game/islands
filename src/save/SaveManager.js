@@ -5,6 +5,7 @@
 // Версия 7: + список зверей рядом с героем (creatures.actives, у поддержки до 3). Старые читаются с одним зверем (active).
 // Версия 8: звери из порталов (виды × стихии, creatures.*), освобождённые звери по дням (realms.freed), новый порядок заданий.
 // Старые существа превращаются в новых зверей (LEGACY_CREATURES).
+// Версия 14: золотая жила дня (realms.veins: когда добыли на каждом острове).
 // Версия 13: гномы (gnomes: места, уровни, зарплата, поручение дня).
 // Версия 12: уровни построек и стартового дома (lvl, houseLevel), уровень рюкзака (inventory.bag), торговец (merchant: день и сколько золота заплатил).
 // Версия 11: прочность построек (hp), защита амбара (def), страховка амбара (state.ins). Старые версии читаются без потерь.
@@ -23,7 +24,7 @@ import { DEFAULT_HERO, isHero } from '../config/heroes.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
@@ -69,12 +70,14 @@ function validateQuests(raw, version) {
 
 // Когда освобождали зверей стихий: { стихия: 'ГГГГ-ММ-ДД' }
 function validateRealms(raw) {
-  const freed = {};
+  const freed = {}, veins = {};
   for (const el of REALM_ORDER) {
     const d = raw?.freed?.[el];
     if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) freed[el] = d;
+    const v = raw?.veins?.[el];
+    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) veins[el] = v;
   }
-  return { freed };
+  return { freed, veins };
 }
 
 // Проверка и приведение данных к безопасному виду. Старые сохранения (v1) тоже подходят.

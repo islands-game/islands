@@ -379,6 +379,10 @@ export class World {
   }
 
   // Какой остров под точкой (id) или null. Платформы и мосты за краем засчитываются ближайшему острову.
+  islandOf(id) {
+    return ISLANDS.find(i => i.id === id);
+  }
+
   islandIdAt(x, z) {
     let best = null, bestD = Infinity;
     for (const i of ISLANDS) {

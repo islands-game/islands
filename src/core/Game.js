@@ -344,6 +344,8 @@ export class Game {
   interactTarget() {
     const cage = this.realms.nearest(this.player.pos);
     if (cage) return { kind: 'cage', ...cage };
+    const vein = this.realms.nearestVein(this.player.pos);
+    if (vein) return { kind: 'vein', ...vein };
     const eco = this.economy.target(this.player.pos);
     if (eco) return { kind: 'econ', tg: eco };
     if (this.merchant.near(this.player.pos)) return { kind: 'merchant' };
@@ -391,6 +393,7 @@ export class Game {
       const rec = p.recLevel > 1 ? ` (${t('recLevel')} ${p.recLevel})` : '';
       return this.ui.setPrompt(`${key}${t('portal')}: ${t(p.nameKey)}${rec}`, this.player.level < p.recLevel);
     }
+    if (target.kind === 'vein') return this.ui.setPrompt(`${key}${t('vein.mine')}: 🪙${target.range[0]}–${target.range[1]}`);
     if (target.kind === 'econ') return this.ui.setPrompt(`${key}${target.tg.text}`, !!target.tg.disabled);
     if (target.kind === 'cage') {
       const name = this.realms.beastName(target.element);
@@ -416,6 +419,8 @@ export class Game {
       this.sleep();
     } else if (target.kind === 'portal') {
       this.teleport(target.portal);
+    } else if (target.kind === 'vein') {
+      this.realms.mineVein(target.element);
     } else if (target.kind === 'gnome') {
       this.openGnomes();
     } else if (target.kind === 'merchant') {

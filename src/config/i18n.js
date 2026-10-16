@@ -4,6 +4,7 @@ export const LANGS = ['ru', 'en', 'ka'];
 
 const TEXTS = {
   ru: {
+    'vein.mine': "Добыть золотую жилу дня",
     'gnome.lockedUp': "нужно улучшить пещеру гномов",
     'beast.patrol': "Звери охраняют остров (позови их в панели 🐾)",
     'onlyOne': "Такая постройка может быть только одна",
@@ -430,6 +431,7 @@ const TEXTS = {
     'tut.done': 'Обучение пройдено! Исследуй и строй свой остров',
   },
   en: {
+    'vein.mine': "Mine the gold vein of the day",
     'gnome.lockedUp': "upgrade the gnome cave",
     'beast.patrol': "The beasts guard the island (call them in the 🐾 panel)",
     'onlyOne': "You can only have one of these",
@@ -856,6 +858,7 @@ const TEXTS = {
     'tut.done': 'Tutorial complete! Explore and build your island',
   },
   ka: {
+    'vein.mine': "დღის ოქროს ძარღვის მოპოვება",
     'gnome.lockedUp': "გააუმჯობესე ჯუჯების მღვიმე",
     'beast.patrol': "ცხოველები კუნძულს იცავენ (დაუძახე 🐾 პანელიდან)",
     'onlyOne': "ასეთი შენობა მხოლოდ ერთი შეიძლება გქონდეს",
