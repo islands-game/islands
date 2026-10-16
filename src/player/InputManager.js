@@ -15,6 +15,7 @@ const KEY_ACTIONS = {
   Digit3: 'spell2',
   Digit4: 'spell3',
   KeyB: 'build',
+  KeyI: 'items',
   KeyZ: 'rotate',
   KeyQ: 'cancel',
 };
@@ -123,7 +124,7 @@ export class InputManager {
     // Камера: свайп по свободной части экрана.
     // Не считаем свайпом касания рядом с кнопками и джойстиком (в бою палец постоянно скользит у кнопок),
     // небольшие движения (мёртвая зона) и делаем поворот мягким — иначе камера "уплывает" и смотрит в пол.
-    const noLookZones = () => ['stick', 'actions', 'btn-jump', 'btn-menu', 'btn-creatures', 'btn-build']
+    const noLookZones = () => ['stick', 'actions', 'btn-jump', 'btn-menu', 'btn-creatures', 'btn-build', 'btn-items']
       .map(id => document.getElementById(id)?.getBoundingClientRect()).filter(r => r && r.width > 0);
     const inZone = (x, y) => noLookZones().some(r => x > r.left - 24 && x < r.right + 24 && y > r.top - 24 && y < r.bottom + 24);
     let lookId = null, lx = 0, ly = 0, moved = 0;

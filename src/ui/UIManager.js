@@ -461,6 +461,7 @@ export class UIManager {
     this.$('btn-settings').textContent = `⚙ ${t('settings')}`;
     this.refreshSettings();
     this.cloudPanel?.render();
+    this.itemsPanel?.render();
     this.$('tut-title').textContent = t('tut.title');
     this.$('tut-skip').textContent = t('skip');
     if (this.tutorialState) this.setTutorial(...this.tutorialState);

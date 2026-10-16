@@ -31,6 +31,7 @@ export class Player {
     this.hasteMul = 1;
     this.heroId = DEFAULT_HERO;
     this.modelHolder = null;
+    this.itemMul = { dmg: 1, hp: 1, effect: 1, speed: 1, cd: 1 };     // бонусы предметов
     this.recalcStats();
     this.hp = this.maxHp;
 
@@ -40,8 +41,9 @@ export class Player {
 
   // Характеристики растут вместе с уровнем
   recalcStats() {
-    this.maxHp = Math.round(heroBaseHp(this.level) * mainStats(this.heroId).hpMul);
-    this.atk = Math.round(heroBaseAtk(this.level));
+    const m = this.itemMul;                         // бонусы предметов (inventory/Items.js)
+    this.maxHp = Math.round(heroBaseHp(this.level) * mainStats(this.heroId).hpMul * m.hp);
+    this.atk = Math.round(heroBaseAtk(this.level) * m.dmg);
     this.def = Math.floor((this.level - 1) / 2);
   }
 
@@ -145,7 +147,7 @@ export class Player {
       const dx = mx * cos + my * sin;
       const dz = -mx * sin + my * cos;
       const n = Math.hypot(dx, dz) || 1;
-      const speed = SPEED * mainStats(this.heroId).speedMul * (this.slowT > 0 ? 0.65 : 1) * (this.hasteT > 0 ? this.hasteMul : 1);
+      const speed = SPEED * mainStats(this.heroId).speedMul * this.itemMul.speed * (this.slowT > 0 ? 0.65 : 1) * (this.hasteT > 0 ? this.hasteMul : 1);
       this.pos.x += (dx / n) * speed * len * dt;
       this.pos.z += (dz / n) * speed * len * dt;
       const target = Math.atan2(dx, dz);

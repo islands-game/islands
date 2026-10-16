@@ -9,6 +9,9 @@ import { CreatureManager } from '../creatures/CreatureManager.js';
 import { Inventory } from '../inventory/Inventory.js';
 import { addXp, xpNeeded, xpFactor, isMilestone, milestoneSkill } from '../progression/Progression.js';
 import { LEVELS } from '../config/levels.js';
+import { Items } from '../inventory/Items.js';
+import { ItemsPanel } from '../ui/ItemsPanel.js';
+import { SLOT_INFO } from '../config/items.js';
 import { UIManager } from '../ui/UIManager.js';
 import { BuildSystem, DEMOLISH, UPGRADE } from '../building/BuildSystem.js';
 import { BUILDINGS } from '../config/buildings.js';
@@ -117,6 +120,9 @@ export class Game {
     this.gnomes = new Gnomes(this);
     this.economy = new Economy(this);
     this.merchant = new Merchant(this);
+    this.items = new Items(this);
+    this.itemsPanel = new ItemsPanel(id => document.getElementById(id), this);
+    this.ui.itemsPanel = this.itemsPanel;
     this.build.extraTargets = () => [this.economy.startHouse];
     this.build.canUpgrade = rec => this.economy.canUpgrade(rec);
     this.build.upgradeText = rec => this.economy.upgradeText(rec);
@@ -140,7 +146,8 @@ export class Game {
     addEventListener('resize', () => this.resize());
     addEventListener('keydown', e => {
       if (e.code !== 'Escape' || !this.playing) return;
-      if (this.ui.panelOpen) this.ui.showPanel(false);
+      if (this.itemsPanel.open) this.itemsPanel.show(false);
+      else if (this.ui.panelOpen) this.ui.showPanel(false);
       else if (this.ui.buildPanelOpen) this.ui.showBuildPanel(false);
       else if (this.build.active) this.build.cancel();
       else this.pause();
@@ -158,6 +165,7 @@ export class Game {
     this.resources.reset();
     this.combat.reset();
     this.inventory.reset();
+    this.items.reset();
     this.creatures.reset();
     this.build.reset();
     this.stats = { kills: 0, collected: 0, built: 0, portals: 0 };
@@ -171,6 +179,7 @@ export class Game {
     this.skills.reset();
     if (data) {
       this.player.fromSave(data.player);
+      this.items.fromSave(data.items);
       // Если сохранились на арене (старая версия) — возвращаем домой
       if (this.world.islandIdAt(this.player.pos.x, this.player.pos.z) === 'arena') this.player.respawn();
       this.inventory.fromSave(data.inventory);
@@ -207,6 +216,7 @@ export class Game {
   }
 
   pause() {
+    this.itemsPanel.show(false);
     this.playing = false;
     this.input.enabled = false;
     this.input.move.x = this.input.move.y = 0;
@@ -226,6 +236,7 @@ export class Game {
       hero: this.player.heroId,
       player: playerData,
       inventory: this.inventory.toSave(),
+      items: this.items.toSave(),
       creatures: this.creatures.toSave(),
       realms: this.realms.toSave(),
       houseLevel: this.economy.startHouse.lvl,
@@ -301,6 +312,12 @@ export class Game {
       this.ui.toast(`${t('levelUp')} ${this.player.level}`);
       this.combat.ring(this.player.pos, 0xffe066, 4, 0.8);
       events.emit('levelUp');
+      this.items.apply();                      // новые ячейки предметов начинают работать
+      for (const lv of gained) {
+        for (const [slot, info] of Object.entries(SLOT_INFO)) {
+          if (info.unlock === lv) setTimeout(() => this.ui.toast(`${t('items.opened')}: ${t('items.slot.' + slot)}`), 1800);
+        }
+      }
       // Веха (5, 10, 15...): одно из умений становится сильнее
       for (const lv of gained) {
         if (!isMilestone(lv)) continue;
@@ -590,7 +607,14 @@ export class Game {
 
   // --- Панель существ ---
 
+  toggleItems() {
+    this.ui.showPanel(false);
+    this.ui.showBuildPanel(false);
+    this.itemsPanel.toggle();
+  }
+
   togglePanel() {
+    this.itemsPanel.show(false);
     if (this.ui.panelOpen) this.ui.showPanel(false);
     else this.ui.showPanel(true, this.creatures.list(), this.creatures.activeIds, this.creatures.limit);
   }
@@ -617,6 +641,7 @@ export class Game {
   toggleBuild() {
     if (this.build.active) return this.build.cancel();
     if (this.ui.buildPanelOpen) return this.ui.showBuildPanel(false);
+    this.itemsPanel.show(false);
     this.ui.showPanel(false);
     const items = Object.values(BUILDINGS).map(b => ({ id: b.id, cost: b.cost, canAfford: this.inventory.has(b.cost) }));
     this.ui.showBuildPanel(true, items);
@@ -630,7 +655,7 @@ export class Game {
       for (let i = 1; i <= 3; i++) if (input.consume('spell' + i)) this.arena.castSpell(i);
       if (input.consume('arenaAgain')) { this.ui.hideArenaResult(); this.arena.restart(); }
       if (input.consume('arenaExit')) this.leaveArena();
-      input.consume('build'); input.consume('confirm'); input.consume('rotate'); input.consume('cancel');
+      input.consume('build'); input.consume('confirm'); input.consume('rotate'); input.consume('cancel'); input.consume('items');
       if (input.consume('interact')) this.interact();
       if (input.consume('panel')) this.togglePanel();
       if (input.consume('ability')) this.creatures.command('ability');
@@ -638,6 +663,7 @@ export class Game {
       return;
     }
     if (input.consume('build')) this.toggleBuild();
+    if (input.consume('items')) this.toggleItems();
     if (this.build.active) {
       // В режиме строительства "Действие" ставит постройку; на компьютере её ставит и клик мышью
       if (input.consume('attack') && !input.isTouch) this.build.confirm();

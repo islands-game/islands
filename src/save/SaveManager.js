@@ -5,6 +5,7 @@
 // Версия 7: + список зверей рядом с героем (creatures.actives, у поддержки до 3). Старые читаются с одним зверем (active).
 // Версия 8: звери из порталов (виды × стихии, creatures.*), освобождённые звери по дням (realms.freed), новый порядок заданий.
 // Старые существа превращаются в новых зверей (LEGACY_CREATURES).
+// Версия 16: предметы героя (items: сумка bag и надетые equipped). Старые сохранения читаются с пустой сумкой.
 // Версия 15: уровни героя до 30, зверей до 15, новая кривая опыта (config/levels.js). Старые сохранения читаются без потерь:
 // у зверей эволюции теперь на 5 и 10 уровне, опыт героя и зверей сохраняется как есть.
 // Версия 14: золотая жила дня (realms.veins: когда добыли на каждом острове).
@@ -23,11 +24,12 @@ import { QUESTS } from '../config/quests.js';
 import { RESOURCE_ORDER, CARRY } from '../config/resources.js';
 import { MAX_LEVEL, BEAST_MAX_LEVEL } from '../progression/Progression.js';
 import { DEFAULT_HERO, isHero } from '../config/heroes.js';
+import { SLOTS, ITEMS, BAG_SIZE, isItem } from '../config/items.js';
 import { events } from '../core/Events.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 15;
+export const SAVE_VERSION = 16;
 const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
@@ -100,6 +102,7 @@ function validate(raw) {
     },
     // Версия 9: кристаллы стали золотом; рюкзак ограничен (CARRY)
     inventory: { ...Object.fromEntries(RESOURCE_ORDER.map(k => [k, int(k === 'gold' ? (inv.gold ?? inv.crystal) : inv[k], 0, (CARRY[k] ?? 9999) + (k === 'gold' ? 0 : 45), 0)])), food: validateFood(inv.food), bag: int(inv.bag, 0, 3, 0) },
+    items: validateItems(raw.items),
     houseLevel: int(raw.houseLevel, 1, 3, 1),
     gnomes: raw.gnomes && typeof raw.gnomes === 'object' ? raw.gnomes : null,       // подробная проверка — в Gnomes.fromSave
     merchant: { day: /^\d{4}-\d{2}-\d{2}$/.test(raw.merchant?.day ?? '') ? raw.merchant.day : null, earned: int(raw.merchant?.earned, 0, 500, 0) },
@@ -118,6 +121,17 @@ function validate(raw) {
     quests: validateQuests(raw.quests, num(raw.version, 1)),
     realms: validateRealms(raw.realms),
   };
+}
+
+// Предметы: только существующие id, не больше мест в сумке, надетый предмет должен подходить к своей ячейке
+function validateItems(raw) {
+  const bag = (Array.isArray(raw?.bag) ? raw.bag : []).filter(id => isItem(id)).slice(0, BAG_SIZE);
+  const equipped = {};
+  for (const slot of SLOTS) {
+    const id = raw?.equipped && typeof raw.equipped === 'object' && Object.hasOwn(raw.equipped, slot) ? raw.equipped[slot] : null;
+    if (isItem(id) && ITEMS[id].slot === slot) equipped[slot] = id;
+  }
+  return { bag, equipped };
 }
 
 // Еда в рюкзаке: целые числа, всего не больше FOOD_CARRY

@@ -34,7 +34,7 @@ export class HeroSkills {
     if (this.cd[i] > 0) return g.ui.toast(t('notReady'));
     const rank = masteryRank(p.level, i);          // сколько вех усилило это умение
     if (!castSkill(this.context(), id, 1 + LEVELS.masteryPower * rank)) return g.ui.toast(t('noTarget'));
-    this.cd[i] = SKILLS[id].cooldown * (1 - LEVELS.masteryCooldown) ** rank;
+    this.cd[i] = SKILLS[id].cooldown * (1 - LEVELS.masteryCooldown) ** rank * p.itemMul.cd;
     events.emit('slam');
   }
 
@@ -66,8 +66,8 @@ export class HeroSkills {
       pos: e.pos, radius: 0.6 * (e.scale ?? 1),
       get hpRatio() { return e.hp / e.maxHp; },
       hit: d => combat.damageEnemy(e, d, '#ffffff'),
-      slow: (m, s) => combat.applySlow(e, m, s),
-      burn: (total, s) => combat.applyBurn(e, total, s),
+      slow: (m, s) => combat.applySlow(e, Math.min(0.85, m * p.itemMul.effect), s),
+      burn: (total, s) => combat.applyBurn(e, total * p.itemMul.effect, s),
     });
     const playerAlly = {
       pos: p.pos, get maxHp() { return p.maxHp; },
@@ -94,7 +94,7 @@ export class HeroSkills {
         }
         return { x: Math.sin(p.facing), z: Math.cos(p.facing) };
       },
-      lifesteal: n => playerAlly.heal(n),
+      lifesteal: n => playerAlly.heal(n * p.itemMul.effect),
       later: (s, fn) => combat.later(s, fn),
       boomerang: (from, toPos, c, onOut, onBack, back) => combat.boomerang(from, toPos, c, onOut, onBack, back),
       haste: (mul, s) => { p.hasteMul = mul; p.hasteT = s; },

@@ -122,6 +122,28 @@
     </div>
   </div>
 
+  <!-- Снаряжение -->
+  <div id="items-panel" class="overlay hidden">
+    <div class="panel wide">
+      <h2 id="it-title"></h2>
+      <div id="it-slots"></div>
+      <div id="it-total" class="cl-small"></div>
+      <div id="it-bag-l" class="it-label"></div>
+      <div id="it-bag"></div>
+      <div id="it-detail" class="hidden">
+        <b id="it-name"></b>
+        <div id="it-bonus"></div>
+        <div id="it-price" class="cl-small"></div>
+        <div class="it-btns">
+          <button id="it-act" class="big primary"></button>
+          <button id="it-drop" class="big danger"></button>
+        </div>
+      </div>
+      <p id="it-hint" class="cl-small"></p>
+      <button id="it-close" class="big"></button>
+    </div>
+  </div>
+
   <!-- Итог матча на арене -->
   <div id="arena-result" class="overlay hidden">
     <div class="panel">
@@ -173,6 +195,7 @@
     <button id="btn-menu" class="icon">☰</button>
     <button id="btn-creatures" class="icon second">🐾</button>
     <button id="btn-build" class="icon third">🔨</button>
+    <button id="btn-items" class="icon fourth">🎒</button>
 
     <div id="tutorial" class="hidden">
       <div class="tut-head"><b id="tut-title"></b><span id="tut-count"></span>

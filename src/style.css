@@ -149,6 +149,20 @@ body.has-pet #pet-cmds { display: flex; }
   #build-bar { bottom: calc(225px + env(safe-area-inset-bottom)); z-index: 2; }
 }
 
+/* Снаряжение */
+#items-panel { z-index: 12; }
+.icon.fourth { top: calc(186px + env(safe-area-inset-top)); }
+#it-slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 8px; }
+#it-bag { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 6px 0 10px; }
+.it-label { text-align: left; font-size: 13px; opacity: .85; margin-top: 8px; }
+.it-cell { aspect-ratio: 1; min-height: 46px; border: 2px solid #ffffff44; border-radius: 12px; background: #ffffff1a; color: #fff; font-size: 15px; padding: 0; touch-action: manipulation; }
+.it-cell.sel { outline: 3px solid #ffe066; }
+.it-cell.locked { opacity: .5; font-size: 12px; }
+#it-detail { background: #ffffff1a; border-radius: 14px; padding: 10px; margin: 8px 0; text-align: left; }
+.it-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.it-btns .big { margin: 6px 0 0; padding: 10px; font-size: 15px; }
+.it-btns .big:disabled { opacity: .45; }
+
 /* Аккаунт и облако */
 #cloud-panel { z-index: 13; }
 .cl-small { font-size: 12px; opacity: .75; }
