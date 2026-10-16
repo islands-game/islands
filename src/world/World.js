@@ -14,6 +14,9 @@ const _sky = new THREE.Color();
 export const ISLAND_RADIUS = 28; // радиус домашнего острова (был 14: острову не хватало места под постройки)
 export const GROUND_Y = 0;
 export const WALK_Y = 0.1; // высота платформ и мостов
+export const WATER_Y = -0.45;   // уровень моря: острова лежат в воде
+export const BEACH = 2;         // ширина песчаного пляжа вокруг острова (по нему можно ходить)
+const SEA_SIZE = 240, SEA_CELLS = 40;
 
 // Острова мира. Чтобы добавить новый остров: допиши запись сюда, портал в PORTALS,
 // врагов в config/enemies.js (ENEMY_SPAWNS) и, если хочешь, существо в config/creatures.js.
@@ -57,24 +60,34 @@ export const ISLANDS = [
   },
 ];
 
+// Порталы стихий и арены стоят по берегу домашнего острова (на разных сторонах, разного цвета):
+// центр острова остаётся свободным для хозяйства. shore(угол) считает место на берегу и поворот лицом к центру.
+const HOME_PORTAL_R = 25.5;
+function shore(deg) {
+  const a = (deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+  const x = +(c * HOME_PORTAL_R).toFixed(2), z = +(s * HOME_PORTAL_R).toFixed(2);
+  return { x, z, rot: +Math.atan2(-x, -z).toFixed(3), inside: { x: +(c * (HOME_PORTAL_R - 3.4)).toFixed(2), z: +(s * (HOME_PORTAL_R - 3.4)).toFixed(2) } };
+}
+export const HOME_SHORE = { arena: shore(0), ice: shore(60), fire: shore(120), earth: shore(180), air: shore(240), water: shore(300) };
+const H = HOME_SHORE;
+
 // Порталы между островами: x, z — где стоит портал, dest — куда он переносит героя
-// recLevel — рекомендуемый уровень героя (портал предупредит, если уровень ниже)
+// recLevel — рекомендуемый уровень героя (портал предупредит, если уровень ниже); shore — портал на берегу (с фонарями и дорожкой)
 export const PORTALS = [
-  { x: 8, z: -6, rot: -0.6, color: 0xb388ff, glow: 0x6a3fd1, dest: { x: 70, z: 4 }, nameKey: 'island.ice', recLevel: 3 },
-  { x: 70, z: -7, rot: 0.4, color: 0x8fe3ff, glow: 0x2a9fd0, dest: { x: 8, z: -3.2 }, nameKey: 'island.home' },
-  { x: -10, z: 7, rot: 0.8, color: 0xff9a4a, glow: 0xd04a10, dest: { x: 140, z: 4 }, nameKey: 'island.fire', recLevel: 6 },
-  { x: 140, z: -7, rot: 0.4, color: 0xffb070, glow: 0xd04a10, dest: { x: -8.5, z: 5 }, nameKey: 'island.home' },
-  // Порталы стихий: у каждой стихии свой остров с королём, который охраняет зверя дня (config/realms.js).
-  // Огонь и лёд — порталы выше. clear — убрать деревья и камни вокруг портала на домашнем острове.
-  { x: -4.3, z: 11.7, rot: 3.1, color: 0xd8b070, glow: 0xa07030, dest: { x: -70, z: 4 }, nameKey: 'island.earth', recLevel: 2, clear: true },
-  { x: -70, z: -7, rot: 0.4, color: 0xd8b070, glow: 0xa07030, dest: { x: -4, z: 8.8 }, nameKey: 'island.home' },
-  { x: 0, z: -12.5, rot: 0, color: 0x5ac8ff, glow: 0x1a7ad0, dest: { x: 210, z: 4 }, nameKey: 'island.water', recLevel: 3, clear: true },
-  { x: 210, z: -7, rot: 0.4, color: 0x8fe3ff, glow: 0x2a9fd0, dest: { x: 0, z: -9.5 }, nameKey: 'island.home' },
-  { x: 12.5, z: 0, rot: -1.57, color: 0xbff0e0, glow: 0x5ac8b0, dest: { x: -140, z: 4 }, nameKey: 'island.air', recLevel: 4, clear: true },
-  { x: -140, z: -7, rot: 0.4, color: 0xbff0e0, glow: 0x5ac8b0, dest: { x: 9.7, z: 0 }, nameKey: 'island.home' },
-  // Арена 5 на 5: портал на домашнем острове и обратный портал у синей базы
-  { x: 9, z: 8, rot: 2.2, color: 0x6aa8ff, glow: 0x1a4aa0, dest: { x: 300, z: 44 }, nameKey: 'island.arena' },
-  { x: 288, z: 50, rot: 0.4, color: 0x8fe3ff, glow: 0x2a9fd0, dest: { x: 9, z: 5 }, nameKey: 'island.home' },
+  // Лёд, огонь, земля, вода, воздух: у каждой стихии свой остров с королём, который охраняет зверя дня (config/realms.js)
+  { x: H.ice.x, z: H.ice.z, rot: H.ice.rot, color: 0xb388ff, glow: 0x6a3fd1, dest: { x: 70, z: 4 }, nameKey: 'island.ice', recLevel: 3, shore: true },
+  { x: 70, z: -7, rot: 0.4, color: 0x8fe3ff, glow: 0x2a9fd0, dest: H.ice.inside, nameKey: 'island.home' },
+  { x: H.fire.x, z: H.fire.z, rot: H.fire.rot, color: 0xff9a4a, glow: 0xd04a10, dest: { x: 140, z: 4 }, nameKey: 'island.fire', recLevel: 6, shore: true },
+  { x: 140, z: -7, rot: 0.4, color: 0xffb070, glow: 0xd04a10, dest: H.fire.inside, nameKey: 'island.home' },
+  { x: H.earth.x, z: H.earth.z, rot: H.earth.rot, color: 0xd8b070, glow: 0xa07030, dest: { x: -70, z: 4 }, nameKey: 'island.earth', recLevel: 2, shore: true },
+  { x: -70, z: -7, rot: 0.4, color: 0xd8b070, glow: 0xa07030, dest: H.earth.inside, nameKey: 'island.home' },
+  { x: H.water.x, z: H.water.z, rot: H.water.rot, color: 0x5ac8ff, glow: 0x1a7ad0, dest: { x: 210, z: 4 }, nameKey: 'island.water', recLevel: 3, shore: true },
+  { x: 210, z: -7, rot: 0.4, color: 0x8fe3ff, glow: 0x2a9fd0, dest: H.water.inside, nameKey: 'island.home' },
+  { x: H.air.x, z: H.air.z, rot: H.air.rot, color: 0xbff0e0, glow: 0x5ac8b0, dest: { x: -140, z: 4 }, nameKey: 'island.air', recLevel: 4, shore: true },
+  { x: -140, z: -7, rot: 0.4, color: 0xbff0e0, glow: 0x5ac8b0, dest: H.air.inside, nameKey: 'island.home' },
+  // Арена 5 на 5: портал на берегу домашнего острова и обратный портал у синей базы
+  { x: H.arena.x, z: H.arena.z, rot: H.arena.rot, color: 0x6aa8ff, glow: 0x1a4aa0, dest: { x: 300, z: 44 }, nameKey: 'island.arena', shore: true },
+  { x: 288, z: 50, rot: 0.4, color: 0x8fe3ff, glow: 0x2a9fd0, dest: H.arena.inside, nameKey: 'island.home' },
 ];
 
 // Остров: земля, деревья, камни, кристаллы, дом, порталы, облака, освещение.
@@ -89,6 +102,7 @@ export class World {
     this.nodes = []; // ресурсы, которые можно собрать (деревья, камни, кристаллы)
     this.portals = [];
     this.clouds = [];
+    this.sea = null;
     this.crystals = [];
     this.portalRings = [];
     this.time = 0;
@@ -110,10 +124,11 @@ export class World {
       this.buildProps(island);
     }
     this.buildHouse();
-    for (const p of PORTALS) if (p.clear) this.clearArea(p.x - 2.5, p.z - 2.5, p.x + 2.5, p.z + 2.5);
+    for (const p of PORTALS) if (p.shore) this.clearArea(p.x - 3, p.z - 3, p.x + 3, p.z + 3);
     buildArenaMap(scene);
     for (const p of PORTALS) this.buildPortal(p);
     this.buildClouds();
+    this.buildSea();
   }
 
   buildLights() {
@@ -163,6 +178,17 @@ export class World {
     rock.rotation.x = Math.PI;
     rock.position.set(x, GROUND_Y - 1 - 6, z);
     this.scene.add(rock);
+
+    // Пляж и пена вокруг острова: остров лежит в море (арена огорожена стенами, у неё пляжа нет)
+    if (island.id !== 'arena') {
+      const sand = new THREE.Mesh(new THREE.CylinderGeometry(r + BEACH, r + BEACH + 0.5, 1, 32), new THREE.MeshLambertMaterial({ color: colors.pad, flatShading: true }));
+      sand.position.set(x, GROUND_Y - 0.52, z);
+      this.scene.add(sand);
+      const foam = new THREE.Mesh(new THREE.RingGeometry(r + BEACH + 0.45, r + BEACH + 1.5, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false }));
+      foam.position.set(x, WATER_Y + 0.03, z);
+      foam.renderOrder = 1;
+      this.scene.add(foam);
+    }
 
     // Стартовая площадка
     const pad = new THREE.Mesh(
@@ -320,7 +346,70 @@ export class World {
     this.portalRings.push(ring);
     this.scene.add(ring, core);
     this.colliders.push({ x: p.x, z: p.z, r: 1.2, active: true });
+    if (p.shore) this.buildShoreDecor(p);
     this.portals.push({ x: p.x, z: p.z, r: 1.2, dest: p.dest, nameKey: p.nameKey, recLevel: p.recLevel ?? 1 });
+  }
+
+  // Береговой портал: две опоры с фонарями цвета портала и деревянная дорожка к воде
+  buildShoreDecor(p) {
+    const wood = new THREE.MeshLambertMaterial({ color: 0x8b5a2b, flatShading: true });
+    const lamp = new THREE.MeshLambertMaterial({ color: p.color, emissive: p.glow, flatShading: true });
+    const wx = Math.cos(p.rot), wz = -Math.sin(p.rot);          // вдоль кольца
+    const ox = -Math.sin(p.rot), oz = -Math.cos(p.rot);         // от центра острова к морю
+    for (const side of [-1, 1]) {
+      const post = new THREE.Mesh(this.postGeo ?? (this.postGeo = new THREE.CylinderGeometry(0.14, 0.18, 2.6, 6)), wood);
+      post.position.set(p.x + wx * 2.5 * side, 1.3, p.z + wz * 2.5 * side);
+      const light = new THREE.Mesh(this.lampGeo ?? (this.lampGeo = new THREE.OctahedronGeometry(0.3, 0)), lamp);
+      light.position.set(post.position.x, 2.85, post.position.z);
+      this.scene.add(post, light);
+      this.colliders.push({ x: post.position.x, z: post.position.z, r: 0.25, active: true });
+    }
+    const plank = new THREE.Mesh(this.plankGeo ?? (this.plankGeo = new THREE.BoxGeometry(2.2, 0.1, 4)), wood);
+    plank.position.set(p.x + ox * 2.6, 0.05, p.z + oz * 2.6);
+    plank.rotation.y = p.rot;
+    this.scene.add(plank);
+  }
+
+  // Море: одна плоскость с лёгкими волнами, следует за героем (setSeaCenter), вдали растворяется в тумане
+  buildSea() {
+    const geo = new THREE.PlaneGeometry(SEA_SIZE, SEA_SIZE, SEA_CELLS, SEA_CELLS).rotateX(-Math.PI / 2);
+    this.sea = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: 0x2f8fd0, flatShading: true }));
+    this.sea.position.y = WATER_Y;
+    this.sea.renderOrder = -2;
+    this.scene.add(this.sea);
+    this.seaBase = geo.attributes.position.array.slice();
+    this.seaT = 0;
+  }
+
+  setSeaCenter(x, z) {
+    const cell = SEA_SIZE / SEA_CELLS;
+    this.sea.position.x = Math.round(x / cell) * cell;        // сетка двигается шагом в клетку, волны не «плывут» по воде
+    this.sea.position.z = Math.round(z / cell) * cell;
+  }
+
+  animateSea(dt) {
+    this.seaT += dt;
+    if (this.seaT < 0.06) return;                              // волны обновляем ~16 раз в секунду
+    const t = this.time, pos = this.sea.geometry.attributes.position, a = pos.array, base = this.seaBase;
+    const cx = this.sea.position.x, cz = this.sea.position.z;
+    for (let i = 0; i < a.length; i += 3) {
+      const wx = base[i] + cx, wz = base[i + 2] + cz;
+      a[i + 1] = Math.sin(wx * 0.18 + t * 1.2) * 0.1 + Math.cos(wz * 0.15 + t * 0.9) * 0.08;
+    }
+    pos.needsUpdate = true;
+    this.seaT = 0;
+  }
+
+  // Ближайшая точка на берегу (для спасения из воды): внутри острова на 2 м от края
+  shorePoint(x, z) {
+    let best = null, bestD = Infinity;
+    for (const i of ISLANDS) {
+      if (i.id === 'arena') continue;
+      const d = Math.hypot(x - i.x, z - i.z) - i.r;
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    const dx = x - best.x, dz = z - best.z, len = Math.hypot(dx, dz) || 1;
+    return { x: best.x + (dx / len) * (best.r - 2), z: best.z + (dz / len) * (best.r - 2) };
   }
 
   buildClouds() {
@@ -413,7 +502,7 @@ export class World {
 
   // Высота земли в точке; null — за краем острова (падение)
   groundAt(x, z) {
-    let y = this.onIsland(x, z) ? GROUND_Y : null;
+    let y = ISLANDS.some(i => Math.hypot(x - i.x, z - i.z) <= i.r + (i.id === 'arena' ? 0 : BEACH)) ? GROUND_Y : null;     // остров и пляж вокруг него
     // Платформы и мосты — тоже земля (можно стоять и выходить за край острова)
     for (const w of this.walkables) {
       if (Math.abs(x - w.x) <= w.hw && Math.abs(z - w.z) <= w.hd) y = WALK_Y;
@@ -469,6 +558,7 @@ export class World {
       c.position.y = GROUND_Y + 1 + Math.sin(this.time * 2 + i) * 0.12;
     });
     this.portalRings.forEach(p => { p.rotation.z += dt * 0.8; });
+    if (this.sea) this.animateSea(dt);
     this.clouds.forEach((c, i) => {
       c.position.x += dt * (0.3 + (i % 3) * 0.1);
       if (c.position.x > 210) c.position.x = -70;

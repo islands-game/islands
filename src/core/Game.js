@@ -62,6 +62,7 @@ export class Game {
     this.world = new World(this.scene);
     this.player = new Player(this.scene, this.world);
     this.inventory = new Inventory();
+    this.player.onWater = () => this.rescueFromWater();
     this.cameraCtl = new CameraController(this.camera);
     this.input = new InputManager(canvas);
     this.ui = new UIManager({
@@ -365,6 +366,19 @@ export class Game {
       this.setTutorialStep(this.tutorialStep + 1);
       if (this.tutorialStep < TUTORIAL_DONE) this.ui.toast('✔');
     }
+  }
+
+  // Упал в воду: вытаскивают на ближайший берег, небольшой урон (5%), ничего не теряется
+  rescueFromWater() {
+    const p = this.player;
+    if (this.arena.active || p.dead) return;
+    const pt = this.world.shorePoint(p.pos.x, p.pos.z);
+    this.combat.ring({ x: p.pos.x, y: 0, z: p.pos.z }, 0x8fd3ff, 3, 0.6);
+    p.pos.set(pt.x, 0, pt.z);
+    p.vy = 0;
+    p.hp = Math.max(1, p.hp - Math.max(1, Math.round(p.maxHp * 0.05)));
+    this.ui.toast(t('water.rescue'));
+    events.emit('hurt');
   }
 
   // Выпал предмет по таблице spec (config/items.js) в точке at. Если сумка полна, предмет теряется.
@@ -718,6 +732,7 @@ export class Game {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this.sampleFps();
     this.world.update(dt);
+    this.world.setSeaCenter(this.player.pos.x, this.player.pos.z);
 
     if (this.playing) {
       this.input.poll();

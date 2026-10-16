@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GROUND_Y } from '../world/World.js';
+import { GROUND_Y, WATER_Y } from '../world/World.js';
 import { DEFAULT_HERO, HEROES, ELEMENTS, mainStats } from '../config/heroes.js';
 import { buildHeroModel } from './HeroModels.js';
 import { heroBaseHp, heroBaseAtk } from '../progression/Progression.js';
@@ -176,7 +176,8 @@ export class Player {
       this.onGround = false;
     }
 
-    // Упал с острова — возвращаем на стартовую площадку
+    // Упал с острова в море: на берег вытаскивает Game (маленький урон, ничего не теряется)
+    if (ground === null && this.pos.y < WATER_Y - 0.6) this.onWater?.();
     if (this.pos.y < -25) this.respawn();
 
     this.mesh.position.copy(this.pos);
