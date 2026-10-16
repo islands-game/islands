@@ -3,13 +3,14 @@ import { Enemy } from './Enemy.js';
 import { ENEMIES, ENEMY_SPAWNS, NIGHT_MONSTER_COUNT } from '../config/enemies.js';
 import { t } from '../config/i18n.js';
 import { events } from '../core/Events.js';
-import { HEROES, ELEMENTS, mainStats } from '../config/heroes.js';
+import { mainStats } from '../config/heroes.js';
 
 const RESPAWN_DELAY = 2;
 
 const ringGeo = new THREE.RingGeometry(0.5, 0.65, 28).rotateX(-Math.PI / 2);
 const ballGeo = new THREE.SphereGeometry(0.22, 8, 6);
 const discGeo = new THREE.CircleGeometry(1, 32).rotateX(-Math.PI / 2);
+const boomGeo = new THREE.BoxGeometry(0.9, 0.08, 0.2);
 
 // Единая боевая система: герой, существа и враги наносят урон через неё.
 export class CombatSystem {
@@ -21,6 +22,7 @@ export class CombatSystem {
     this.onKill = onKill;
     this.enemies = [];
     this.effects = [];
+    this.timers = [];
     this.heroCd = 0;
     this.deadTimer = 0;
     this.nightActive = false;
@@ -92,6 +94,7 @@ export class CombatSystem {
     this.calmTrees();
     this.enemies.forEach(e => e.respawn());
     this.heroCd = 0;
+    this.timers = [];
     this.deadTimer = 0;
   }
 
@@ -111,39 +114,10 @@ export class CombatSystem {
 
   // --- Атаки ---
 
-  heroAttack() {
-    const p = this.player;
-    if (p.dead || this.heroCd > 0) return;
-    const hero = HEROES[p.heroId], st = mainStats(p.heroId);
-    this.heroCd = st.cooldown;
-    events.emit('swing');
-    const target = this.nearestEnemy(p.pos, st.range);
-    const front = new THREE.Vector3(Math.sin(p.facing), 0, Math.cos(p.facing)).multiplyScalar(1.2).add(p.pos);
-    if (st.range < 4) this.ring(front, 0xffffff, 1.2, 0.2);
-    if (!target) return;
-    p.facing = Math.atan2(target.pos.x - p.pos.x, target.pos.z - p.pos.z);
-    const dmg = Math.round(this.heroHit(p) * (0.9 + Math.random() * 0.2));
-    const color = ELEMENTS[hero.element].color;
-    if (st.range >= 4) this.projectile(p.pos, target, color, () => this.heroDamage(target, dmg, hero), 0.25);
-    else this.heroDamage(target, dmg, hero);
-  }
-
   // Урон одного удара героя: базовый урон уровня × класс. Перезарядка дольше — удар сильнее, урон в секунду тот же.
   heroHit(p) {
     const st = mainStats(p.heroId);
     return p.atk * st.dpsMul * (st.hitCooldown / 0.5);
-  }
-
-  // Удар героя по врагу + эффект стихии
-  heroDamage(enemy, dmg, hero) {
-    this.damageEnemy(enemy, dmg, '#ffffff');
-    const el = ELEMENTS[hero.element];
-    if (el.burn && !enemy.dead) this.applyBurn(enemy, dmg * el.burn.ratio, el.burn.time);
-    if (el.slow && !enemy.dead) this.applySlow(enemy, el.slow.mul, el.slow.time);
-    if (el.drain) {
-      const got = this.player.heal(dmg * el.drain);
-      if (got > 0) this.ui.floatText(this.player.pos.clone().setY(2.2), `+${got}`, '#6bff9a');
-    }
   }
 
   // Горение: урон раз в секунду, всего total за time секунд
@@ -151,6 +125,44 @@ export class CombatSystem {
     enemy.burnT = time;
     enemy.burnDps = total / time;
     enemy.burnAcc = 0;
+  }
+
+  // Отложенное действие (двойной удар, веер снарядов)
+  later(sec, fn) {
+    if (sec <= 0) return fn();
+    this.timers.push({ t: sec, fn });
+  }
+
+  // Бумеранг: летит к точке и возвращается к герою (по живой позиции). from и back — Vector3.
+  boomerang(from, toPos, color, onOut, onBack, backPos) {
+    const mat = new THREE.MeshBasicMaterial({ color });
+    const mesh = new THREE.Group();
+    const a = new THREE.Mesh(boomGeo, mat), b = new THREE.Mesh(boomGeo, mat);
+    a.rotation.y = 0.6; b.rotation.y = -0.6;
+    mesh.add(a, b);
+    const start = new THREE.Vector3(from.x, 1.0, from.z);
+    const mid = new THREE.Vector3(toPos.x, 1.0, toPos.z);
+    mesh.position.copy(start);
+    this.scene.add(mesh);
+    this.effects.push({
+      mesh, mat, t: 0, dur: 0.45,
+      tick: k => { mesh.position.lerpVectors(start, mid, k); mesh.rotation.y += 0.7; },
+      onEnd: () => {
+        onOut?.();
+        const mat2 = new THREE.MeshBasicMaterial({ color });
+        const m2 = new THREE.Group();
+        const c = new THREE.Mesh(boomGeo, mat2), d = new THREE.Mesh(boomGeo, mat2);
+        c.rotation.y = 0.6; d.rotation.y = -0.6;
+        m2.add(c, d);
+        m2.position.copy(mid);
+        this.scene.add(m2);
+        this.effects.push({
+          mesh: m2, mat: mat2, t: 0, dur: 0.45,
+          tick: k => { const to = backPos ?? from; m2.position.lerpVectors(mid, new THREE.Vector3(to.x, 1.0, to.z), k); m2.rotation.y += 0.7; },
+          onEnd: onBack,
+        });
+      },
+    });
   }
 
   // Замедление врага
@@ -265,6 +277,11 @@ export class CombatSystem {
 
   update(dt, camera) {
     this.heroCd = Math.max(0, this.heroCd - dt);
+    for (let i = this.timers.length - 1; i >= 0; i--) {
+      const tm = this.timers[i];
+      tm.t -= dt;
+      if (tm.t <= 0) { this.timers.splice(i, 1); tm.fn(); }
+    }
 
     const ctx = { player: this.player, world: this.world, combat: this };
     for (const e of this.enemies) {

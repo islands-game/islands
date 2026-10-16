@@ -44,19 +44,29 @@ export const CLASSES = {
 export const CLASS_ORDER = ['warrior', 'archer', 'mage', 'assassin', 'support'];
 
 // Особенности конкретного героя поверх класса. Ключ — `${класс}_${стихия}`.
-// cdMul — перезарядка (урон за удар растёт в ту же сторону, поэтому урон в секунду не меняется).
-// cdMul — перезарядка автоатаки (удар сильнее ровно во столько же раз — урон в секунду не меняется),
-// range — своя дальность. Это «оружие» героя: топор, молот, арбалет, бумеранг и т. д.
+// cdMul — перезарядка автоатаки (удар сильнее ровно во столько же раз — урон в секунду не меняется);
+// range — своя дальность; attack — механика «оружия» (combat/Attacks.js):
+//   splash/splashFrac — удар по области, pierce — пробивает N целей, multi — N быстрых ударов,
+//   fan — веер из N снарядов по разным целям, chain — цепная молния, boomerang — летит и возвращается.
 const VARIANTS = {
-  warrior_water: { range: 3.4 },                 // трезубец: бьёт дальше
-  warrior_earth: { cdMul: 1.25 },                // молот: медленнее и тяжелее
-  warrior_air: { cdMul: 0.7 },                   // двойные клинки: быстрее и легче
-  archer_fire: { cdMul: 1.5 },                   // арбалет: тяжёлый болт
-  archer_water: { cdMul: 1.2, range: 10 },       // копьё: дальше и тяжелее
-  archer_ice: { cdMul: 0.8 },                    // лук: быстрые стрелы
-  archer_earth: { cdMul: 2 },                    // бумеранг: возвращается, двойной урон, стрельба вдвое реже
-  archer_air: { cdMul: 0.7 },                    // метательные ножи: быстро и легко
-  mage_earth: { cdMul: 1.5 },                    // камень: медленно и тяжело
+  warrior_fire: { attack: { splash: 1.6, splashFrac: 0.5 } },            // большой меч: широкий взмах
+  warrior_water: { range: 3.4, attack: { pierce: 2 } },                  // трезубец: колет двоих по линии
+  warrior_ice: { attack: {} },                                           // топор: удар замедляет (стихия)
+  warrior_earth: { cdMul: 1.25, attack: { splash: 2.0, splashFrac: 0.6 } },   // молот: тяжёлый удар по области
+  warrior_air: { cdMul: 0.7, attack: { multi: 2 } },                     // двойные клинки: два быстрых удара
+  archer_fire: { cdMul: 1.5, attack: { splash: 1.5, splashFrac: 0.5 } }, // арбалет: взрывной болт
+  archer_water: { cdMul: 1.2, range: 10, attack: { pierce: 3 } },        // копьё: пробивает троих
+  archer_ice: { cdMul: 0.8, attack: {} },                                // лук: быстрые стрелы, замедляют
+  archer_earth: { cdMul: 2, attack: { boomerang: true } },               // бумеранг: два удара за бросок, бросок вдвое реже
+  archer_air: { cdMul: 0.7, attack: { fan: 3 } },                        // метательные ножи: веер по трём целям
+  mage_fire: { attack: { splash: 2.0, splashFrac: 0.5 } },               // огненный шар со взрывом
+  mage_water: { attack: { pierce: 3 } },                                 // волна: бьёт троих по линии
+  mage_ice: { attack: { pierce: 2 } },                                   // осколок: пробивает двоих, замедляет
+  mage_earth: { cdMul: 1.5, attack: { splash: 2.2, splashFrac: 0.7 } },  // камень: медленно, тяжело, по области
+  mage_air: { attack: { chain: 2 } },                                    // цепная молния
+  assassin_water: { attack: { multi: 2 } },                              // мечи-близнецы
+  assassin_earth: { attack: { splash: 1.4, splashFrac: 0.5 } },          // когти: рвут рядом стоящих
+  assassin_air: { attack: { multi: 2 } },                                // шурикены: два броска
 };
 
 export const HEROES = {};

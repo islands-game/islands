@@ -1,5 +1,8 @@
+import * as THREE from 'three';
 import { HEROES, SKILLS } from '../config/heroes.js';
 import { castSkill } from '../combat/Skills.js';
+import { performHeroAttack } from '../combat/Attacks.js';
+import { mainStats } from '../config/heroes.js';
 import { events } from '../core/Events.js';
 import { t } from '../config/i18n.js';
 
@@ -30,6 +33,25 @@ export class HeroSkills {
     if (!castSkill(this.context(), id)) return g.ui.toast(t('noTarget'));
     this.cd[i] = SKILLS[id].cooldown;
     events.emit('slam');
+  }
+
+  // Автоатака героя: у каждого оружия своя механика (combat/Attacks.js)
+  attack() {
+    const g = this.game, p = g.player, combat = g.combat;
+    if (p.dead || combat.heroCd > 0) return;
+    const st = mainStats(p.heroId);
+    combat.heroCd = st.cooldown;
+    events.emit('swing');
+    const ctx = this.context();
+    const target = ctx.foes(st.range)[0];
+    if (st.range < 4) {
+      const front = new THREE.Vector3(Math.sin(p.facing), 0, Math.cos(p.facing)).multiplyScalar(1.2).add(p.pos);
+      combat.ring(front, 0xffffff, 1.2, 0.2);
+    }
+    if (!target) return;
+    p.facing = Math.atan2(target.pos.x - p.pos.x, target.pos.z - p.pos.z);
+    const dmg = Math.round(combat.heroHit(p) * (0.9 + Math.random() * 0.2));
+    performHeroAttack(ctx, p.heroId, target, dmg);
   }
 
   // Подключение к миру островов
@@ -70,6 +92,8 @@ export class HeroSkills {
         return { x: Math.sin(p.facing), z: Math.cos(p.facing) };
       },
       lifesteal: n => playerAlly.heal(n),
+      later: (s, fn) => combat.later(s, fn),
+      boomerang: (from, toPos, c, onOut, onBack, back) => combat.boomerang(from, toPos, c, onOut, onBack, back),
       haste: (mul, s) => { p.hasteMul = mul; p.hasteT = s; },
       face: a => { p.facing = a; },
       ring: (pos, c, size, dur) => combat.ring(pos, c, size, dur),

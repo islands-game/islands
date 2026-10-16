@@ -3,6 +3,7 @@ import { ARENA, lanePath } from '../config/arena.js';
 import { Unit } from './ArenaUnit.js';
 import { HEROES, SKILLS, ELEMENTS, arenaStats } from '../config/heroes.js';
 import { castSkill } from '../combat/Skills.js';
+import { performHeroAttack } from '../combat/Attacks.js';
 import { events } from '../core/Events.js';
 import { t } from '../config/i18n.js';
 
@@ -13,13 +14,6 @@ const OTHER = { blue: 'red', red: 'blue' };
 const LANES = ['left', 'mid', 'right'];
 const world = (lx, lz) => ({ x: C.x + lx, z: C.z + lz });
 const dist = (a, b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z);
-// Лечит героя и показывает число (для лечения от удара воды)
-function allyHeal(sys, u, n) {
-  const before = u.s.external ? sys.player.hp : u.hp;
-  u.heal(n);
-  const got = Math.round((u.s.external ? sys.player.hp : u.hp) - before);
-  if (got > 0 && u.isPlayer) { const at = u.pos.clone(); at.y += 2.2; sys.ui.floatText(at, `+${got}`, '#6bff9a'); }
-}
 const edge = (a, b) => dist(a, b) - b.radius;                // расстояние до края цели
 
 // Матч 5 на 5: башни, кристаллы, крипы, герои-боты, лес с монстрами и короли.
@@ -364,16 +358,16 @@ export class ArenaSystem {
     a.atkCd = a.cooldown;
     a.facing = Math.atan2(b.pos.x - a.pos.x, b.pos.z - a.pos.z);
     const dmg = a.atk;
+    if (a.heroId) {                                   // герой: механика оружия (бумеранг, веер, молния…)
+      const ctx = this.skillCtx(a);
+      performHeroAttack(ctx, a.heroId, ctx.adapt(b), dmg);
+      if (a.isPlayer) events.emit('swing');
+      return true;
+    }
     const apply = () => {
       if (b.dead) return;
       const dealt = b.takeDamage(dmg, a);
       if (dealt > 0 && (a.isPlayer || b.isPlayer)) this.number(b, dealt, b.isPlayer ? '#ff6b6b' : '#ffffff');
-      const el = a.element ? ELEMENTS[a.element] : null;
-      if (el && dealt > 0 && !b.dead) {
-        if (el.burn) this.burnUnit(b, a, dmg * el.burn.ratio, el.burn.time);
-        if (el.slow) this.slowUnit(b, el.slow.mul, el.slow.time);
-      }
-      if (el?.drain && dealt > 0) allyHeal(this, a, dmg * el.drain);
     };
     if (a.range > 3.2) this.game.combat.projectile(a.pos, b, a.team === 'blue' ? 0x7ab8ff : a.team === 'red' ? 0xff7a7a : 0xffd27a, apply, 0.28);
     else apply();
@@ -927,6 +921,9 @@ export class ArenaSystem {
         return { x: Math.sin(u.facing), z: Math.cos(u.facing) };
       },
       lifesteal: n => allyAdapter(u).heal(n),
+      later: (s, fn) => g.combat.later(s, fn),
+      boomerang: (from, toPos, c, onOut, onBack, back) => g.combat.boomerang(from, toPos, c, onOut, onBack, back),
+      adapt: foeAdapter,
       haste: (mul, s) => {
         if (isPlayer) { p.hasteMul = mul; p.hasteT = s; } else { u.hasteMul = mul; u.hasteT = s; }
       },

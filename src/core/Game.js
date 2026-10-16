@@ -481,7 +481,7 @@ export class Game {
       if (input.consume('cancel')) this.build.cancel();
     } else {
       input.consume('confirm'); input.consume('rotate'); input.consume('cancel');
-      if (input.consume('attack')) this.combat.heroAttack();
+      if (input.consume('attack')) this.skills.attack();
       for (let i = 1; i <= 3; i++) if (input.consume('spell' + i)) this.skills.cast(i - 1);
       if (input.consume('interact')) this.interact();
     }

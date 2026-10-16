@@ -227,12 +227,13 @@ export class UIManager {
       list.appendChild(b);
     }
     const h = HEROES[this.selectedHero], st = arenaStats(this.selectedHero);
+    const spec = h.attack ?? {}, kind = ['boomerang', 'fan', 'multi', 'pierce', 'chain', 'splash'].find(k => spec[k]) ?? 'plain';
     const skills = h.skills.map(s => `<div class="sk"><b>${SKILLS[s].icon} ${t('skill.' + s)}</b><span>${t('skilltype.' + SKILLS[s].type)}</span></div>`).join('');
     this.$('hs-info').innerHTML =
       `<div class="desc"><b>${t('cls.' + h.cls)} · ${t('el.' + h.element)}</b><br>${t('clsd.' + h.cls)}<br>${t('elp.' + h.element)}</div>` +
       `<div class="stats"><span>❤ ${t('stat.hp')}: ${st.hp}</span><span>⚔ ${t('stat.atk')}: ${Math.round(st.atk)}</span>` +
       `<span>🎯 ${t('stat.range')}: ${st.range}</span><span>👟 ${t('stat.speed')}: ${st.speed}</span></div>` +
-      `<h4>${t('autoAttack')} + ${t('skillsLabel')}</h4>${skills}`;
+      `<h4>${t('autoAttack')}</h4><div class="sk"><b>⚔ ${t('weapon')}</b><span>${t('atk.' + kind)}</span></div><h4>${t('skillsLabel')}</h4>${skills}`;
   }
 
   // Три кнопки умений героя: значок умения или секунды до готовности
