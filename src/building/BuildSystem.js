@@ -6,6 +6,7 @@ import { t } from '../config/i18n.js';
 import { events } from '../core/Events.js';
 
 const DEMOLISH = 'demolish';
+const UPGRADE = 'upgrade';
 const MAX_COORD = 40;
 const ghostMat = new THREE.MeshBasicMaterial({ color: 0x44ff88, transparent: true, opacity: 0.5, depthWrite: false });
 
@@ -22,6 +23,7 @@ export class BuildSystem {
     this.x = 0;
     this.z = 0;
     this.demolishTarget = null;
+    this.upgradeTarget = null;
   }
 
   get active() {
@@ -34,7 +36,7 @@ export class BuildSystem {
     this.cancel();
     this.mode = mode;
     this.rot = 0;
-    if (mode !== DEMOLISH) {
+    if (mode !== DEMOLISH && mode !== UPGRADE) {
       this.ghost = buildModel(BUILDINGS[mode]);
       this.ghost.traverse(o => { if (o.isMesh) { o.material.dispose(); o.material = ghostMat; } });
       this.scene.add(this.ghost);
@@ -49,10 +51,11 @@ export class BuildSystem {
     }
     this.mode = null;
     this.demolishTarget = null;
+    this.upgradeTarget = null;
   }
 
   rotate() {
-    if (this.mode && this.mode !== DEMOLISH) this.rot = (this.rot + 1) % 4;
+    if (this.mode && this.mode !== DEMOLISH && this.mode !== UPGRADE) this.rot = (this.rot + 1) % 4;
   }
 
   // --- Проверка места ---
@@ -104,6 +107,12 @@ export class BuildSystem {
       return;
     }
 
+    if (this.mode === UPGRADE) {
+      const fx = p.pos.x + forward.x * 2.5, fz = p.pos.z + forward.z * 2.5;
+      this.upgradeTarget = this.nearestPlaced(fx, fz, 3.5, true);
+      this.valid = !!this.upgradeTarget && !!this.canUpgrade?.(this.upgradeTarget);
+      return;
+    }
     const def = BUILDINGS[this.mode];
     const r = this.rectFor(def, 0, 0, this.rot);
     const dist = 2.5 + Math.max(r.hw, r.hd);
@@ -115,9 +124,10 @@ export class BuildSystem {
     ghostMat.color.set(this.valid ? 0x44ff88 : 0xff5555);
   }
 
-  nearestPlaced(x, z, range) {
+  nearestPlaced(x, z, range, withExtra = false) {
     let best = null, bestD = range;
-    for (const b of this.placed) {
+    const list = withExtra ? [...this.placed, ...(this.extraTargets?.() ?? [])] : this.placed;      // extra — стартовый дом
+    for (const b of list) {
       // расстояние до прямоугольника, а не до центра
       const nx = Math.max(b.rect.x - b.rect.hw, Math.min(b.rect.x + b.rect.hw, x));
       const nz = Math.max(b.rect.z - b.rect.hd, Math.min(b.rect.z + b.rect.hd, z));
@@ -130,6 +140,7 @@ export class BuildSystem {
   // Текст для панели подсказки: что выбрано и сколько стоит
   infoText() {
     if (this.mode === DEMOLISH) return t('demolish');
+    if (this.mode === UPGRADE) return this.upgradeTarget ? this.upgradeText?.(this.upgradeTarget) ?? '' : t('upgrade');
     return t('building.' + this.mode);
   }
 
@@ -138,6 +149,7 @@ export class BuildSystem {
   confirm() {
     if (!this.active) return;
     if (this.mode === DEMOLISH) return this.demolish();
+    if (this.mode === UPGRADE) return this.upgradeTarget ? this.onUpgrade?.(this.upgradeTarget) : this.ui.toast(t('nothingToUpgrade'));
     const def = BUILDINGS[this.mode];
     if (this.placed.length >= MAX_BUILDINGS) return this.ui.toast(t('limitReached'));
     if (!this.valid) return this.ui.toast(t('cantBuildHere'));
@@ -161,7 +173,7 @@ export class BuildSystem {
 
   // --- Список построек ---
 
-  add({ id, x, z, rot, state, hp, def: defense }) {
+  add({ id, x, z, rot, state, hp, def: defense, lvl }) {
     const def = BUILDINGS[id];
     const mesh = buildModel(def);
     mesh.position.set(x, 0, z);
@@ -171,8 +183,9 @@ export class BuildSystem {
     const rec = { id, x, z, rot, mesh, rect, walk: null, solid: null, struct: null, state: state ?? null };
     // Прочность и защита (амбар): у дома, платформ и мостов их нет — они неуязвимы
     if (BUILDINGS[id].hp) { rec.maxHp = BUILDINGS[id].hp; rec.hp = Number.isFinite(hp) ? Math.min(hp, rec.maxHp) : rec.maxHp; }
-    if (BUILDINGS[id].defense) { rec.maxDef = BUILDINGS[id].defense; rec.def = Number.isFinite(defense) ? Math.min(defense, rec.maxDef) : rec.maxDef; }
-    if (def.structure) rec.struct = this.world.registerStructure(def, x, z, rot, mesh);
+    if (BUILDINGS[id].defense) { rec.maxDef = BUILDINGS[id].defense; rec.def = Number.isFinite(defense) ? Math.min(defense, 480) : rec.maxDef; }      // 480 — защита амбара 3 уровня
+    rec.lvl = Number.isFinite(lvl) ? Math.max(1, Math.min(3, Math.floor(lvl))) : 1;
+    if (def.structure) { rec.struct = this.world.registerStructure(def, x, z, rot, mesh); rec.struct.lvl = rec.lvl; }
     if (def.solid) { rec.solid = { ...rect }; this.world.rects.push(rec.solid); }
     if (def.walkable) { rec.walk = { ...rect }; this.world.walkables.push(rec.walk); }
     this.placed.push(rec);
@@ -199,6 +212,7 @@ export class BuildSystem {
     return this.placed.map(b => {
       const o = { id: b.id, x: b.x, z: b.z, rot: b.rot };
       if (b.state) o.state = b.state;
+      if (b.lvl > 1) o.lvl = b.lvl;
       if (b.hp !== undefined) o.hp = Math.round(b.hp);
       if (b.def !== undefined) o.def = Math.round(b.def);
       return o;
@@ -213,4 +227,4 @@ export class BuildSystem {
   }
 }
 
-export { DEMOLISH };
+export { DEMOLISH, UPGRADE };

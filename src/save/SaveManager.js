@@ -5,6 +5,7 @@
 // Версия 7: + список зверей рядом с героем (creatures.actives, у поддержки до 3). Старые читаются с одним зверем (active).
 // Версия 8: звери из порталов (виды × стихии, creatures.*), освобождённые звери по дням (realms.freed), новый порядок заданий.
 // Старые существа превращаются в новых зверей (LEGACY_CREATURES).
+// Версия 12: уровни построек и стартового дома (lvl, houseLevel), уровень рюкзака (inventory.bag), торговец (merchant: день и сколько золота заплатил).
 // Версия 11: прочность построек (hp), защита амбара (def), страховка амбара (state.ins). Старые версии читаются без потерь.
 // Версия 10: еда в рюкзаке (inventory.food), состояние построек (ферма, загон, амбар) и сытость зверей (fed, hunger).
 // Версия 9: золото вместо кристаллов (старые кристаллы становятся золотом), лимит рюкзака. Старые версии читаются без потерь.
@@ -21,7 +22,7 @@ import { DEFAULT_HERO, isHero } from '../config/heroes.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
@@ -91,7 +92,9 @@ function validate(raw) {
       xp: Math.max(0, num(p.xp, 0)),
     },
     // Версия 9: кристаллы стали золотом; рюкзак ограничен (CARRY)
-    inventory: { ...Object.fromEntries(RESOURCE_ORDER.map(k => [k, int(k === 'gold' ? (inv.gold ?? inv.crystal) : inv[k], 0, CARRY[k] ?? 9999, 0)])), food: validateFood(inv.food) },
+    inventory: { ...Object.fromEntries(RESOURCE_ORDER.map(k => [k, int(k === 'gold' ? (inv.gold ?? inv.crystal) : inv[k], 0, (CARRY[k] ?? 9999) + (k === 'gold' ? 0 : 45), 0)])), food: validateFood(inv.food), bag: int(inv.bag, 0, 3, 0) },
+    houseLevel: int(raw.houseLevel, 1, 3, 1),
+    merchant: { day: /^\d{4}-\d{2}-\d{2}$/.test(raw.merchant?.day ?? '') ? raw.merchant.day : null, earned: int(raw.merchant?.earned, 0, 500, 0) },
     creatures: validateCreatures(raw.creatures),
     buildings: validateBuildings(raw.buildings),
     // В старых сохранениях обучения не было — считаем его пройденным
@@ -111,9 +114,10 @@ function validate(raw) {
 
 // Еда в рюкзаке: целые числа, всего не больше FOOD_CARRY
 function validateFood(raw) {
-  const food = Object.fromEntries(FOOD_ORDER.map(k => [k, int(raw?.[k], 0, FOOD_CARRY, 0)]));
+  const cap = FOOD_CARRY + 18;                       // не больше, чем вмещает рюкзак высшего уровня
+  const food = Object.fromEntries(FOOD_ORDER.map(k => [k, int(raw?.[k], 0, cap, 0)]));
   let total = FOOD_ORDER.reduce((s, k) => s + food[k], 0);
-  for (const k of FOOD_ORDER) while (total > FOOD_CARRY && food[k] > 0) { food[k]--; total--; }
+  for (const k of FOOD_ORDER) while (total > cap && food[k] > 0) { food[k]--; total--; }
   return food;
 }
 
@@ -129,6 +133,7 @@ function validateBuildings(raw) {
       z: Math.max(-MAX_COORD, Math.min(MAX_COORD, b.z)),
       rot: int(b.rot, 0, 3, 0),
       state: cleanState(b.id, b.state),     // ферма, загон, амбар хранят своё состояние (у остальных постройки null)
+      lvl: int(b.lvl, 1, 3, 1),
       hp: Number.isFinite(b.hp) ? Math.max(1, Math.min(2000, b.hp)) : undefined,
       def: Number.isFinite(b.def) ? Math.max(0, Math.min(2000, b.def)) : undefined,
     });

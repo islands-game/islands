@@ -23,9 +23,9 @@ export function cleanState(id, raw) {
       return { s: r.s, t: num(r.t, 0, 10000, 0), water: r.water === true, gold: r.gold === true, left: Math.floor(num(r.left, 0, 20, 0)) };
     });
   } else if (id === 'pen' && Array.isArray(raw.slots)) {
-    st.slots = st.slots.map((s, i) => ({ t: num(raw.slots[i]?.t, 0, 10000, 0), stock: Math.floor(num(raw.slots[i]?.stock, 0, PEN.slots[i].max, 0)) }));
+    st.slots = st.slots.map((s, i) => ({ t: num(raw.slots[i]?.t, 0, 10000, 0), stock: Math.floor(num(raw.slots[i]?.stock, 0, PEN.slots[i].max * 2, 0)) }));
   } else if (id === 'barn' && raw.items && typeof raw.items === 'object') {
-    for (const k of BARN_ITEMS) st.items[k] = Math.floor(num(raw.items[k], 0, BARN.cap, 0));
+    for (const k of BARN_ITEMS) st.items[k] = Math.floor(num(raw.items[k], 0, 300, 0));
     st.ins = Math.floor(num(raw.ins, 0, 99, 0));
   }
   return st;

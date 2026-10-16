@@ -15,13 +15,16 @@ const _v = new THREE.Vector3();
 
 // Интерфейс: меню, полоски, ресурсы, спутник, подсказки, панель существ, всплывающий урон.
 export class UIManager {
-  constructor({ onStart, onContinue, onMenu, onSummon, onRelease, onBarn, onSelectBuilding, onSkipTutorial, press, isTouch }) {
+  constructor({ onStart, onContinue, onMenu, onSummon, onRelease, onBarn, onMerchant, onSelectBuilding, onSkipTutorial, press, isTouch }) {
     this.$ = id => document.getElementById(id);
     this.isTouch = isTouch;
     this.press = press;
     this.onSummon = onSummon;
     this.onRelease = onRelease;
     this.onBarn = onBarn;
+    this.onMerchant = onMerchant;
+    this.$('merchant-close').onclick = () => onMerchant('close');
+    this.$('barn-bag').onclick = () => onBarn('bag');
     this.$('barn-deposit').onclick = () => onBarn('deposit');
     this.$('barn-close').onclick = () => onBarn('close');
     this.$('barn-insure').onclick = () => onBarn('insure');
@@ -213,7 +216,9 @@ export class UIManager {
   showBarn(show, view) {
     this.$('barn-panel').classList.toggle('hidden', !show);
     if (!show) return;
-    this.$('barn-title').textContent = `${t('building.barn')} · ${t('barn.cap')} ${view.cap}`;
+    this.$('barn-title').textContent = `${t('building.barn')} ${t('level')} ${view.lvl} · ${t('barn.cap')} ${view.cap}`;
+    this.$('barn-bag').textContent = view.bagCost === null ? `${t('bag.title')} ${view.bagLvl}: ${t('upgrade.max')}` : `${t('bag.expand')} ${view.bagLvl} → ${view.bagLvl + 1} (🪙${view.bagCost})`;
+    this.$('barn-bag').disabled = view.bagCost === null;
     this.$('barn-info').textContent = `🛡 ${t('barn.defense')}: ${view.def}/${view.maxDef} · ${t('barn.insurance')}: ${view.ins > 0 ? `${view.ins} ${t('barn.days')}` : t('barn.none')}`;
     this.$('barn-insure').textContent = `${t('barn.insure')} (🪙${DEFENSE.barn.insuranceGold})`;
     this.$('barn-repair').textContent = `${t('barn.repairDef')} (🌲${DEFENSE.barn.repairCost.wood})`;
@@ -235,6 +240,36 @@ export class UIManager {
       btn.disabled = r.stored <= 0;
       btn.onclick = () => this.onBarn('take', r.key);
       row.append(info, btn);
+      list.appendChild(row);
+    }
+  }
+
+  // Торговец: цены дня, сколько золота ещё заплатит
+  showMerchant(show, view) {
+    this.$('merchant-panel').classList.toggle('hidden', !show);
+    if (!show) return;
+    this.$('merchant-title').textContent = t('merchant.title');
+    this.$('merchant-info').textContent = `${t('merchant.left')}: 🪙${view.left}`;
+    this.$('merchant-close').textContent = t('close');
+    const list = this.$('merchant-list');
+    list.textContent = '';
+    for (const r of view.rows) {
+      const row = document.createElement('div');
+      row.className = 'cr-row';
+      const info = document.createElement('div');
+      info.textContent = `${r.icon} ${r.name}: ${r.have}`;
+      const small = document.createElement('small');
+      small.textContent = `🪙${r.price} ${t('merchant.each')}${r.mul >= 1.3 ? ' 📈' : r.mul <= 0.8 ? ' 📉' : ''}`;
+      info.appendChild(small);
+      const one = document.createElement('button');
+      one.textContent = '1';
+      one.disabled = r.have <= 0 || view.left < r.price;
+      one.onclick = () => this.onMerchant('sell', r.key);
+      const all = document.createElement('button');
+      all.textContent = t('merchant.all');
+      all.disabled = one.disabled;
+      all.onclick = () => this.onMerchant('sellAll', r.key);
+      row.append(info, one, all);
       list.appendChild(row);
     }
   }
@@ -411,6 +446,7 @@ export class UIManager {
       list.appendChild(row);
     };
     for (const it of items) add(it.id, t('building.' + it.id), this.costText(it.cost), it.canAfford);
+    add('upgrade', '⬆ ' + t('upgrade'), t('upgrade.hint'), true);
     add('demolish', '🗑 ' + t('demolish'), '', true);
   }
 
@@ -495,8 +531,8 @@ export class UIManager {
     }
 
     this.foodEl.textContent = `🍎 ${inventory.foodTotal()}`;
-    this.foodEl.title = `${inventory.foodTotal()}/${FOOD_CARRY}`;
-    this.foodEl.classList.toggle('full', inventory.foodTotal() >= FOOD_CARRY);
+    this.foodEl.title = `${inventory.foodTotal()}/${inventory.foodCap()}`;
+    this.foodEl.classList.toggle('full', inventory.foodTotal() >= inventory.foodCap());
     this.$('pet').classList.toggle('hidden', !pet);
     document.body.classList.toggle('has-pet', !!pet);
     if (pet) {

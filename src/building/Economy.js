@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { BUILDINGS, DEFENSE } from '../config/buildings.js';
 import { RAIDS } from '../config/raids.js';
+import { UPGRADES, BAG } from '../config/upgrades.js';
+import { rectOf } from './geometry.js';
 import { HealthBar } from '../combat/HealthBar.js';
 import { FARM, PEN, BARN, FOODS, FOOD_ORDER, FAVORITE, BEAST_FOOD, BARN_ITEMS } from '../config/food.js';
 import { CREATURES } from '../config/creatures.js';
@@ -24,12 +26,14 @@ const G = {
   body: new THREE.SphereGeometry(0.18, 7, 6),
   pig: new THREE.BoxGeometry(0.5, 0.3, 0.3),
   comb: new THREE.ConeGeometry(0.05, 0.1, 4),
+  mark: new THREE.OctahedronGeometry(0.22, 0),
 };
 const M = {
   soilEmpty: lam(0x6b4a2a), soilWet: lam(0x4d3520),
   leaf: lam(0x3f9e44), berry: lam(0xe0334a), grain: lam(0xe6c84a),
   gold: lam(0xffd23f, { emissive: 0x7a5200 }), spoiled: lam(0x5a4a3a),
   chicken: lam(0xffffff), comb: lam(0xe0334a), pig: lam(0xf2a6b0),
+  mark: lam(0xffd23f, { emissive: 0x7a5200 }),
 };
 
 // Хозяйство острова: грядки растут, животные в загоне дают еду, амбар хранит запасы, звери едят раз в сутки.
@@ -39,6 +43,92 @@ export class Economy {
     this.game = game;
     this.lastDay = 0;
     this.t = 0;
+    // Стартовый дом тоже можно улучшать: делаем для него «запись» с прямоугольником и уровнем
+    const hs = BUILDINGS.house, struct = game.world.startStruct;
+    this.startHouse = { id: 'house', isStart: true, x: -7, z: -4, rot: 0, rect: rectOf(-7, -4, hs.size.w, hs.size.d, 0), struct,
+      get lvl() { return struct.lvl; }, set lvl(v) { struct.lvl = v; } };
+  }
+
+  // ---------- улучшения ----------
+
+  levelOf(rec) {
+    return rec.lvl ?? 1;
+  }
+
+  // Что можно улучшить (у ловушки, стены, платформ улучшений нет)
+  canUpgradeKind(rec) {
+    return Object.hasOwn(UPGRADES, rec.id);
+  }
+
+  upgradeCost(rec) {
+    if (!this.canUpgradeKind(rec) || this.levelOf(rec) >= 3) return null;
+    return UPGRADES[rec.id].cost[this.levelOf(rec) - 1];
+  }
+
+  canUpgrade(rec) {
+    const c = this.upgradeCost(rec);
+    return !!c && this.game.inventory.has(c);
+  }
+
+  upgradeText(rec) {
+    const name = rec.isStart ? t('building.house') : t('building.' + rec.id);
+    if (!this.canUpgradeKind(rec)) return `${name}: ${t('upgrade.none')}`;
+    const c = this.upgradeCost(rec);
+    if (!c) return `${name}: ${t('upgrade.max')}`;
+    return `${name} ${t('level')} ${this.levelOf(rec)} → ${this.levelOf(rec) + 1}: ${this.game.ui.costText(c)}`;
+  }
+
+  upgrade(rec) {
+    const g = this.game, c = this.upgradeCost(rec);
+    if (!c) return g.ui.toast(this.canUpgradeKind(rec) ? t('upgrade.max') : t('upgrade.none'));
+    if (!g.inventory.spend(c)) return g.ui.toast(t('needResources'));
+    rec.lvl = this.levelOf(rec) + 1;
+    this.applyLevel(rec, true);
+    g.combat.ring({ x: rec.x, y: 0, z: rec.z }, 0xffd23f, 4, 0.7);
+    g.ui.toast(`${t('upgrade.done')}: ${rec.isStart ? t('building.house') : t('building.' + rec.id)} ${t('level')} ${rec.lvl}`);
+    events.emit('levelUp');
+  }
+
+  // Применяет уровень: защита амбара, значки уровня
+  applyLevel(rec, fresh = false) {
+    const lvl = this.levelOf(rec);
+    if (rec.struct) rec.struct.lvl = lvl;
+    if (rec.id === 'barn') {
+      const max = UPGRADES.barn.defense[lvl - 1];
+      if (fresh) rec.def = Math.min(max, (rec.def ?? 0) + (max - (rec.maxDef ?? max)));
+      rec.maxDef = max;
+      rec.def = Math.min(rec.def ?? max, max);
+    }
+    if (rec.mesh) {
+      rec.mesh.remove(...(rec.marks ?? []));
+      rec.marks = [];
+      for (let i = 1; i < lvl; i++) {
+        const m = new THREE.Mesh(G.mark, M.mark);
+        m.userData.keep = true;
+        m.position.set((i - 1.5) * 0.45, 4.3, 0);
+        rec.mesh.add(m);
+        rec.marks.push(m);
+      }
+    }
+  }
+
+  capOf(rec) {
+    return UPGRADES.barn.cap[this.levelOf(rec) - 1];
+  }
+
+  // Рюкзак: стоимость следующего уровня или null
+  bagCost() {
+    const lvl = this.game.inventory.bag;
+    return lvl >= BAG.max ? null : BAG.cost[lvl];
+  }
+
+  buyBag() {
+    const g = this.game, cost = this.bagCost();
+    if (cost === null) return g.ui.toast(t('upgrade.max'));
+    if (!g.inventory.spend({ gold: cost })) return g.ui.toast(t('needResources'));
+    g.inventory.bag++;
+    g.ui.toast(`${t('bag.upgraded')} ${g.inventory.bag}`);
+    events.emit('levelUp');
   }
 
   get recs() {
@@ -75,6 +165,7 @@ export class Economy {
       rec.mesh.add(bar.group);
       rec.bar = bar;
     }
+    if (rec.lvl > 1 || rec.id === 'barn') this.applyLevel(rec);
     if (!kind) return;
     rec.state = rec.state ?? newState(rec.id);
     rec.fx = {};
@@ -154,7 +245,7 @@ export class Economy {
           p.s = 'ready';
           p.t = 0;
           const [a, b] = FARM.yield;
-          p.left = (a + Math.floor(Math.random() * (b - a + 1))) * (p.gold ? FARM.goldenMul : 1);
+          p.left = Math.round((a + Math.floor(Math.random() * (b - a + 1))) * (p.gold ? FARM.goldenMul : 1) * UPGRADES.farm.yield[this.levelOf(rec) - 1]);
         }
       } else if (p.s === 'ready') {
         p.t += dt;
@@ -174,11 +265,12 @@ export class Economy {
   }
 
   updatePen(rec, dt) {
+    const U = UPGRADES.pen, lv = this.levelOf(rec) - 1;
     rec.state.slots.forEach((s, i) => {
-      const def = PEN.slots[i];
-      if (s.stock >= def.max) { s.t = 0; return; }
+      const def = PEN.slots[i], max = Math.floor(def.max * U.max[lv]);
+      if (s.stock >= max) { s.t = 0; return; }
       s.t += dt;
-      if (s.t >= def.every) { s.t = 0; s.stock++; }
+      if (s.t >= def.every / U.rate[lv]) { s.t = 0; s.stock++; }
     });
     rec.fx?.animals?.forEach(a => {
       a.ph += dt;
@@ -205,7 +297,8 @@ export class Economy {
 
   // Сторожевая башня стреляет по ближайшему врагу в радиусе
   updateTower(rec, dt) {
-    const st = rec.state, D = DEFENSE.tower;
+    const st = rec.state, lv = this.levelOf(rec) - 1, U = UPGRADES.tower;
+    const D = { range: U.range[lv], damage: U.damage[lv], cooldown: U.cooldown[lv] };
     st.cd = Math.max(0, st.cd - dt);
     if (st.cd > 0) return;
     const combat = this.game.combat;
@@ -273,7 +366,7 @@ export class Economy {
     let back = 0;
     for (const [k, n] of Object.entries(enemy.loot)) {
       let left = n;
-      if (barn) { const put = Math.min(left, BARN.cap - barn.state.items[k]); barn.state.items[k] += put; left -= put; }
+      if (barn) { const put = Math.min(left, this.capOf(barn) - barn.state.items[k]); barn.state.items[k] += put; left -= put; }
       if (left > 0) left -= FOOD_ORDER.includes(k) ? this.game.inventory.addFood(k, left) : this.game.inventory.add(k, left);
       back += n - left;
     }
@@ -400,11 +493,11 @@ export class Economy {
   deposit(rec) {
     const inv = this.game.inventory, items = rec.state.items;
     for (const k of ['wood', 'stone']) {
-      const n = Math.min(inv.items[k], BARN.cap - items[k]);
+      const n = Math.min(inv.items[k], this.capOf(rec) - items[k]);
       if (n > 0) { inv.items[k] -= n; items[k] += n; }
     }
     for (const k of FOOD_ORDER) {
-      const n = Math.min(inv.food[k], BARN.cap - items[k]);
+      const n = Math.min(inv.food[k], this.capOf(rec) - items[k]);
       if (n > 0) { inv.food[k] -= n; items[k] += n; }
     }
   }

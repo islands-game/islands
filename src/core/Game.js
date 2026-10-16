@@ -9,7 +9,7 @@ import { CreatureManager } from '../creatures/CreatureManager.js';
 import { Inventory } from '../inventory/Inventory.js';
 import { addXp, xpNeeded } from '../progression/Progression.js';
 import { UIManager } from '../ui/UIManager.js';
-import { BuildSystem, DEMOLISH } from '../building/BuildSystem.js';
+import { BuildSystem, DEMOLISH, UPGRADE } from '../building/BuildSystem.js';
 import { BUILDINGS } from '../config/buildings.js';
 import { TUTORIAL_STEPS, TUTORIAL_DONE } from '../ui/Tutorial.js';
 import { Settings } from '../save/Settings.js';
@@ -19,6 +19,8 @@ import { ArenaSystem } from '../arena/ArenaSystem.js';
 import { HeroSkills } from '../player/HeroSkills.js';
 import { Realms } from '../world/Realms.js';
 import { Economy } from '../building/Economy.js';
+import { Merchant } from '../world/Merchant.js';
+import { UPGRADES } from '../config/upgrades.js';
 import { BARN, BARN_ITEMS, FOODS } from '../config/food.js';
 import { CREATURES, beastTitle } from '../config/creatures.js';
 import { DEFAULT_HERO } from '../config/heroes.js';
@@ -63,6 +65,7 @@ export class Game {
       onMenu: () => this.pause(),
       onSummon: id => { this.creatures.toggle(id); this.refreshPanel(); },
       onBarn: (action, key) => this.barnAction(action, key),
+      onMerchant: (action, key) => this.merchantAction(action, key),
       onRelease: id => { if (this.creatures.release(id)) { this.ui.toast(t('released')); this.refreshPanel(); } },
       onSelectBuilding: id => { this.ui.showBuildPanel(false); this.build.select(id); },
       onSkipTutorial: () => this.setTutorialStep(TUTORIAL_DONE),
@@ -89,6 +92,11 @@ export class Game {
     this.skills = new HeroSkills(this);
     this.realms = new Realms(this);
     this.economy = new Economy(this);
+    this.merchant = new Merchant(this);
+    this.build.extraTargets = () => [this.economy.startHouse];
+    this.build.canUpgrade = rec => this.economy.canUpgrade(rec);
+    this.build.upgradeText = rec => this.economy.upgradeText(rec);
+    this.build.onUpgrade = rec => this.economy.upgrade(rec);
     this.build.onAdded = rec => this.economy.attach(rec);
     this.combat.structureList = () => this.economy.targets();
     this.combat.structureHit = (enemy, rec) => this.economy.hitStructure(enemy, rec);
@@ -130,6 +138,8 @@ export class Game {
     this.stats = { kills: 0, collected: 0, built: 0, portals: 0 };
     this.realms.reset();
     this.barnRec = null;
+    this.economy.startHouse.lvl = 1;
+    this.merchant.fromSave(null);
     const data = loadSave ? SaveManager.load() : null;
     this.player.setHero(data ? data.hero : heroId);
     this.skills.reset();
@@ -147,6 +157,8 @@ export class Game {
       this.world.applyLighting();
       this.raids.fromSave(data.time);
       this.setTutorialStep(data.tutorial, false);
+      this.economy.startHouse.lvl = data.houseLevel;
+      this.merchant.fromSave(data.merchant);
       this.economy.reset();
     } else {
       SaveManager.clear();
@@ -189,6 +201,8 @@ export class Game {
       inventory: this.inventory.toSave(),
       creatures: this.creatures.toSave(),
       realms: this.realms.toSave(),
+      houseLevel: this.economy.startHouse.lvl,
+      merchant: this.merchant.toSave(),
       buildings: this.build.toSave(),
       tutorial: this.tutorialStep,
       quests: this.quests.toSave(),
@@ -326,6 +340,7 @@ export class Game {
     if (cage) return { kind: 'cage', ...cage };
     const eco = this.economy.target(this.player.pos);
     if (eco) return { kind: 'econ', tg: eco };
+    if (this.merchant.near(this.player.pos)) return { kind: 'merchant' };
     const portal = this.world.nearestPortal(this.player.pos);
     if (portal) return { kind: 'portal', ...portal };
     const room = this.player.inside;
@@ -341,6 +356,7 @@ export class Game {
   updateBuildBar() {
     const b = this.build;
     if (!b.active) return this.ui.setBuildBar(false);
+    if (b.mode === UPGRADE) return this.ui.setBuildBar(true, b.infoText(), b.valid);
     const def = BUILDINGS[b.mode];
     let text = b.infoText();
     if (def) text += ` ${this.ui.costText(def.cost)}`;
@@ -351,6 +367,7 @@ export class Game {
   updatePrompt() {
     if (this.build.active) return this.ui.setPrompt(null);
     const target = this.player.dead ? null : this.interactTarget();
+    if (target?.kind === 'merchant') return this.ui.setPrompt(`${this.input.isTouch ? '' : 'E — '}${t('merchant.talk')}`);
     const key = this.input.isTouch ? '' : 'E — ';
     if (!target) return this.ui.setPrompt(null);
     if (target.kind === 'node') {
@@ -390,6 +407,8 @@ export class Game {
       this.sleep();
     } else if (target.kind === 'portal') {
       this.teleport(target.portal);
+    } else if (target.kind === 'merchant') {
+      this.ui.showMerchant(true, this.merchant.view());
     } else if (target.kind === 'econ') {
       this.economy.act(target.tg);
     } else if (target.kind === 'cage') {
@@ -414,7 +433,7 @@ export class Game {
       const food = Object.hasOwn(FOODS, k);
       return { key: k, icon: food ? FOODS[k].icon : RESOURCES[k].icon, name: t(food ? 'food.' + k : 'res.' + k), stored: items[k], carried: food ? inv.food[k] : inv.items[k] };
     });
-    return { rows, cap: BARN.cap, def: Math.round(rec.def), maxDef: rec.maxDef, ins: rec.state.ins, canRepair: rec.def < rec.maxDef };
+    return { rows, cap: this.economy.capOf(rec), lvl: this.economy.levelOf(rec), bagLvl: inv.bag, bagCost: this.economy.bagCost(), def: Math.round(rec.def), maxDef: rec.maxDef, ins: rec.state.ins, canRepair: rec.def < rec.maxDef };
   }
 
   openBarn(rec) {
@@ -428,8 +447,16 @@ export class Game {
     if (action === 'deposit') this.economy.deposit(this.barnRec);
     else if (action === 'take') this.economy.take(this.barnRec, key, 10);
     else if (action === 'insure') this.economy.insure(this.barnRec);
+    else if (action === 'bag') this.economy.buyBag();
     else if (action === 'repairDef') this.economy.repairDefense(this.barnRec);
     this.ui.showBarn(true, this.barnView());
+  }
+
+  merchantAction(action, key) {
+    if (action === 'close') return this.ui.showMerchant(false);
+    if (action === 'sell') this.merchant.sell(key, false);
+    else if (action === 'sellAll') this.merchant.sell(key, true);
+    this.ui.showMerchant(true, this.merchant.view());
   }
 
   // Выйти с арены обратно на домашний остров (через её портал)
@@ -565,7 +592,7 @@ export class Game {
       // Внутри дома безопасно: враги не видят героя, здоровье восстанавливается
       this.player.inside = this.player.dead ? null : this.world.interiorAt(this.player.pos.x, this.player.pos.z);
       this.world.updateRoofs(this.player.inside);
-      if (this.player.inside && !this.player.dead) this.player.heal(6 * dt);
+      if (this.player.inside && !this.player.dead) this.player.heal(6 * dt * UPGRADES.house.heal[(this.player.inside.lvl ?? 1) - 1]);
       this.handleActions();
       this.resources.update(dt);
       this.updateNightMonsters();

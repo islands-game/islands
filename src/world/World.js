@@ -248,7 +248,7 @@ export class World {
     const mesh = buildModel(def, { roof: 0xd9534f });
     mesh.position.set(-7, GROUND_Y, -4);
     this.scene.add(mesh);
-    this.registerStructure(def, -7, -4, 0, mesh);
+    this.startStruct = this.registerStructure(def, -7, -4, 0, mesh);     // стартовый дом (его тоже можно улучшать)
     // Невидимая отметка: здесь нельзя строить и появляться существам (но она не мешает ходить)
     this.colliders.push({ x: -7, z: -4, r: 0, pr: 2.9, active: true, placeOnly: true });
   }
@@ -267,7 +267,7 @@ export class World {
 
   // Постройка со стенами: регистрирует твёрдые стены и (для дома) комнату, где можно спрятаться
   registerStructure(def, x, z, rot, mesh) {
-    const rec = { solids: [], interior: null, roof: mesh.userData.roof ?? null, bed: null };
+    const rec = { solids: [], interior: null, roof: mesh.userData.roof ?? null, bed: null, lvl: 1 };
     for (const r of structureRects(def, x, z, rot)) {
       const wall = { ...r };
       this.rects.push(wall);
