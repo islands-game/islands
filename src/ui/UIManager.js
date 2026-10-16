@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { t, setLang, getLang, LANGS } from '../config/i18n.js';
 import { SaveManager } from '../save/SaveManager.js';
+import { CloudPanel } from './CloudPanel.js';
 import { RESOURCES, RESOURCE_ORDER } from '../config/resources.js';
 import { CREATURES, beastTitle } from '../config/creatures.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
@@ -73,6 +74,7 @@ export class UIManager {
     this.$('bb-cancel').onclick = () => press('cancel');
     this.$('tut-skip').onclick = onSkipTutorial;
     this.initSettings();
+    this.cloudPanel = new CloudPanel(id => this.$(id), this);
     document.querySelectorAll('[data-lang]').forEach(b => {
       b.onclick = () => {
         setLang(b.dataset.lang);
@@ -458,6 +460,7 @@ export class UIManager {
     this.$('bp-close').textContent = t('close');
     this.$('btn-settings').textContent = `⚙ ${t('settings')}`;
     this.refreshSettings();
+    this.cloudPanel?.render();
     this.$('tut-title').textContent = t('tut.title');
     this.$('tut-skip').textContent = t('skip');
     if (this.tutorialState) this.setTutorial(...this.tutorialState);

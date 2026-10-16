@@ -21,6 +21,7 @@ import { QUESTS } from '../config/quests.js';
 import { RESOURCE_ORDER, CARRY } from '../config/resources.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
 import { DEFAULT_HERO, isHero } from '../config/heroes.js';
+import { events } from '../core/Events.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
@@ -157,6 +158,13 @@ export const SaveManager = {
     try {
       localStorage.setItem(KEY, JSON.stringify({ version: SAVE_VERSION, ...data }));
     } catch { /* хранилище недоступно — игра продолжает работать */ }
+    events.emit('saved');                  // облако (net/Cloud.js) отправит сохранение, когда придёт время
+  },
+  // Облачное сохранение: проходит ту же проверку, что и местное (чужой JSON не доверяем)
+  import(raw) {
+    const data = validate(raw);
+    if (!data) return false;
+    try { localStorage.setItem(KEY, JSON.stringify(data)); return true; } catch { return false; }
   },
   clear() {
     try { localStorage.removeItem(KEY); } catch { /* ничего */ }

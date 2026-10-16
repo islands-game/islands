@@ -149,6 +149,14 @@ body.has-pet #pet-cmds { display: flex; }
   #build-bar { bottom: calc(225px + env(safe-area-inset-bottom)); z-index: 2; }
 }
 
+/* Аккаунт и облако */
+#cloud-panel { z-index: 13; }
+.cl-small { font-size: 12px; opacity: .75; }
+.cl-check { display: flex; gap: 10px; align-items: flex-start; text-align: left; margin: 10px 0; font-size: 14px; }
+.cl-check input { width: 24px; height: 24px; flex: none; }
+button.big.danger { background: #8a3a3a; font-size: 14px; padding: 10px; }
+#cl-conflict { background: #ffffff1a; border-radius: 14px; padding: 12px; margin: 10px 0; }
+
 /* Настройки */
 #settings-panel { z-index: 12; }
 .st-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
