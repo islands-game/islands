@@ -152,7 +152,26 @@ function trap({ w }, color) {
   return g;
 }
 
-const BUILDERS = { platform, wall, bridge, house, pen, barn, farm, tower, trap };
+// Пещера гномов: горка из камней с тёмным входом и фонарём
+function cave({ w, d }, color) {
+  const g = new THREE.Group();
+  const stone = lambert(color), dark = lambert(0x1a1a22), lamp = new THREE.MeshBasicMaterial({ color: 0xffd23f });
+  const hill = new THREE.Mesh(new THREE.SphereGeometry(Math.max(w, d) * 0.52, 10, 7, 0, Math.PI * 2, 0, Math.PI / 2), stone);
+  hill.scale.set(1, 0.85, 1);
+  g.add(hill);
+  g.add(box(1.3, 1.4, 0.3, dark, 0, 0.7, d / 2 - 0.45));
+  for (const [x, z, s] of [[-1.3, 0.8, 0.5], [1.4, -0.4, 0.45], [0.2, -1.5, 0.55]]) {
+    const r = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), stone);
+    r.position.set(x, s * 0.6, z);
+    g.add(r);
+  }
+  const l = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 5), lamp);
+  l.position.set(1.0, 1.5, d / 2 - 0.3);
+  g.add(l, box(0.05, 0.8, 0.05, lambert(0x4a3a2a), 1.0, 1.0, d / 2 - 0.3));
+  return g;
+}
+
+const BUILDERS = { platform, wall, bridge, house, pen, barn, farm, tower, trap, cave };
 
 export function buildModel(def, opts) {
   return (BUILDERS[def.model] ?? platform)(def.size, def.color, def, opts);

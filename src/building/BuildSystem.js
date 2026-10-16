@@ -152,6 +152,7 @@ export class BuildSystem {
     if (this.mode === UPGRADE) return this.upgradeTarget ? this.onUpgrade?.(this.upgradeTarget) : this.ui.toast(t('nothingToUpgrade'));
     const def = BUILDINGS[this.mode];
     if (this.placed.length >= MAX_BUILDINGS) return this.ui.toast(t('limitReached'));
+    if (def.unique && this.placed.some(p => p.id === def.id)) return this.ui.toast(t('onlyOne'));
     if (!this.valid) return this.ui.toast(t('cantBuildHere'));
     if (!this.inventory.spend(def.cost)) return this.ui.toast(t('needResources'));
     this.add({ id: def.id, x: this.x, z: this.z, rot: this.rot });

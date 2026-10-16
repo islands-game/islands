@@ -8,7 +8,7 @@ export function newState(id) {
   if (id === 'pen') return { slots: PEN.slots.map(() => ({ t: 0, stock: 0 })) };
   if (id === 'barn') return { items: Object.fromEntries(BARN_ITEMS.map(k => [k, 0])), ins: 0 };
   if (id === 'tower') return { cd: 0 };
-  if (id === 'trap') return {};
+  if (id === 'trap' || id === 'cave') return {};
   return null;
 }
 

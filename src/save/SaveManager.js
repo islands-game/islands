@@ -5,6 +5,7 @@
 // Версия 7: + список зверей рядом с героем (creatures.actives, у поддержки до 3). Старые читаются с одним зверем (active).
 // Версия 8: звери из порталов (виды × стихии, creatures.*), освобождённые звери по дням (realms.freed), новый порядок заданий.
 // Старые существа превращаются в новых зверей (LEGACY_CREATURES).
+// Версия 13: гномы (gnomes: места, уровни, зарплата, поручение дня).
 // Версия 12: уровни построек и стартового дома (lvl, houseLevel), уровень рюкзака (inventory.bag), торговец (merchant: день и сколько золота заплатил).
 // Версия 11: прочность построек (hp), защита амбара (def), страховка амбара (state.ins). Старые версии читаются без потерь.
 // Версия 10: еда в рюкзаке (inventory.food), состояние построек (ферма, загон, амбар) и сытость зверей (fed, hunger).
@@ -22,7 +23,7 @@ import { DEFAULT_HERO, isHero } from '../config/heroes.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
@@ -94,6 +95,7 @@ function validate(raw) {
     // Версия 9: кристаллы стали золотом; рюкзак ограничен (CARRY)
     inventory: { ...Object.fromEntries(RESOURCE_ORDER.map(k => [k, int(k === 'gold' ? (inv.gold ?? inv.crystal) : inv[k], 0, (CARRY[k] ?? 9999) + (k === 'gold' ? 0 : 45), 0)])), food: validateFood(inv.food), bag: int(inv.bag, 0, 3, 0) },
     houseLevel: int(raw.houseLevel, 1, 3, 1),
+    gnomes: raw.gnomes && typeof raw.gnomes === 'object' ? raw.gnomes : null,       // подробная проверка — в Gnomes.fromSave
     merchant: { day: /^\d{4}-\d{2}-\d{2}$/.test(raw.merchant?.day ?? '') ? raw.merchant.day : null, earned: int(raw.merchant?.earned, 0, 500, 0) },
     creatures: validateCreatures(raw.creatures),
     buildings: validateBuildings(raw.buildings),

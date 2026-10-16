@@ -86,7 +86,7 @@ export function tryAbility(c, ctx, target, force = false) {
   return true;
 }
 
-// Зверь-охранник острова: не идёт за героем, а стоит у своего поста и бьёт врагов, которые появились рядом.
+// Зверь-охранник острова: не идёт за героем, а патрулирует базу и бьёт врагов, которые появились рядом.
 // Ему не нужны щит и лечение (они для героя), остальные способности он применяет сам.
 export function updateGuard(c, dt, ctx) {
   const { combat, world } = ctx;
@@ -108,11 +108,16 @@ export function updateGuard(c, dt, ctx) {
       c.atkCd = 1;
       combat.creatureHit(c, target, st.atk);
     }
-  } else if (dist(c.pos, c.post) > 1.2) {
+  } else if (leash) {
     c.state = 'return';
     moving = moveToward(c, c.post, st.speed, dt, 0.8, world);
   } else {
-    c.state = 'idle';
+    // Патруль: идёт не спеша по кругу вокруг базы, звери разнесены по кругу друг от друга
+    c.state = 'patrol';
+    c.patrolA = (c.patrolA ?? Math.atan2(c.post.z, c.post.x)) + dt * 0.12;
+    const px = Math.cos(c.patrolA) * 8, pz = Math.sin(c.patrolA) * 8;
+    moving = moveToward(c, { x: px, z: pz }, st.speed * 0.45, dt, 0.3, world);
+    if (!moving) c.patrolA += dt * 0.4;          // уткнулся в постройку: двигаем точку маршрута дальше
   }
   c.syncMesh(dt, moving);
 }

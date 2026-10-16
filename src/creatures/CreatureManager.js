@@ -70,6 +70,17 @@ export class CreatureManager {
     }
   }
 
+  // Герой ложится спать: все звери перестают ходить за ним и идут патрулировать базу
+  dismissAll() {
+    const n = this.actives.length;
+    if (!n) return 0;
+    this.syncActive();
+    this.actives.forEach(c => c.dispose());
+    this.actives = [];
+    this.rebuildGuards();
+    return n;
+  }
+
   // Охранники получают часть опыта за врагов, побеждённых на домашнем острове
   gainGuardXp(enemy, xp) {
     if (!this.guards.length || this.world.islandIdAt(enemy.pos.x, enemy.pos.z) !== 'home') return;

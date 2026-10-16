@@ -27,6 +27,9 @@ export const BUILDINGS = {
   // Амбар: хранит дерево, камень и еду. Стены твёрдые.
   barn: { id: 'barn', model: 'barn', size: { w: 5, d: 4 }, color: 0xb5493a,
     cost: { wood: 12, stone: 6, gold: 15 }, solid: true, walkable: false, economy: 'barn', defense: 200 },
+  // Пещера гномов: здесь прячутся гномы при рейде, она открывает места для новых гномов (только одна на остров)
+  cave: { id: 'cave', model: 'cave', size: { w: 4, d: 4 }, color: 0x7a7f88,
+    cost: { wood: 14, stone: 12, gold: 30 }, solid: true, walkable: false, economy: 'cave', unique: true },
   // Сторожевая башня: сама стреляет по врагам рядом. Строится и улучшается отдельно от амбара.
   tower: { id: 'tower', model: 'tower', size: { w: 3, d: 3 }, color: 0x8a8f98,
     cost: { wood: 10, stone: 8, gold: 25 }, solid: true, walkable: false, economy: 'tower', hp: 200 },

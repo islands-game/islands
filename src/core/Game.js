@@ -20,6 +20,7 @@ import { HeroSkills } from '../player/HeroSkills.js';
 import { Realms } from '../world/Realms.js';
 import { Economy } from '../building/Economy.js';
 import { Merchant } from '../world/Merchant.js';
+import { Gnomes } from '../building/Gnomes.js';
 import { UPGRADES } from '../config/upgrades.js';
 import { BARN, BARN_ITEMS, FOODS } from '../config/food.js';
 import { CREATURES, beastTitle } from '../config/creatures.js';
@@ -66,6 +67,7 @@ export class Game {
       onSummon: id => { this.creatures.toggle(id); this.refreshPanel(); },
       onBarn: (action, key) => this.barnAction(action, key),
       onMerchant: (action, key) => this.merchantAction(action, key),
+      onGnomes: (action, i, arg) => this.gnomesAction(action, i, arg),
       onRelease: id => { if (this.creatures.release(id)) { this.ui.toast(t('released')); this.refreshPanel(); } },
       onSelectBuilding: id => { this.ui.showBuildPanel(false); this.build.select(id); },
       onSkipTutorial: () => this.setTutorialStep(TUTORIAL_DONE),
@@ -91,6 +93,7 @@ export class Game {
     this.arena = new ArenaSystem(this);
     this.skills = new HeroSkills(this);
     this.realms = new Realms(this);
+    this.gnomes = new Gnomes(this);
     this.economy = new Economy(this);
     this.merchant = new Merchant(this);
     this.build.extraTargets = () => [this.economy.startHouse];
@@ -140,6 +143,7 @@ export class Game {
     this.barnRec = null;
     this.economy.startHouse.lvl = 1;
     this.merchant.fromSave(null);
+    this.gnomes.reset();
     const data = loadSave ? SaveManager.load() : null;
     this.player.setHero(data ? data.hero : heroId);
     this.skills.reset();
@@ -159,6 +163,7 @@ export class Game {
       this.setTutorialStep(data.tutorial, false);
       this.economy.startHouse.lvl = data.houseLevel;
       this.merchant.fromSave(data.merchant);
+      this.gnomes.fromSave(data.gnomes);
       this.economy.reset();
     } else {
       SaveManager.clear();
@@ -203,6 +208,7 @@ export class Game {
       realms: this.realms.toSave(),
       houseLevel: this.economy.startHouse.lvl,
       merchant: this.merchant.toSave(),
+      gnomes: this.gnomes.toSave(),
       buildings: this.build.toSave(),
       tutorial: this.tutorialStep,
       quests: this.quests.toSave(),
@@ -341,6 +347,8 @@ export class Game {
     const eco = this.economy.target(this.player.pos);
     if (eco) return { kind: 'econ', tg: eco };
     if (this.merchant.near(this.player.pos)) return { kind: 'merchant' };
+    const gn = this.gnomes.nearest(this.player.pos);
+    if (gn && !gn.cave) return { kind: 'gnome', slot: gn.slot };
     const portal = this.world.nearestPortal(this.player.pos);
     if (portal) return { kind: 'portal', ...portal };
     const room = this.player.inside;
@@ -368,6 +376,7 @@ export class Game {
     if (this.build.active) return this.ui.setPrompt(null);
     const target = this.player.dead ? null : this.interactTarget();
     if (target?.kind === 'merchant') return this.ui.setPrompt(`${this.input.isTouch ? '' : 'E — '}${t('merchant.talk')}`);
+    if (target?.kind === 'gnome') return this.ui.setPrompt(`${this.input.isTouch ? '' : 'E — '}${t('gnome.talk')}`);
     const key = this.input.isTouch ? '' : 'E — ';
     if (!target) return this.ui.setPrompt(null);
     if (target.kind === 'node') {
@@ -407,6 +416,8 @@ export class Game {
       this.sleep();
     } else if (target.kind === 'portal') {
       this.teleport(target.portal);
+    } else if (target.kind === 'gnome') {
+      this.openGnomes();
     } else if (target.kind === 'merchant') {
       this.ui.showMerchant(true, this.merchant.view());
     } else if (target.kind === 'econ') {
@@ -452,6 +463,23 @@ export class Game {
     this.ui.showBarn(true, this.barnView());
   }
 
+  // --- Гномы: панель найма ---
+
+  openGnomes() {
+    this.ui.showGnomes(true, this.gnomes.view());
+  }
+
+  gnomesAction(action, i, arg) {
+    if (action === 'close') return this.ui.showGnomes(false);
+    let err = null;
+    if (action === 'hire') err = this.gnomes.hire(i);
+    else if (action === 'fire') this.gnomes.fire(i);
+    else if (action === 'spec') this.gnomes.setSpec(i, arg);
+    else if (action === 'quest') this.gnomes.deliverQuest();
+    if (err) this.ui.toast(t(err));
+    this.ui.showGnomes(true, this.gnomes.view());
+  }
+
   merchantAction(action, key) {
     if (action === 'close') return this.ui.showMerchant(false);
     if (action === 'sell') this.merchant.sell(key, false);
@@ -488,7 +516,8 @@ export class Game {
       if (wasNight) this.world.skipToMorning();
       this.player.hp = this.player.maxHp;
       this.raids?.endRaid('sleep');
-      this.ui.toast(t(wasNight ? 'slept' : 'rested'));
+      const sent = this.creatures.dismissAll();          // звери остаются охранять остров, пока герой спит
+      this.ui.toast(t(wasNight ? 'slept' : 'rested') + (sent ? ` · ${t('beast.patrol')}` : ''));
       this.save();
     }, 700);
     setTimeout(() => { this.ui.fade(false); this.sleeping = false; }, 1500);
@@ -600,6 +629,7 @@ export class Game {
       this.skills.update(dt);
       this.realms.update(dt);
       this.economy.update(dt);
+      this.gnomes.update(dt);
       this.creatures.update(dt);
       this.build.update();
       this.updateBuildBar();

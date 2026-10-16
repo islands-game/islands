@@ -26,6 +26,12 @@ button.big.primary { background: #ff9f43; color: #3a2000; font-weight: 700; }
 #barn-info, #merchant-info { font-size: 13px; opacity: .9; margin: -4px 0 10px; }
 #merchant-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 #merchant-list .cr-row button { min-width: 44px; }
+#gnome-info { font-size: 13px; opacity: .9; margin: -4px 0 8px; }
+#gnome-quest { background: #ffffff1a; border-radius: 12px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; text-align: left; }
+#gnome-quest button { margin-top: 6px; padding: 8px 12px; border-radius: 10px; background: #ff9f43; color: #3a2000; font-weight: 700; }
+#gnome-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+#gnome-list .cr-row { flex-wrap: wrap; }
+#gnome-list .gn-btns { display: flex; gap: 6px; flex-wrap: wrap; }
 #cr-list, #barn-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 .cr-row { display: flex; align-items: center; justify-content: space-between; gap: 8px;
   background: #ffffff1a; padding: 8px 10px; border-radius: 12px; text-align: left; }

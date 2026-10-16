@@ -8,14 +8,16 @@ import { Settings, QUALITIES } from '../save/Settings.js';
 import { events } from '../core/Events.js';
 import { FOOD_CARRY } from '../config/food.js';
 import { DEFENSE } from '../config/buildings.js';
+import { GNOME } from '../config/gnomes.js';
 import { HEROES, CLASSES, CLASS_ORDER, ELEMENT_ORDER, ENABLED_ELEMENTS, DEFAULT_HERO, SKILLS, arenaStats } from '../config/heroes.js';
 
+const SPEC_ICONS = { all: '⭐', farmer: '🌱', porter: '📦', fixer: '🔧' };
 const COMMANDS = ['follow', 'stay', 'defend', 'attack', 'ability', 'return'];
 const _v = new THREE.Vector3();
 
 // Интерфейс: меню, полоски, ресурсы, спутник, подсказки, панель существ, всплывающий урон.
 export class UIManager {
-  constructor({ onStart, onContinue, onMenu, onSummon, onRelease, onBarn, onMerchant, onSelectBuilding, onSkipTutorial, press, isTouch }) {
+  constructor({ onStart, onContinue, onMenu, onSummon, onRelease, onBarn, onMerchant, onGnomes, onSelectBuilding, onSkipTutorial, press, isTouch }) {
     this.$ = id => document.getElementById(id);
     this.isTouch = isTouch;
     this.press = press;
@@ -23,6 +25,8 @@ export class UIManager {
     this.onRelease = onRelease;
     this.onBarn = onBarn;
     this.onMerchant = onMerchant;
+    this.onGnomes = onGnomes;
+    this.$('gnome-close').onclick = () => onGnomes('close');
     this.$('merchant-close').onclick = () => onMerchant('close');
     this.$('barn-bag').onclick = () => onBarn('bag');
     this.$('barn-deposit').onclick = () => onBarn('deposit');
@@ -240,6 +244,54 @@ export class UIManager {
       btn.disabled = r.stored <= 0;
       btn.onclick = () => this.onBarn('take', r.key);
       row.append(info, btn);
+      list.appendChild(row);
+    }
+  }
+
+  // Панель гномов: наём, специальность, зарплата, поручение дня
+  showGnomes(show, view) {
+    this.$('gnome-panel').classList.toggle('hidden', !show);
+    if (!show) return;
+    this.$('gnome-title').textContent = t('gnome.title');
+    this.$('gnome-close').textContent = t('close');
+    this.$('gnome-info').textContent = `${t('gnome.wages')}: 🪙${view.wages} ${t('gnome.perDay')}${view.hasCave ? '' : ' · ' + t('gnome.needCave')}`;
+    const q = view.quest, qe = this.$('gnome-quest');
+    qe.textContent = '';
+    const qt = document.createElement('div');
+    qt.textContent = `${t('gnome.quest')}: ${t('gnome.questText')} ${q.amount} 🍎 → 🪙${q.reward}${q.done ? ' ✔' : ''}`;
+    qe.appendChild(qt);
+    if (!q.done) {
+      const b = document.createElement('button');
+      b.textContent = t('gnome.questGive');
+      b.onclick = () => this.onGnomes('quest');
+      qe.appendChild(b);
+    }
+    const list = this.$('gnome-list');
+    list.textContent = '';
+    for (const r of view.rows) {
+      const row = document.createElement('div');
+      row.className = 'cr-row';
+      const info = document.createElement('div');
+      const name = r.i === 0 ? t('gnome.first') : `${t('gnome.n')} ${r.i}`;
+      if (r.status === 'locked') info.textContent = `${name}: ${t(view.hasCave ? 'gnome.lockedUp' : 'gnome.locked')}`;
+      else {
+        info.textContent = `${r.icon} ${name} · ${t('level')} ${r.level} · ${t('gnome.spec.' + r.spec)}`;
+        const small = document.createElement('small');
+        const prog = r.nextNeed ? ` · ${r.tasks}/${r.nextNeed}` : '';
+        small.textContent = `${t('gnome.status.' + r.status)} · ❤ ${r.hp}/${r.maxHp}${prog} · 🪙${r.wage}/${t('gnome.perDay')}`;
+        info.appendChild(small);
+      }
+      row.appendChild(info);
+      const btns = document.createElement('div');
+      btns.className = 'gn-btns';
+      const mk = (text, fn) => { const b = document.createElement('button'); b.textContent = text; b.onclick = fn; btns.appendChild(b); return b; };
+      if (r.status === 'notHired') mk(`${t('gnome.hire')}${r.fee ? ' 🪙' + r.fee : ''}`, () => this.onGnomes('hire', r.i));
+      else if (r.status === 'dead') mk(`${t('gnome.train')} 🪙${r.fee}`, () => this.onGnomes('hire', r.i));
+      else if (r.status !== 'locked') {
+        mk(t('gnome.fire'), () => this.onGnomes('fire', r.i));
+        if (r.canSpec) mk(`${SPEC_ICONS[r.spec]} ▶`, () => this.onGnomes('spec', r.i, GNOME.specs[(GNOME.specs.indexOf(r.spec) + 1) % GNOME.specs.length]));
+      }
+      if (btns.children.length) row.appendChild(btns);
       list.appendChild(row);
     }
   }

@@ -49,6 +49,8 @@ export class Economy {
       get lvl() { return struct.lvl; }, set lvl(v) { struct.lvl = v; } };
   }
 
+  // Оборона: цели для рейдеров дополняют гномы (см. targets)
+
   // ---------- улучшения ----------
 
   levelOf(rec) {
@@ -146,7 +148,8 @@ export class Economy {
 
   // Что имеет смысл атаковать рейдерам: сломать постройку или (для амбара) сбить защиту и украсть запасы
   targets() {
-    return this.breakables().filter(r => {
+    return [...this.game.gnomes.targets(), ...this.breakables()].filter(r => {
+      if (r.isGnome) return true;
       if (r.maxDef !== undefined) return r.def > 0 || BARN_ITEMS.some(k => r.state.items[k] > 0);
       return r.hp > 0;
     });
@@ -232,6 +235,7 @@ export class Economy {
     const day = this.game.world.dayCount;
     if (day !== this.lastDay) {
       this.lastDay = day;
+      this.game.gnomes.payDay();
       this.feedBeasts();
     }
   }
@@ -330,6 +334,7 @@ export class Economy {
   // Враг бьёт постройку. Амбар: сначала сбивается защита, потом можно красть. Остальное: теряет прочность и ломается.
   hitStructure(enemy, rec) {
     const g = this.game;
+    if (rec.isGnome) return g.gnomes.hurt(rec, enemy.def.atk * 0.8);       // гнома рейдер бьёт сильнее, чем постройку
     const dmg = enemy.def.atk * RAIDS.structureDamage;
     rec.lastHit = this.t;
     if (this.t - (this.alertT ?? -99) > 12) { this.alertT = this.t; g.ui.toast(`${t('struct.attacked')}: ${t('building.' + rec.id)}`); events.emit('raidWarn'); }
@@ -434,6 +439,7 @@ export class Economy {
       const c = DEFENSE.repair.cost;
       return { text: `${t('econ.repair')} (${RESOURCES.wood.icon}${c.wood}) ${Math.round(tg.rec.hp)}/${tg.rec.maxHp}`, disabled: !this.game.inventory.has(c) };
     }
+    if (tg.type === 'cave') return { text: t('gnome.talk') };
     if (tg.type === 'tower') return { text: t('econ.towerInfo'), disabled: true };
     if (tg.type === 'trap') return { text: t('econ.trapInfo'), disabled: true };
     if (tg.type === 'pen') {
@@ -447,6 +453,7 @@ export class Economy {
     const g = this.game, inv = g.inventory;
     if (tg.type === 'repair') return this.repair(tg.rec);
     if (tg.type === 'tower' || tg.type === 'trap') return;
+    if (tg.type === 'cave') return g.openGnomes();
     if (tg.type === 'plot') {
       const p = tg.rec.state.plots[tg.plot], crop = FARM.plots[tg.plot].crop;
       if (p.s === 'empty') { p.s = 'grow'; p.t = 0; p.water = false; p.gold = false; g.ui.toast(`${t('econ.planted')}: ${t('food.' + crop)}`); events.emit('collect'); return; }

@@ -7,6 +7,7 @@ export const UPGRADES = {
   barn: { cost: [{ gold: 40, wood: 10 }, { gold: 100, wood: 20 }], defense: [200, 320, 480], cap: [120, 200, 300] },   // защита и вместимость
   farm: { cost: [{ gold: 30, wood: 8 }, { gold: 80, wood: 16 }], yield: [1, 1.5, 2] },                        // урожай с грядки
   pen: { cost: [{ gold: 30, wood: 8 }, { gold: 80, wood: 16 }], rate: [1, 1.5, 2], max: [1, 1.5, 2] },        // скорость и запас
+  cave: { cost: [{ gold: 50, stone: 10 }, { gold: 120, stone: 20 }] },      // больше мест для гномов (config/gnomes.js, caveSlots)
   tower: { cost: [{ gold: 35, stone: 8 }, { gold: 90, stone: 16 }], damage: [9, 14, 22], range: [11, 13, 15], cooldown: [1.5, 1.3, 1.1] },
 };
 export const MAX_BUILDING_LEVEL = 3;
