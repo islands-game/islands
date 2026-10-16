@@ -4,6 +4,11 @@ export const LANGS = ['ru', 'en', 'ka'];
 
 const TEXTS = {
   ru: {
+    'barn.defenseFull': "Защита амбара уже полная",
+    'barn.defenseUp': "Защита амбара восстановлена",
+    'barn.empty': "В амбаре этого нет",
+    'barn.nothingToStore': "В рюкзаке нечего сдавать",
+    'barn.upgrade': "Улучшить амбар",
     'vein.mine': "Добыть золотую жилу дня",
     'gnome.lockedUp': "нужно улучшить пещеру гномов",
     'beast.patrol': "Звери охраняют остров (позови их в панели 🐾)",
@@ -431,6 +436,11 @@ const TEXTS = {
     'tut.done': 'Обучение пройдено! Исследуй и строй свой остров',
   },
   en: {
+    'barn.defenseFull': "Barn defense is already full",
+    'barn.defenseUp': "Barn defense restored",
+    'barn.empty': "The barn has none of this",
+    'barn.nothingToStore': "Nothing in the bag to store",
+    'barn.upgrade': "Upgrade the barn",
     'vein.mine': "Mine the gold vein of the day",
     'gnome.lockedUp': "upgrade the gnome cave",
     'beast.patrol': "The beasts guard the island (call them in the 🐾 panel)",
@@ -858,6 +868,11 @@ const TEXTS = {
     'tut.done': 'Tutorial complete! Explore and build your island',
   },
   ka: {
+    'barn.defenseFull': "ბეღლის დაცვა უკვე სრულია",
+    'barn.defenseUp': "ბეღლის დაცვა აღდგა",
+    'barn.empty': "ბეღელში ეს არ არის",
+    'barn.nothingToStore': "ზურგჩანთაში შესანახი არაფერია",
+    'barn.upgrade': "ბეღლის გაუმჯობესება",
     'vein.mine': "დღის ოქროს ძარღვის მოპოვება",
     'gnome.lockedUp': "გააუმჯობესე ჯუჯების მღვიმე",
     'beast.patrol': "ცხოველები კუნძულს იცავენ (დაუძახე 🐾 პანელიდან)",

@@ -499,14 +499,16 @@ export class Economy {
   // Сдать всё из рюкзака (дерево, камень, еду) в амбар
   deposit(rec) {
     const inv = this.game.inventory, items = rec.state.items;
+    let moved = 0;
     for (const k of ['wood', 'stone']) {
       const n = Math.min(inv.items[k], this.capOf(rec) - items[k]);
-      if (n > 0) { inv.items[k] -= n; items[k] += n; }
+      if (n > 0) { inv.items[k] -= n; items[k] += n; moved += n; }
     }
     for (const k of FOOD_ORDER) {
       const n = Math.min(inv.food[k], this.capOf(rec) - items[k]);
-      if (n > 0) { inv.food[k] -= n; items[k] += n; }
+      if (n > 0) { inv.food[k] -= n; items[k] += n; moved += n; }
     }
+    if (!moved) this.game.ui.toast(t('barn.nothingToStore'));
   }
 
   // Взять из амбара в рюкзак не больше n
@@ -515,6 +517,7 @@ export class Economy {
     const want = Math.min(n, items[key]);
     const got = FOOD_ORDER.includes(key) ? inv.addFood(key, want) : inv.add(key, want);
     items[key] -= got;
+    if (got === 0) this.game.ui.toast(t(want === 0 ? 'barn.empty' : 'bagFull'));
     return got;
   }
 
@@ -526,12 +529,13 @@ export class Economy {
     g.ui.toast(t('barn.insured'));
   }
 
-  // Усилить защиту амбара за дерево
+  // Восстановить защиту амбара за дерево
   repairDefense(rec) {
     const g = this.game, D = DEFENSE.barn;
-    if (rec.def >= rec.maxDef) return;
+    if (rec.def >= rec.maxDef) return g.ui.toast(t('barn.defenseFull'));
     if (!g.inventory.spend(D.repairCost)) return g.ui.toast(t('needResources'));
     rec.def = Math.min(rec.maxDef, rec.def + D.repairDefense);
+    g.ui.toast(t('barn.defenseUp'));
   }
 
   // ---------- питание зверей ----------

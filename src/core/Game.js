@@ -449,7 +449,8 @@ export class Game {
       const food = Object.hasOwn(FOODS, k);
       return { key: k, icon: food ? FOODS[k].icon : RESOURCES[k].icon, name: t(food ? 'food.' + k : 'res.' + k), stored: items[k], carried: food ? inv.food[k] : inv.items[k] };
     });
-    return { rows, cap: this.economy.capOf(rec), lvl: this.economy.levelOf(rec), bagLvl: inv.bag, bagCost: this.economy.bagCost(), def: Math.round(rec.def), maxDef: rec.maxDef, ins: rec.state.ins, canRepair: rec.def < rec.maxDef };
+    const up = this.economy.upgradeCost(rec), lv = this.economy.levelOf(rec);
+    return { rows, cap: this.economy.capOf(rec), lvl: lv, upCost: up ? this.ui.costText(up) : null, upCan: !!up && this.inventory.has(up), nextCap: up ? UPGRADES.barn.cap[lv] : null, nextDef: up ? UPGRADES.barn.defense[lv] : null, bagLvl: inv.bag, bagCost: this.economy.bagCost(), def: Math.round(rec.def), maxDef: rec.maxDef, ins: rec.state.ins, canRepair: rec.def < rec.maxDef };
   }
 
   openBarn(rec) {
@@ -464,6 +465,7 @@ export class Game {
     else if (action === 'take') this.economy.take(this.barnRec, key, 10);
     else if (action === 'insure') this.economy.insure(this.barnRec);
     else if (action === 'bag') this.economy.buyBag();
+    else if (action === 'upgrade') this.economy.upgrade(this.barnRec);
     else if (action === 'repairDef') this.economy.repairDefense(this.barnRec);
     this.ui.showBarn(true, this.barnView());
   }

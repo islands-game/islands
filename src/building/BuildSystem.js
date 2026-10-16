@@ -52,6 +52,8 @@ export class BuildSystem {
     this.mode = null;
     this.demolishTarget = null;
     this.upgradeTarget = null;
+    this.ang = null;
+    this.valid = false;
   }
 
   rotate() {
@@ -116,10 +118,38 @@ export class BuildSystem {
     const def = BUILDINGS[this.mode];
     const r = this.rectFor(def, 0, 0, this.rot);
     const dist = 2.5 + Math.max(r.hw, r.hd);
-    this.x = Math.round(p.pos.x + forward.x * dist);
-    this.z = Math.round(p.pos.z + forward.z * dist);
-    this.valid = this.canPlace(def, this.x, this.z, this.rot);
-    this.ghost.position.set(this.x, 0, this.z);
+    // Направление плавно догоняет взгляд героя: резкий поворот джойстика не бросает призрак из стороны в сторону
+    const now = performance.now();
+    const dt = Math.min(0.1, (now - (this.lastT ?? now)) / 1000);
+    this.lastT = now;
+    if (this.ang === null || this.ang === undefined) this.ang = p.facing;
+    const diff = Math.atan2(Math.sin(p.facing - this.ang), Math.cos(p.facing - this.ang));      // кратчайший поворот
+    this.ang += diff * (1 - Math.exp(-dt * 5));
+    const rawX = p.pos.x + Math.sin(this.ang) * dist, rawZ = p.pos.z + Math.cos(this.ang) * dist;
+    const snap = v => Math.round(v * 2) / 2;                      // сетка 0.5 м
+    let tx = snap(rawX), tz = snap(rawZ);
+    // Не дёргаемся: пока прежнее место подходит и недалеко от нового, остаёмся на нём
+    if (this.valid && Math.hypot(rawX - this.x, rawZ - this.z) < 0.5 && this.canPlace(def, this.x, this.z, this.rot)) { tx = this.x; tz = this.z; }
+    let ok = this.canPlace(def, tx, tz, this.rot);
+    if (!ok) {
+      // Место занято: ищем ближайшее свободное вокруг (в радиусе 3.5 м), чтобы не приходилось целиться
+      let best = null, bestD = Infinity;
+      for (let dx = -3.5; dx <= 3.5; dx += 0.5) {
+        for (let dz = -3.5; dz <= 3.5; dz += 0.5) {
+          const d = Math.hypot(dx, dz);
+          if (d >= bestD) continue;
+          const cx = tx + dx, cz = tz + dz;
+          if (this.canPlace(def, cx, cz, this.rot)) { bestD = d; best = { x: cx, z: cz }; }
+        }
+      }
+      if (best) { tx = best.x; tz = best.z; ok = true; }
+    }
+    this.x = tx;
+    this.z = tz;
+    this.valid = ok;
+    // Картинка плавно едет к месту, а не прыгает
+    this.ghost.position.x += (this.x - this.ghost.position.x) * (1 - Math.exp(-dt * 14));
+    this.ghost.position.z += (this.z - this.ghost.position.z) * (1 - Math.exp(-dt * 14));
     this.ghost.rotation.y = (this.rot * Math.PI) / 2;
     ghostMat.color.set(this.valid ? 0x44ff88 : 0xff5555);
   }

@@ -23,6 +23,13 @@ button.big.primary { background: #ff9f43; color: #3a2000; font-weight: 700; }
 .lang button.active { background: #fff; color: #1e2a4a; font-weight: 700; }
 
 /* Панель существ */
+button.dim { opacity: .6; }
+/* Амбар: кнопки действий в два столбика, чтобы панель помещалась на телефоне */
+#barn-panel .big { padding: 10px; margin: 4px 0; font-size: 16px; }
+#barn-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0; }
+#barn-actions button { padding: 10px 8px; border-radius: 12px; background: #3d5a99; font-size: 13px; line-height: 1.25; min-height: 52px; }
+#barn-actions button#barn-upgrade { grid-column: 1 / -1; background: #ff9f43; color: #3a2000; font-weight: 700; }
+#barn-panel .cr-row { padding: 6px 10px; }
 #barn-info, #merchant-info { font-size: 13px; opacity: .9; margin: -4px 0 10px; }
 #merchant-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 #merchant-list .cr-row button { min-width: 44px; }

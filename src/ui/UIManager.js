@@ -29,6 +29,7 @@ export class UIManager {
     this.$('gnome-close').onclick = () => onGnomes('close');
     this.$('merchant-close').onclick = () => onMerchant('close');
     this.$('barn-bag').onclick = () => onBarn('bag');
+    this.$('barn-upgrade').onclick = () => onBarn('upgrade');
     this.$('barn-deposit').onclick = () => onBarn('deposit');
     this.$('barn-close').onclick = () => onBarn('close');
     this.$('barn-insure').onclick = () => onBarn('insure');
@@ -222,11 +223,15 @@ export class UIManager {
     if (!show) return;
     this.$('barn-title').textContent = `${t('building.barn')} ${t('level')} ${view.lvl} · ${t('barn.cap')} ${view.cap}`;
     this.$('barn-bag').textContent = view.bagCost === null ? `${t('bag.title')} ${view.bagLvl}: ${t('upgrade.max')}` : `${t('bag.expand')} ${view.bagLvl} → ${view.bagLvl + 1} (🪙${view.bagCost})`;
-    this.$('barn-bag').disabled = view.bagCost === null;
+    this.$('barn-bag').classList.toggle('dim', view.bagCost === null);
     this.$('barn-info').textContent = `🛡 ${t('barn.defense')}: ${view.def}/${view.maxDef} · ${t('barn.insurance')}: ${view.ins > 0 ? `${view.ins} ${t('barn.days')}` : t('barn.none')}`;
     this.$('barn-insure').textContent = `${t('barn.insure')} (🪙${DEFENSE.barn.insuranceGold})`;
     this.$('barn-repair').textContent = `${t('barn.repairDef')} (🌲${DEFENSE.barn.repairCost.wood})`;
-    this.$('barn-repair').disabled = !view.canRepair;
+    // Кнопки всегда нажимаются: если нечего делать или не хватает ресурсов, игра подскажет сообщением
+    this.$('barn-upgrade').textContent = view.upCost
+      ? `${t('barn.upgrade')}: ${t('barn.cap')} ${view.cap}→${view.nextCap}, ${t('barn.defense')} ${view.maxDef}→${view.nextDef} (${view.upCost})`
+      : `${t('barn.upgrade')}: ${t('upgrade.max')}`;
+    this.$('barn-upgrade').classList.toggle('dim', !view.upCan);
     this.$('barn-deposit').textContent = t('barn.deposit');
     this.$('barn-close').textContent = t('close');
     const list = this.$('barn-list');
@@ -241,7 +246,7 @@ export class UIManager {
       info.appendChild(small);
       const btn = document.createElement('button');
       btn.textContent = t('barn.take');
-      btn.disabled = r.stored <= 0;
+      btn.classList.toggle('dim', r.stored <= 0);
       btn.onclick = () => this.onBarn('take', r.key);
       row.append(info, btn);
       list.appendChild(row);
