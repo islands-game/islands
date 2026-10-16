@@ -50,4 +50,29 @@ for (const slot of SLOTS) {
   }
 }
 export const ITEM_ORDER = Object.keys(ITEMS);
+
+// Выпадение предметов из убитых врагов: из каждого падает ровно один предмет (если не указан chance).
+// element — стихия острова врага (null: любая или простой предмет), tiers — какие ступени могут выпасть.
+// Внутри выбранных предметов шанс зависит от цены: priceBias -1 — чем дороже, тем реже (решение владельца для монстров).
+// Для будущих боёв игроков здесь будет +1: дорогое забирают чаще.
+export const DROP = { priceBias: -1, offElement: 0.15, neutralChance: 0.35 };
+export const ENEMY_DROP = {
+  slime: { element: null, tiers: [1, 1] },                       // слизни рейдов на домашнем острове
+  tree_monster: { element: null, tiers: [1, 1] },
+  frost_slime: { element: 'ice', tiers: [1, 2] }, rock_slime: { element: 'earth', tiers: [1, 2] },
+  tide_slime: { element: 'water', tiers: [1, 2] }, gust_slime: { element: 'air', tiers: [1, 2] }, lava_slime: { element: 'fire', tiers: [1, 2] },
+  stone_king: { element: 'earth', tiers: [2, 3] }, tide_king: { element: 'water', tiers: [2, 3] }, storm_king: { element: 'air', tiers: [2, 3] },
+  frost_giant: { element: 'ice', tiers: [2, 3] }, lava_king: { element: 'fire', tiers: [2, 3] },
+};
+// Арена: предметы падают из убитых героем врагов (на арене сами предметы не действуют)
+export const ARENA_DROP = {
+  hero: { element: null, tiers: [1, 2] },
+  monster: { element: null, tiers: [1, 1] },
+  king: { element: null, tiers: [2, 3] },
+  minion: { element: null, tiers: [1, 1], chance: 0.1 },         // крипов много: предмет падает не всегда
+};
+
+// Магазин торговца: 6 предметов на день (одинаковые у всех игроков), цена ±20% от обычной
+export const SHOP = { size: 6, tiers: [1, 1, 1, 2, 2, 3], mulMin: 0.8, mulMax: 1.2 };
+
 export const isItem = id => typeof id === 'string' && Object.hasOwn(ITEMS, id);

@@ -5,6 +5,9 @@ import { RESOURCES } from '../config/resources.js';
 import { todayKey } from './Realms.js';
 import { t } from '../config/i18n.js';
 import { events } from '../core/Events.js';
+import { ITEMS, SLOTS, SHOP, SELL_RATIO, NEUTRAL } from '../config/items.js';
+import { ELEMENT_ORDER } from '../config/heroes.js';
+import { itemName, itemBonus } from '../inventory/Items.js';
 
 const SELL_ORDER = ['wood', 'stone', ...FOOD_ORDER];
 
@@ -26,7 +29,8 @@ export class Merchant {
   constructor(game) {
     this.game = game;
     this.day = todayKey();
-    this.earned = 0;          // сколько золота заплатил сегодня
+    this.earned = 0;          // сколько золота заплатил сегодня (за ресурсы и за проданные предметы вместе)
+    this.bought = [];         // какие предметы дня уже куплены
     const spot = game.world.findFree(4.5, -4.5, 1.8);
     game.world.clearArea(spot.x - 1.8, spot.z - 1.8, spot.x + 1.8, spot.z + 1.8);
     this.pos = { x: spot.x, z: spot.z };
@@ -53,7 +57,7 @@ export class Merchant {
 
   rollDay() {
     const d = todayKey();
-    if (d !== this.day) { this.day = d; this.earned = 0; }
+    if (d !== this.day) { this.day = d; this.earned = 0; this.bought = []; }
   }
 
   price(item) {
@@ -65,10 +69,71 @@ export class Merchant {
     return FOOD_ORDER.includes(item) ? inv.food[item] : inv.items[item];
   }
 
+  // Предметы дня: одинаковые у всех игроков в один день (зависят от даты). Первый — простой и дешёвый.
+  stock() {
+    const used = new Set();
+    return Array.from({ length: SHOP.size }, (_, i) => {
+      let id, n = 0;
+      do {
+        const h = hash(`${this.day}:shop:${i}:${n++}`);
+        const slot = SLOTS[h % SLOTS.length];
+        const el = i === 0 ? NEUTRAL : ELEMENT_ORDER[(h >>> 4) % ELEMENT_ORDER.length];
+        id = `${slot}_${el}_${i === 0 ? 1 : SHOP.tiers[i]}`;
+      } while (used.has(id) && n < 30);
+      used.add(id);
+      const steps = Math.round((SHOP.mulMax - SHOP.mulMin) * 10);
+      const mul = +(SHOP.mulMin + (hash(`${this.day}:shopmul:${i}`) % (steps + 1)) / 10).toFixed(1);
+      return { i, id, mul, price: Math.max(1, Math.round(ITEMS[id].price * mul)) };
+    });
+  }
+
+  sellPrice(id) {
+    return Math.max(1, Math.floor(ITEMS[id].price * SELL_RATIO));
+  }
+
+  buyItem(i) {
+    this.rollDay();
+    const g = this.game;
+    const row = this.stock()[i];
+    if (!row || this.bought.includes(i)) return;
+    if (g.items.full) return g.ui.toast(t('items.bagFull'));
+    if (!g.inventory.spend({ gold: row.price })) return g.ui.toast(t('merchant.noGoldBuy'));
+    g.items.add(row.id);
+    this.bought.push(i);
+    events.emit('collect');
+  }
+
+  // Продать предмет из сумки. Деньги идут из того же дневного лимита, что и за ресурсы (золото на острове не должно литься рекой)
+  sellItem(index) {
+    this.rollDay();
+    const g = this.game;
+    const id = g.items.bag[index];
+    if (!id) return;
+    const price = this.sellPrice(id);
+    const room = Math.max(0, MERCHANT.dailyGold - this.earned);
+    if (price > room) return g.ui.toast(t('merchant.noGold'));
+    if (g.inventory.room('gold') < price) return g.ui.toast(`${t('bagFull')}: ${t('res.gold')}`);
+    g.items.drop(index);
+    const gold = g.inventory.add('gold', price);
+    this.earned += price;
+    g.ui.floatText(g.player.pos.clone().setY(2.4), `+${gold} ${RESOURCES.gold.icon}`, '#ffd23f');
+    events.emit('collect');
+  }
+
   view() {
     this.rollDay();
+    const gold = this.game.inventory.items.gold;
+    const left = Math.max(0, MERCHANT.dailyGold - this.earned);
     return {
-      left: Math.max(0, MERCHANT.dailyGold - this.earned),
+      shop: this.stock().map(r => ({
+        i: r.i, name: itemName(ITEMS[r.id]), bonus: itemBonus(ITEMS[r.id]), price: r.price, mul: r.mul,
+        bought: this.bought.includes(r.i), canBuy: !this.bought.includes(r.i) && gold >= r.price && !this.game.items.full,
+      })),
+      sellItems: this.game.items.bag.map((id, index) => {
+        const price = this.sellPrice(id);
+        return { index, name: itemName(ITEMS[id]), bonus: itemBonus(ITEMS[id]), price, canSell: price <= left };
+      }),
+      left,
       rows: SELL_ORDER.map(k => ({
         key: k, icon: FOODS[k]?.icon ?? RESOURCES[k].icon, name: t(FOODS[k] ? 'food.' + k : 'res.' + k),
         price: this.price(k), have: this.have(k), mul: priceMul(k, this.day),
@@ -92,12 +157,13 @@ export class Merchant {
   }
 
   toSave() {
-    return { day: this.day, earned: this.earned };
+    return { day: this.day, earned: this.earned, bought: [...this.bought] };
   }
 
   fromSave(data) {
     this.day = typeof data?.day === 'string' ? data.day : todayKey();
     this.earned = Number.isFinite(data?.earned) ? Math.max(0, Math.min(500, Math.floor(data.earned))) : 0;
+    this.bought = (Array.isArray(data?.bought) ? data.bought : []).filter(n => Number.isInteger(n) && n >= 0 && n < SHOP.size);
     this.rollDay();
   }
 }

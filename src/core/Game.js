@@ -11,7 +11,8 @@ import { addXp, xpNeeded, xpFactor, isMilestone, milestoneSkill } from '../progr
 import { LEVELS } from '../config/levels.js';
 import { Items } from '../inventory/Items.js';
 import { ItemsPanel } from '../ui/ItemsPanel.js';
-import { SLOT_INFO } from '../config/items.js';
+import { SLOT_INFO, ITEMS, ENEMY_DROP } from '../config/items.js';
+import { itemName, rollItem } from '../inventory/Items.js';
 import { UIManager } from '../ui/UIManager.js';
 import { BuildSystem, DEMOLISH, UPGRADE } from '../building/BuildSystem.js';
 import { BUILDINGS } from '../config/buildings.js';
@@ -361,8 +362,22 @@ export class Game {
     }
   }
 
+  // Выпал предмет по таблице spec (config/items.js) в точке at. Если сумка полна, предмет теряется.
+  giveDrop(spec, at) {
+    const id = rollItem(spec);
+    if (!id) return;
+    const name = itemName(ITEMS[id]);
+    if (this.items.add(id)) {
+      this.ui.floatText(at.clone().setY(at.y + 2.4), `🎁 ${name}`, '#ffe066');
+      events.emit('collect');
+    } else {
+      this.ui.toast(`${t('items.lost')}: ${name}`);
+    }
+  }
+
   onEnemyKilled(enemy) {
     this.stats.kills++;
+    this.giveDrop(ENEMY_DROP[enemy.def.id], enemy.pos);
     if (enemy.def.boss) {
       this.ui.toast(`${t('bossDefeated')} ${t('enemy.' + enemy.def.id)}`);
       this.combat.ring(enemy.pos, 0xffd23f, 8, 1);
@@ -538,6 +553,8 @@ export class Game {
     if (action === 'close') return this.ui.showMerchant(false);
     if (action === 'sell') this.merchant.sell(key, false);
     else if (action === 'sellAll') this.merchant.sell(key, true);
+    else if (action === 'buyItem') this.merchant.buyItem(key);
+    else if (action === 'sellItem') this.merchant.sellItem(key);
     this.ui.showMerchant(true, this.merchant.view());
   }
 

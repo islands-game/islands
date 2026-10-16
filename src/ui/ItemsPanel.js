@@ -1,5 +1,6 @@
 import { ITEMS, SLOTS, SLOT_INFO, BAG_SIZE, ROMAN, NEUTRAL } from '../config/items.js';
 import { events } from '../core/Events.js';
+import { itemName, itemBonus } from '../inventory/Items.js';
 import { t } from '../config/i18n.js';
 
 const hex = c => `#${c.toString(16).padStart(6, '0')}`;
@@ -32,14 +33,12 @@ export class ItemsPanel {
 
   // Название: «⚔ Клинок · Огонь · II»
   name(it) {
-    const el = it.element === NEUTRAL ? t('items.plain') : t('el.' + it.element);
-    return `${SLOT_INFO[it.slot].icon} ${t('items.slot.' + it.slot)} · ${el} · ${ROMAN[it.tier]}`;
+    return itemName(it);
   }
 
   // Что даёт предмет: «+16% к урону» / «−9% к перезарядке умений»
   bonusText(it) {
-    const v = pct(it.bonus);
-    return it.stat === 'cd' ? `−${v} ${t('items.stat.cd')}` : `+${v} ${t('items.stat.' + it.stat)}`;
+    return itemBonus(it);
   }
 
   selected() {

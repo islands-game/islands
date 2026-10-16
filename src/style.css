@@ -33,6 +33,9 @@ button.dim { opacity: .6; }
 #barn-info, #merchant-info { font-size: 13px; opacity: .9; margin: -4px 0 10px; }
 #merchant-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 #merchant-list .cr-row button { min-width: 44px; }
+.mp-head { text-align: left; font-weight: 700; margin: 8px 0 6px; }
+#merchant-shop, #merchant-sell { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+#merchant-shop .cr-row button, #merchant-sell .cr-row button { min-width: 72px; }
 #gnome-info { font-size: 13px; opacity: .9; margin: -4px 0 8px; }
 #gnome-quest { background: #ffffff1a; border-radius: 12px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; text-align: left; }
 #gnome-quest button { margin-top: 6px; padding: 8px 12px; border-radius: 10px; background: #ff9f43; color: #3a2000; font-weight: 700; }

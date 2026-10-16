@@ -1,6 +1,42 @@
-import { ITEMS, SLOTS, SLOT_INFO, BAG_SIZE, isItem } from '../config/items.js';
+import { ITEMS, SLOTS, SLOT_INFO, BAG_SIZE, ROMAN, NEUTRAL, DROP, TIERS, isItem } from '../config/items.js';
+import { ELEMENT_ORDER } from '../config/heroes.js';
 import { events } from '../core/Events.js';
 import { t } from '../config/i18n.js';
+
+// Название: «⚔ Оружие · Огонь · II»
+export function itemName(it) {
+  const el = it.element === NEUTRAL ? t('items.plain') : t('el.' + it.element);
+  return `${SLOT_INFO[it.slot].icon} ${t('items.slot.' + it.slot)} · ${el} · ${ROMAN[it.tier]}`;
+}
+
+// Что даёт: «+16% урон» / «−9% перезарядка умений»
+export function itemBonus(it) {
+  const v = `${Math.round(it.bonus * 100)}%`;
+  return it.stat === 'cd' ? `−${v} ${t('items.stat.cd')}` : `+${v} ${t('items.stat.' + it.stat)}`;
+}
+
+// Выбрать предмет для выпадения по таблице spec (config/items.js: ENEMY_DROP). null — ничего не выпало.
+export function rollItem(spec, rnd = Math.random) {
+  if (!spec) return null;
+  if (spec.chance !== undefined && rnd() >= spec.chance) return null;
+  const [lo, hi] = spec.tiers;
+  const any = () => ELEMENT_ORDER[Math.floor(rnd() * ELEMENT_ORDER.length)];
+  let el;
+  if (spec.element) {
+    el = rnd() < DROP.offElement ? any() : spec.element;
+  } else {
+    el = rnd() < DROP.neutralChance ? NEUTRAL : any();
+  }
+  if (el === NEUTRAL && lo > 1) el = any();           // простые предметы бывают только I ступени
+  const pool = [];
+  for (const slot of SLOTS) {
+    for (let tier = lo; tier <= Math.min(hi, el === NEUTRAL ? 1 : TIERS); tier++) pool.push(ITEMS[`${slot}_${el}_${tier}`]);
+  }
+  const weights = pool.map(it => it.price ** DROP.priceBias);    // дороже — реже (priceBias < 0)
+  let r = rnd() * weights.reduce((s, w) => s + w, 0);
+  for (let i = 0; i < pool.length; i++) { r -= weights[i]; if (r <= 0) return pool[i].id; }
+  return pool[pool.length - 1].id;
+}
 
 const ONES = () => ({ dmg: 1, hp: 1, effect: 1, speed: 1, cd: 1 });
 

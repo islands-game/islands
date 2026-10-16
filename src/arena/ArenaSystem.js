@@ -8,6 +8,7 @@ import { ELEMENT_FX } from '../config/creatures.js';
 import { events } from '../core/Events.js';
 import { t } from '../config/i18n.js';
 import { ARENA_XP } from '../config/levels.js';
+import { ARENA_DROP } from '../config/items.js';
 
 const C = ARENA.center;
 const HERO_SCALE = 1.3;   // герои чуть крупнее, чтобы их было видно на маленьком экране
@@ -445,6 +446,7 @@ export class ArenaSystem {
     if (u.kind === 'tower' && u.team === 'red' && killer?.team === 'blue') { this.awardGold(ARENA.gold.tower, u); this.awardXp(ARENA_XP.tower, u); }
     // Опыт героя за убийства и разрушения (в основную игру сразу)
     if (killer === this.playerUnit && u.team !== 'blue' && Object.hasOwn(ARENA_XP, u.kind) && u.kind !== 'tower') this.awardXp(ARENA_XP[u.kind], u);
+    if (killer === this.playerUnit && u.team !== 'blue' && Object.hasOwn(ARENA_DROP, u.kind)) this.game.giveDrop(ARENA_DROP[u.kind], u.pos);
     if (u.kind !== 'hero') {
       // Остальные исчезают
       this.game.combat.ring(u.pos, TEAM_RING[u.team] ?? 0xffffff, u.kind === 'tower' || u.kind === 'crystal' ? 6 : 2, 0.5);

@@ -331,6 +331,49 @@ export class UIManager {
       row.append(info, one, all);
       list.appendChild(row);
     }
+    // Предметы дня (купить) и продажа предметов из сумки
+    this.$('merchant-shop-h').textContent = t('merchant.shop');
+    this.$('merchant-sell-h').textContent = t('merchant.sellItems');
+    const shop = this.$('merchant-shop');
+    shop.textContent = '';
+    for (const r of view.shop ?? []) {
+      const row = document.createElement('div');
+      row.className = 'cr-row';
+      const info = document.createElement('div');
+      info.textContent = r.name;
+      const small = document.createElement('small');
+      small.textContent = `${r.bonus} · 💰${r.price}${r.mul >= 1.1 ? ' 📈' : r.mul <= 0.9 ? ' 📉' : ''}`;
+      info.appendChild(small);
+      const buy = document.createElement('button');
+      buy.textContent = r.bought ? t('merchant.sold') : t('merchant.buy');
+      buy.disabled = !r.canBuy;
+      buy.onclick = () => this.onMerchant('buyItem', r.i);
+      row.append(info, buy);
+      shop.appendChild(row);
+    }
+    const sell = this.$('merchant-sell');
+    sell.textContent = '';
+    if (!(view.sellItems ?? []).length) {
+      const e = document.createElement('div');
+      e.className = 'cr-empty';
+      e.textContent = t('merchant.noItems');
+      sell.appendChild(e);
+    }
+    for (const r of view.sellItems ?? []) {
+      const row = document.createElement('div');
+      row.className = 'cr-row';
+      const info = document.createElement('div');
+      info.textContent = r.name;
+      const small = document.createElement('small');
+      small.textContent = `${r.bonus} · 💰${r.price}`;
+      info.appendChild(small);
+      const b = document.createElement('button');
+      b.textContent = t('merchant.sellOne');
+      b.disabled = !r.canSell;
+      b.onclick = () => this.onMerchant('sellItem', r.index);
+      row.append(info, b);
+      sell.appendChild(row);
+    }
   }
 
   // Кнопка действия: нажатие считается сразу при касании; repeatMs — повтор, пока палец держит кнопку
