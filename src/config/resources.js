@@ -4,7 +4,7 @@
 export const RESOURCES = {
   wood:  { icon: '🌲', amount: [2, 3], respawn: 40, xp: 3 },    // деревьев много, но растут не быстро
   stone: { icon: '⛰', amount: [2, 3], respawn: 55, xp: 3 },    // камней мало и они редкие: стены и дома «дороже» дерева
-  gold:  { icon: '🪙', amount: [1, 2], respawn: 180, xp: 8 },   // жила даёт золото раз в 3 минуты; главное золото — с врагов и арены
+  gold:  { icon: '💰', amount: [1, 2], respawn: 180, xp: 8 },   // жила даёт золото раз в 3 минуты; главное золото — с врагов и арены
 };
 
 export const RESOURCE_ORDER = ['wood', 'stone', 'gold'];

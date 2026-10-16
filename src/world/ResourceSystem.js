@@ -13,7 +13,11 @@ export class ResourceSystem {
   update(dt) {
     this.time += dt;
     for (const n of this.world.nodes) {
-      if (!n.active && this.time >= n.respawnAt) this.setActive(n, true);
+      if (!n.active && this.time >= n.respawnAt) {
+        // Если на месте ресурса построили постройку (старое сохранение), он не растёт, а ждёт
+        if (this.blocked?.(n)) { n.respawnAt = this.time + 10; continue; }
+        this.setActive(n, true);
+      }
     }
   }
 

@@ -222,10 +222,10 @@ export class UIManager {
     this.$('barn-panel').classList.toggle('hidden', !show);
     if (!show) return;
     this.$('barn-title').textContent = `${t('building.barn')} ${t('level')} ${view.lvl} · ${t('barn.cap')} ${view.cap}`;
-    this.$('barn-bag').textContent = view.bagCost === null ? `${t('bag.title')} ${view.bagLvl}: ${t('upgrade.max')}` : `${t('bag.expand')} ${view.bagLvl} → ${view.bagLvl + 1} (🪙${view.bagCost})`;
+    this.$('barn-bag').textContent = view.bagCost === null ? `${t('bag.title')} ${view.bagLvl}: ${t('upgrade.max')}` : `${t('bag.expand')} ${view.bagLvl} → ${view.bagLvl + 1} (💰${view.bagCost})`;
     this.$('barn-bag').classList.toggle('dim', view.bagCost === null);
     this.$('barn-info').textContent = `🛡 ${t('barn.defense')}: ${view.def}/${view.maxDef} · ${t('barn.insurance')}: ${view.ins > 0 ? `${view.ins} ${t('barn.days')}` : t('barn.none')}`;
-    this.$('barn-insure').textContent = `${t('barn.insure')} (🪙${DEFENSE.barn.insuranceGold})`;
+    this.$('barn-insure').textContent = `${t('barn.insure')} (💰${DEFENSE.barn.insuranceGold})`;
     this.$('barn-repair').textContent = `${t('barn.repairDef')} (🌲${DEFENSE.barn.repairCost.wood})`;
     // Кнопки всегда нажимаются: если нечего делать или не хватает ресурсов, игра подскажет сообщением
     this.$('barn-upgrade').textContent = view.upCost
@@ -259,11 +259,11 @@ export class UIManager {
     if (!show) return;
     this.$('gnome-title').textContent = t('gnome.title');
     this.$('gnome-close').textContent = t('close');
-    this.$('gnome-info').textContent = `${t('gnome.wages')}: 🪙${view.wages} ${t('gnome.perDay')}${view.hasCave ? '' : ' · ' + t('gnome.needCave')}`;
+    this.$('gnome-info').textContent = `${t('gnome.wages')}: 💰${view.wages} ${t('gnome.perDay')}${view.hasCave ? '' : ' · ' + t('gnome.needCave')}`;
     const q = view.quest, qe = this.$('gnome-quest');
     qe.textContent = '';
     const qt = document.createElement('div');
-    qt.textContent = `${t('gnome.quest')}: ${t('gnome.questText')} ${q.amount} 🍎 → 🪙${q.reward}${q.done ? ' ✔' : ''}`;
+    qt.textContent = `${t('gnome.quest')}: ${t('gnome.questText')} ${q.amount} 🍎 → 💰${q.reward}${q.done ? ' ✔' : ''}`;
     qe.appendChild(qt);
     if (!q.done) {
       const b = document.createElement('button');
@@ -283,15 +283,15 @@ export class UIManager {
         info.textContent = `${r.icon} ${name} · ${t('level')} ${r.level} · ${t('gnome.spec.' + r.spec)}`;
         const small = document.createElement('small');
         const prog = r.nextNeed ? ` · ${r.tasks}/${r.nextNeed}` : '';
-        small.textContent = `${t('gnome.status.' + r.status)} · ❤ ${r.hp}/${r.maxHp}${prog} · 🪙${r.wage}/${t('gnome.perDay')}`;
+        small.textContent = `${t('gnome.status.' + r.status)} · ❤ ${r.hp}/${r.maxHp}${prog} · 💰${r.wage}/${t('gnome.perDay')}`;
         info.appendChild(small);
       }
       row.appendChild(info);
       const btns = document.createElement('div');
       btns.className = 'gn-btns';
       const mk = (text, fn) => { const b = document.createElement('button'); b.textContent = text; b.onclick = fn; btns.appendChild(b); return b; };
-      if (r.status === 'notHired') mk(`${t('gnome.hire')}${r.fee ? ' 🪙' + r.fee : ''}`, () => this.onGnomes('hire', r.i));
-      else if (r.status === 'dead') mk(`${t('gnome.train')} 🪙${r.fee}`, () => this.onGnomes('hire', r.i));
+      if (r.status === 'notHired') mk(`${t('gnome.hire')}${r.fee ? ' 💰' + r.fee : ''}`, () => this.onGnomes('hire', r.i));
+      else if (r.status === 'dead') mk(`${t('gnome.train')} 💰${r.fee}`, () => this.onGnomes('hire', r.i));
       else if (r.status !== 'locked') {
         mk(t('gnome.fire'), () => this.onGnomes('fire', r.i));
         if (r.canSpec) mk(`${SPEC_ICONS[r.spec]} ▶`, () => this.onGnomes('spec', r.i, GNOME.specs[(GNOME.specs.indexOf(r.spec) + 1) % GNOME.specs.length]));
@@ -306,7 +306,7 @@ export class UIManager {
     this.$('merchant-panel').classList.toggle('hidden', !show);
     if (!show) return;
     this.$('merchant-title').textContent = t('merchant.title');
-    this.$('merchant-info').textContent = `${t('merchant.left')}: 🪙${view.left}`;
+    this.$('merchant-info').textContent = `${t('merchant.left')}: 💰${view.left}`;
     this.$('merchant-close').textContent = t('close');
     const list = this.$('merchant-list');
     list.textContent = '';
@@ -316,7 +316,7 @@ export class UIManager {
       const info = document.createElement('div');
       info.textContent = `${r.icon} ${r.name}: ${r.have}`;
       const small = document.createElement('small');
-      small.textContent = `🪙${r.price} ${t('merchant.each')}${r.mul >= 1.3 ? ' 📈' : r.mul <= 0.8 ? ' 📉' : ''}`;
+      small.textContent = `💰${r.price} ${t('merchant.each')}${r.mul >= 1.3 ? ' 📈' : r.mul <= 0.8 ? ' 📉' : ''}`;
       info.appendChild(small);
       const one = document.createElement('button');
       one.textContent = '1';

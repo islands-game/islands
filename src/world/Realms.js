@@ -106,7 +106,7 @@ export class Realms {
     this.veins[el] = this.day;
     const v = this.veinObjs[el];
     g.combat.ring({ x: v.grp.position.x, y: 0, z: v.grp.position.z }, 0xffd23f, 4, 0.7);
-    g.ui.floatText(g.player.pos.clone().setY(2.4), `+${got} 🪙`, '#ffd23f');
+    g.ui.floatText(g.player.pos.clone().setY(2.4), `+${got} 💰`, '#ffd23f');
     g.gainXp(20);
     events.emit('collect', 'gold', got);
     this.refreshVein(el);

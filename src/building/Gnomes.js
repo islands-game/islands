@@ -174,7 +174,7 @@ export class Gnomes {
       if (s.unpaid >= 2) { this.fire(i); g.ui.toast(t('gnome.quit')); } else strike++;
     });
     if (strike) g.ui.toast(`${t('gnome.strike')}: ${strike}`);
-    else if (paid) g.ui.toast(`${t('gnome.paid')}: 🪙${paid}`);
+    else if (paid) g.ui.toast(`${t('gnome.paid')}: 💰${paid}`);
   }
 
   // ---------- поручение дня (первый гном) ----------
@@ -198,7 +198,7 @@ export class Gnomes {
     for (const b of barns) for (const k of FOOD_ORDER) { const n = Math.min(need, b.state.items[k]); b.state.items[k] -= n; need -= n; }
     this.quest.done = true;
     g.inventory.add('gold', q.reward);
-    g.ui.toast(`${t('gnome.questOk')} 🪙${q.reward}`);
+    g.ui.toast(`${t('gnome.questOk')} 💰${q.reward}`);
     events.emit('quest');
   }
 

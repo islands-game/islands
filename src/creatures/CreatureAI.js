@@ -95,7 +95,7 @@ export function updateGuard(c, dt, ctx) {
   const st = c.stats;
   let moving = false;
   const target = combat.nearestEnemy(c.pos, 12);
-  const leash = dist(c.pos, c.post) > 22;            // ушёл слишком далеко от поста — возвращается
+  const leash = dist(c.pos, c.post) > 30;            // ушёл слишком далеко от поста — возвращается
   if (target && !leash) {
     const a = c.def.ability;
     if (a.id !== 'shield' && a.id !== 'heal') tryAbility(c, ctx, target, false);
@@ -114,8 +114,8 @@ export function updateGuard(c, dt, ctx) {
   } else {
     // Патруль: идёт не спеша по кругу вокруг базы, звери разнесены по кругу друг от друга
     c.state = 'patrol';
-    c.patrolA = (c.patrolA ?? Math.atan2(c.post.z, c.post.x)) + dt * 0.12;
-    const px = Math.cos(c.patrolA) * 8, pz = Math.sin(c.patrolA) * 8;
+    c.patrolA = (c.patrolA ?? Math.atan2(c.post.z, c.post.x)) + dt * 0.07;
+    const px = Math.cos(c.patrolA) * 14, pz = Math.sin(c.patrolA) * 14;
     moving = moveToward(c, { x: px, z: pz }, st.speed * 0.45, dt, 0.3, world);
     if (!moving) c.patrolA += dt * 0.4;          // уткнулся в постройку: двигаем точку маршрута дальше
   }

@@ -526,7 +526,7 @@ export class ArenaSystem {
     this.goldEarned += n;
     const p = at.pos.clone();
     p.y += 2.8;
-    this.ui.floatText(p, `+${n} 🪙`, '#ffd23f');
+    this.ui.floatText(p, `+${n} 💰`, '#ffd23f');
   }
 
   endMatch(winner) {

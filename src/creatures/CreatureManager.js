@@ -59,7 +59,7 @@ export class CreatureManager {
     for (const r of this.collection) {
       if (following.has(r.id)) continue;
       const a = Math.PI * 0.25 + (i++ / 5) * Math.PI * 2;           // посты по кругу вокруг центра острова
-      const post = this.world.findFree(Math.cos(a) * 6, Math.sin(a) * 6, 1.4);
+      const post = this.world.findFree(Math.cos(a) * 10, Math.sin(a) * 10, 1.4);
       const c = new Creature(r.id, this.scene, { level: r.level, xp: r.xp, fed: r.fed, hunger: r.hunger });
       c.post = { x: post.x, z: post.z };
       c.pos.set(post.x, 0, post.z);

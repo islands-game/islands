@@ -24,6 +24,7 @@ export class BuildSystem {
     this.z = 0;
     this.demolishTarget = null;
     this.upgradeTarget = null;
+    this.pointer = null;       // точка земли под мышью ({ x, z }), только на компьютере
   }
 
   get active() {
@@ -81,6 +82,10 @@ export class BuildSystem {
     for (const c of this.world.colliders) {
       if (c.active && circleRectOverlap(c.x, c.z, Math.max(c.r, c.pr ?? 0), rect)) return false;
     }
+    // Деревья и камни, которые сейчас срублены, вырастут снова — под постройкой им места нет
+    for (const n of this.world.nodes) {
+      if (circleRectOverlap(n.x, n.z, Math.max(n.collider.r, n.collider.pr ?? 0), rect)) return false;
+    }
     for (const p of this.placed) {
       if (rectsOverlap(rect, p.rect)) return false;
     }
@@ -103,15 +108,15 @@ export class BuildSystem {
     const forward = new THREE.Vector3(Math.sin(p.facing), 0, Math.cos(p.facing));
 
     if (this.mode === DEMOLISH) {
-      const fx = p.pos.x + forward.x * 2.5, fz = p.pos.z + forward.z * 2.5;
-      this.demolishTarget = this.nearestPlaced(fx, fz, 3.5);
+      const fx = this.pointer ? this.pointer.x : p.pos.x + forward.x * 2.5, fz = this.pointer ? this.pointer.z : p.pos.z + forward.z * 2.5;
+      this.demolishTarget = this.nearestPlaced(fx, fz, this.pointer ? 2.5 : 3.5);
       this.valid = !!this.demolishTarget;
       return;
     }
 
     if (this.mode === UPGRADE) {
-      const fx = p.pos.x + forward.x * 2.5, fz = p.pos.z + forward.z * 2.5;
-      this.upgradeTarget = this.nearestPlaced(fx, fz, 3.5, true);
+      const fx = this.pointer ? this.pointer.x : p.pos.x + forward.x * 2.5, fz = this.pointer ? this.pointer.z : p.pos.z + forward.z * 2.5;
+      this.upgradeTarget = this.nearestPlaced(fx, fz, this.pointer ? 2.5 : 3.5, true);
       this.valid = !!this.upgradeTarget && !!this.canUpgrade?.(this.upgradeTarget);
       return;
     }
@@ -125,7 +130,9 @@ export class BuildSystem {
     if (this.ang === null || this.ang === undefined) this.ang = p.facing;
     const diff = Math.atan2(Math.sin(p.facing - this.ang), Math.cos(p.facing - this.ang));      // кратчайший поворот
     this.ang += diff * (1 - Math.exp(-dt * 5));
-    const rawX = p.pos.x + Math.sin(this.ang) * dist, rawZ = p.pos.z + Math.cos(this.ang) * dist;
+    // На компьютере постройка стоит там, куда указывает мышь (pointer); на телефоне — перед героем
+    const rawX = this.pointer ? this.pointer.x : p.pos.x + Math.sin(this.ang) * dist;
+    const rawZ = this.pointer ? this.pointer.z : p.pos.z + Math.cos(this.ang) * dist;
     const snap = v => Math.round(v * 2) / 2;                      // сетка 0.5 м
     let tx = snap(rawX), tz = snap(rawZ);
     // Не дёргаемся: пока прежнее место подходит и недалеко от нового, остаёмся на нём
@@ -211,6 +218,7 @@ export class BuildSystem {
     mesh.rotation.y = (rot * Math.PI) / 2;
     this.scene.add(mesh);
     const rect = this.rectFor(def, x, z, rot);
+    this.world.clearArea(rect.x - rect.hw, rect.z - rect.hd, rect.x + rect.hw, rect.z + rect.hd);      // под постройкой ничего не растёт
     const rec = { id, x, z, rot, mesh, rect, walk: null, solid: null, struct: null, state: state ?? null };
     // Прочность и защита (амбар): у дома, платформ и мостов их нет — они неуязвимы
     if (BUILDINGS[id].hp) { rec.maxHp = BUILDINGS[id].hp; rec.hp = Number.isFinite(hp) ? Math.min(hp, rec.maxHp) : rec.maxHp; }

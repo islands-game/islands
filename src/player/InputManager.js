@@ -72,8 +72,8 @@ export class InputManager {
     canvas.addEventListener('pointerup', e => {
       if (e.pointerType !== 'mouse') return;
       dragging = false;
-      // Короткий клик без перетаскивания — атака
-      if (this.enabled && Math.hypot(e.clientX - sx, e.clientY - sy) < 6 && performance.now() - st < 350) {
+      // Короткий клик левой кнопкой без перетаскивания — атака (в режиме строительства — поставить постройку)
+      if (this.enabled && e.button === 0 && Math.hypot(e.clientX - sx, e.clientY - sy) < 6 && performance.now() - st < 350) {
         this.press('attack');
       }
     });

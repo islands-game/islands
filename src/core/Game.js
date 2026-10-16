@@ -73,6 +73,26 @@ export class Game {
       onSkipTutorial: () => this.setTutorialStep(TUTORIAL_DONE),
     });
     this.ui.setCamera(this.camera);
+    this.mouseNdc = null;      // положение мыши на экране (-1..1), чтобы ставить постройки там, куда указываешь
+    this.raycaster = new THREE.Raycaster();
+    if (!this.input.isTouch) {
+      canvas.addEventListener('pointermove', e => {
+        if (e.pointerType !== 'mouse') return;
+        const r = canvas.getBoundingClientRect();
+        this.mouseNdc = { x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -(((e.clientY - r.top) / r.height) * 2 - 1) };
+      });
+      // В режиме строительства: колесо мыши — повернуть, правая кнопка — отмена
+      canvas.addEventListener('wheel', e => {
+        if (!this.build.active) return;
+        e.preventDefault();
+        this.build.rotate();
+      }, { passive: false });
+      canvas.addEventListener('contextmenu', e => {
+        if (!this.build.active) return;
+        e.preventDefault();
+        this.build.cancel();
+      });
+    }
 
     this.resources = new ResourceSystem(this.world, this.inventory);
     this.combat = new CombatSystem({
@@ -101,6 +121,7 @@ export class Game {
     this.build.upgradeText = rec => this.economy.upgradeText(rec);
     this.build.onUpgrade = rec => this.economy.upgrade(rec);
     this.build.onAdded = rec => this.economy.attach(rec);
+    this.resources.blocked = n => this.build.placed.some(b => b.rect && Math.abs(n.x - b.rect.x) < b.rect.hw + n.collider.r + 0.2 && Math.abs(n.z - b.rect.z) < b.rect.hd + n.collider.r + 0.2);
     this.combat.structureList = () => this.economy.targets();
     this.combat.structureHit = (enemy, rec) => this.economy.hitStructure(enemy, rec);
 
@@ -393,7 +414,7 @@ export class Game {
       const rec = p.recLevel > 1 ? ` (${t('recLevel')} ${p.recLevel})` : '';
       return this.ui.setPrompt(`${key}${t('portal')}: ${t(p.nameKey)}${rec}`, this.player.level < p.recLevel);
     }
-    if (target.kind === 'vein') return this.ui.setPrompt(`${key}${t('vein.mine')}: 🪙${target.range[0]}–${target.range[1]}`);
+    if (target.kind === 'vein') return this.ui.setPrompt(`${key}${t('vein.mine')}: 💰${target.range[0]}–${target.range[1]}`);
     if (target.kind === 'econ') return this.ui.setPrompt(`${key}${target.tg.text}`, !!target.tg.disabled);
     if (target.kind === 'cage') {
       const name = this.realms.beastName(target.element);
@@ -569,6 +590,19 @@ export class Game {
     if (this.ui.panelOpen) this.ui.renderPanel(this.creatures.list(), this.creatures.activeIds, this.creatures.limit);
   }
 
+  // Точка земли под мышью (пересечение луча из камеры с плоскостью y = 0); не дальше 18 м от героя
+  mouseGround() {
+    if (!this.mouseNdc) return null;
+    this.raycaster.setFromCamera(this.mouseNdc, this.camera);
+    const ray = this.raycaster.ray;
+    if (ray.direction.y > -0.02) return null;                // смотрит выше горизонта
+    const t = -ray.origin.y / ray.direction.y;
+    let x = ray.origin.x + ray.direction.x * t, z = ray.origin.z + ray.direction.z * t;
+    const p = this.player.pos, d = Math.hypot(x - p.x, z - p.z);
+    if (d > 18) { x = p.x + ((x - p.x) / d) * 18; z = p.z + ((z - p.z) / d) * 18; }
+    return { x, z };
+  }
+
   // --- Главный цикл ---
 
   toggleBuild() {
@@ -596,8 +630,8 @@ export class Game {
     }
     if (input.consume('build')) this.toggleBuild();
     if (this.build.active) {
-      // В режиме строительства "Действие" ставит постройку, "Атака" не работает
-      input.consume('attack');
+      // В режиме строительства "Действие" ставит постройку; на компьютере её ставит и клик мышью
+      if (input.consume('attack') && !input.isTouch) this.build.confirm();
       for (let i = 1; i <= 3; i++) input.consume('spell' + i);
       if (input.consume('interact') | input.consume('confirm')) this.build.confirm();
       if (input.consume('rotate')) this.build.rotate();
@@ -638,6 +672,7 @@ export class Game {
       this.economy.update(dt);
       this.gnomes.update(dt);
       this.creatures.update(dt);
+      this.build.pointer = this.input.isTouch ? null : this.mouseGround();
       this.build.update();
       this.updateBuildBar();
       this.updatePrompt();

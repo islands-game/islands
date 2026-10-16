@@ -47,7 +47,7 @@ export class RaidSystem {
     const g = this.game;
     for (let i = 0; i < this.pending; i++) {
       const a = (i / this.pending) * Math.PI * 2 + Math.random() * 0.6;
-      const spot = g.world.findFree(Math.cos(a) * 11, Math.sin(a) * 11, 1.2);
+      const spot = g.world.findFree(Math.cos(a) * 22, Math.sin(a) * 22, 1.2);       // слизни выходят с края большого острова
       g.combat.spawnRaider(RAIDS.enemy, spot.x, spot.z);
     }
     this.total = this.pending;

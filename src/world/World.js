@@ -11,7 +11,7 @@ const SKY_DUSK = new THREE.Color(0xff9a6b);
 const SKY_NIGHT = new THREE.Color(0x101a40);
 const _sky = new THREE.Color();
 
-export const ISLAND_RADIUS = 14; // радиус домашнего острова
+export const ISLAND_RADIUS = 28; // радиус домашнего острова (был 14: острову не хватало места под постройки)
 export const GROUND_Y = 0;
 export const WALK_Y = 0.1; // высота платформ и мостов
 
@@ -21,8 +21,8 @@ export const WALK_Y = 0.1; // высота платформ и мостов
 //   trees / rocks / gold — сколько деревьев, камней и золотых жил (на домашнем острове золота нет);  colors — краски острова
 export const ISLANDS = [
   {
-    id: 'home', x: 0, z: 0, r: 14, spawn: { x: 0, z: 6 }, seed: 42,
-    trees: 16, rocks: 8, gold: 0,
+    id: 'home', x: 0, z: 0, r: 28, spawn: { x: 0, z: 6 }, seed: 42,
+    trees: 34, rocks: 16, gold: 0,
     colors: { grass: 0x6cd05a, rock: 0x8a6f55, trunk: 0x7a4e2d, leaf: 0x2f9e44, stone: 0x9aa0a6, crystal: 0xffc93c, glow: 0x2aa9c9, pad: 0xe9dfae },
   },
   {
@@ -338,9 +338,11 @@ export class World {
       }
       const a = rand() * Math.PI * 2;
       const r = 28 + rand() * 40;
+      const home = i < 14;                          // облака домашнего острова держатся дальше от большого острова
       // Облака вокруг каждого острова: первые 14 — домашний, дальше ледяной и огненный
       const ox = i < 14 ? 0 : i < 24 ? 70 : 140;
-      cloud.position.set(ox + Math.cos(a) * r, 14 + rand() * 18, Math.sin(a) * r);
+      const rr = home ? r + 20 : r;
+      cloud.position.set(ox + Math.cos(a) * rr, 14 + rand() * 18, Math.sin(a) * rr);
       cloud.renderOrder = -1;
       this.scene.add(cloud);
       this.clouds.push(cloud);
