@@ -6,7 +6,9 @@ const num = (v, min, max, d) => (Number.isFinite(v) ? Math.max(min, Math.min(max
 export function newState(id) {
   if (id === 'farm') return { plots: FARM.plots.map(() => ({ s: 'empty', t: 0, water: false, gold: false, left: 0 })) };
   if (id === 'pen') return { slots: PEN.slots.map(() => ({ t: 0, stock: 0 })) };
-  if (id === 'barn') return { items: Object.fromEntries(BARN_ITEMS.map(k => [k, 0])) };
+  if (id === 'barn') return { items: Object.fromEntries(BARN_ITEMS.map(k => [k, 0])), ins: 0 };
+  if (id === 'tower') return { cd: 0 };
+  if (id === 'trap') return {};
   return null;
 }
 
@@ -24,6 +26,7 @@ export function cleanState(id, raw) {
     st.slots = st.slots.map((s, i) => ({ t: num(raw.slots[i]?.t, 0, 10000, 0), stock: Math.floor(num(raw.slots[i]?.stock, 0, PEN.slots[i].max, 0)) }));
   } else if (id === 'barn' && raw.items && typeof raw.items === 'object') {
     for (const k of BARN_ITEMS) st.items[k] = Math.floor(num(raw.items[k], 0, BARN.cap, 0));
+    st.ins = Math.floor(num(raw.ins, 0, 99, 0));
   }
   return st;
 }

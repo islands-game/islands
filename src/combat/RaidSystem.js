@@ -63,6 +63,7 @@ export class RaidSystem {
     const g = this.game;
     const wasActive = this.state === 'active';
     this.state = 'idle';
+    if (g.combat.raiders().some(e => !e.dead && e.loot)) g.ui.toast(t('loot.lost'));   // слизни ушли с добычей
     g.combat.clearRaiders();
     if (why === 'win' && wasActive) {
       const xp = RAIDS.rewardXp + RAIDS.rewardPerEnemy * this.total;

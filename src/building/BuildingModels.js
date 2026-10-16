@@ -121,7 +121,38 @@ function farm({ w, d }, color) {
   return g;
 }
 
-const BUILDERS = { platform, wall, bridge, house, pen, barn, farm };
+// Сторожевая башня: каменное основание, деревянная площадка с перилами и острая крыша
+function tower({ w }, color) {
+  const g = new THREE.Group();
+  const stone = lambert(color), wood = lambert(0x8b5a2b), roof = lambert(0xb5493a);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.38, w * 0.46, 3.2, 8), stone);
+  base.position.y = 1.6;
+  const deck = new THREE.Mesh(new THREE.CylinderGeometry(w * 0.52, w * 0.52, 0.25, 8), wood);
+  deck.position.y = 3.3;
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(w * 0.55, 1.2, 8), roof);
+  cone.position.y = 4.9;
+  g.add(base, deck, cone);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    g.add(box(0.12, 1.2, 0.12, wood, Math.cos(a) * w * 0.48, 3.95, Math.sin(a) * w * 0.48));
+  }
+  return g;
+}
+
+// Ловушка: плоская доска с шипами
+function trap({ w }, color) {
+  const g = new THREE.Group();
+  g.add(box(w, 0.08, w, lambert(color), 0, 0.04, 0));
+  const spike = lambert(0xc9ccd1);
+  for (const [x, z] of [[-0.3, -0.3], [0.3, -0.3], [-0.3, 0.3], [0.3, 0.3], [0, 0]]) {
+    const s = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.3, 4), spike);
+    s.position.set(x, 0.23, z);
+    g.add(s);
+  }
+  return g;
+}
+
+const BUILDERS = { platform, wall, bridge, house, pen, barn, farm, tower, trap };
 
 export function buildModel(def, opts) {
   return (BUILDERS[def.model] ?? platform)(def.size, def.color, def, opts);

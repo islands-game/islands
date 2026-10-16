@@ -161,7 +161,7 @@ export class BuildSystem {
 
   // --- Список построек ---
 
-  add({ id, x, z, rot, state }) {
+  add({ id, x, z, rot, state, hp, def: defense }) {
     const def = BUILDINGS[id];
     const mesh = buildModel(def);
     mesh.position.set(x, 0, z);
@@ -169,6 +169,9 @@ export class BuildSystem {
     this.scene.add(mesh);
     const rect = this.rectFor(def, x, z, rot);
     const rec = { id, x, z, rot, mesh, rect, walk: null, solid: null, struct: null, state: state ?? null };
+    // Прочность и защита (амбар): у дома, платформ и мостов их нет — они неуязвимы
+    if (BUILDINGS[id].hp) { rec.maxHp = BUILDINGS[id].hp; rec.hp = Number.isFinite(hp) ? Math.min(hp, rec.maxHp) : rec.maxHp; }
+    if (BUILDINGS[id].defense) { rec.maxDef = BUILDINGS[id].defense; rec.def = Number.isFinite(defense) ? Math.min(defense, rec.maxDef) : rec.maxDef; }
     if (def.structure) rec.struct = this.world.registerStructure(def, x, z, rot, mesh);
     if (def.solid) { rec.solid = { ...rect }; this.world.rects.push(rec.solid); }
     if (def.walkable) { rec.walk = { ...rect }; this.world.walkables.push(rec.walk); }
@@ -193,7 +196,13 @@ export class BuildSystem {
   }
 
   toSave() {
-    return this.placed.map(b => (b.state ? { id: b.id, x: b.x, z: b.z, rot: b.rot, state: b.state } : { id: b.id, x: b.x, z: b.z, rot: b.rot }));
+    return this.placed.map(b => {
+      const o = { id: b.id, x: b.x, z: b.z, rot: b.rot };
+      if (b.state) o.state = b.state;
+      if (b.hp !== undefined) o.hp = Math.round(b.hp);
+      if (b.def !== undefined) o.def = Math.round(b.def);
+      return o;
+    });
   }
 
   fromSave(list) {

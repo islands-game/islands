@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { BUILDINGS } from '../config/buildings.js';
+import { BUILDINGS, DEFENSE } from '../config/buildings.js';
+import { RAIDS } from '../config/raids.js';
+import { HealthBar } from '../combat/HealthBar.js';
 import { FARM, PEN, BARN, FOODS, FOOD_ORDER, FAVORITE, BEAST_FOOD, BARN_ITEMS } from '../config/food.js';
 import { CREATURES } from '../config/creatures.js';
 import { newState } from './BuildingState.js';
@@ -47,9 +49,32 @@ export class Economy {
     return this.game.build.placed.filter(r => r.id === 'barn');
   }
 
+  // Постройки, которые могут ломать враги: у них есть прочность (или защита амбара)
+  breakables() {
+    return this.game.build.placed.filter(r => r.maxHp !== undefined || r.maxDef !== undefined);
+  }
+
+  // Что имеет смысл атаковать рейдерам: сломать постройку или (для амбара) сбить защиту и украсть запасы
+  targets() {
+    return this.breakables().filter(r => {
+      if (r.maxDef !== undefined) return r.def > 0 || BARN_ITEMS.some(k => r.state.items[k] > 0);
+      return r.hp > 0;
+    });
+  }
+
   // Вызывается при размещении или загрузке постройки: создаёт состояние и картинку хозяйства
   attach(rec) {
     const kind = BUILDINGS[rec.id].economy;
+    // Полоска прочности (видна, когда постройка повреждена)
+    if (rec.maxHp !== undefined || rec.maxDef !== undefined) {
+      const def = BUILDINGS[rec.id];
+      const bar = new HealthBar(Math.max(def.size.w, def.size.d) * 0.7, true);
+      bar.setColor(rec.maxDef !== undefined ? 0x4aa8ff : 0x7dff5a);
+      bar.group.position.set(0, { tower: 6.4, barn: 3.8, wall: 2.8 }[rec.id] ?? 2.4, 0);
+      for (const m of [bar.bg, bar.fill, bar.rim].filter(Boolean)) m.userData.keep = true;      // общие геометрии
+      rec.mesh.add(bar.group);
+      rec.bar = bar;
+    }
     if (!kind) return;
     rec.state = rec.state ?? newState(rec.id);
     rec.fx = {};
@@ -108,7 +133,10 @@ export class Economy {
       if (!st) continue;
       if (rec.id === 'farm') this.updateFarm(rec, dt);
       else if (rec.id === 'pen') this.updatePen(rec, dt);
+      else if (rec.id === 'tower') this.updateTower(rec, dt);
+      else if (rec.id === 'trap') this.updateTrap(rec);
     }
+    this.updateStructures(dt);
     // Новые сутки: звери едят
     const day = this.game.world.dayCount;
     if (day !== this.lastDay) {
@@ -159,6 +187,109 @@ export class Economy {
     });
   }
 
+  // ---------- оборона и повреждения ----------
+
+  // Полоски прочности, восстановление защиты амбара
+  updateStructures(dt) {
+    const camera = this.game.camera;
+    for (const rec of this.breakables()) {
+      if (rec.maxDef !== undefined && rec.def < rec.maxDef && this.t - (rec.lastHit ?? -999) > DEFENSE.barn.regenDelay) {
+        rec.def = Math.min(rec.maxDef, rec.def + DEFENSE.barn.regenPerSec * dt);
+      }
+      if (rec.bar) {
+        rec.bar.set(rec.maxDef !== undefined ? rec.def / rec.maxDef : rec.hp / rec.maxHp);
+        rec.bar.face(camera);
+      }
+    }
+  }
+
+  // Сторожевая башня стреляет по ближайшему врагу в радиусе
+  updateTower(rec, dt) {
+    const st = rec.state, D = DEFENSE.tower;
+    st.cd = Math.max(0, st.cd - dt);
+    if (st.cd > 0) return;
+    const combat = this.game.combat;
+    let best = null, bestD = D.range;
+    for (const e of combat.enemies) {
+      if (e.dead) continue;
+      const d = Math.hypot(e.pos.x - rec.x, e.pos.z - rec.z);
+      if (d < bestD) { bestD = d; best = e; }
+    }
+    if (!best) return;
+    st.cd = D.cooldown;
+    const target = best;
+    combat.projectile({ x: rec.x, z: rec.z }, target, 0xffe066, () => combat.damageEnemy(target, D.damage, '#ffe066'), 0.3);
+  }
+
+  // Ловушка срабатывает один раз, когда на неё наступает враг
+  updateTrap(rec) {
+    const D = DEFENSE.trap, combat = this.game.combat;
+    const e = combat.enemies.find(x => !x.dead && Math.hypot(x.pos.x - rec.x, x.pos.z - rec.z) < D.radius);
+    if (!e) return;
+    combat.ring({ x: rec.x, y: 0, z: rec.z }, 0xffe066, 3, 0.4);
+    combat.damageEnemy(e, D.damage, '#ffe066');
+    combat.applySlow(e, D.slow, D.slowTime);
+    this.game.ui.toast(t('trap.sprung'));
+    events.emit('slam');
+    this.game.build.remove(rec);
+  }
+
+  // Враг бьёт постройку. Амбар: сначала сбивается защита, потом можно красть. Остальное: теряет прочность и ломается.
+  hitStructure(enemy, rec) {
+    const g = this.game;
+    const dmg = enemy.def.atk * RAIDS.structureDamage;
+    rec.lastHit = this.t;
+    if (this.t - (this.alertT ?? -99) > 12) { this.alertT = this.t; g.ui.toast(`${t('struct.attacked')}: ${t('building.' + rec.id)}`); events.emit('raidWarn'); }
+    if (rec.maxDef !== undefined) {
+      if (rec.def > 0) {
+        rec.def = Math.max(0, rec.def - dmg);
+        if (rec.def === 0) g.ui.toast(t('barn.defenseDown'));
+        return;
+      }
+      // Защита сбита: враг крадёт запасы (вернуть их можно, победив вора)
+      const have = BARN_ITEMS.filter(k => rec.state.items[k] > 0);
+      if (!have.length) return;
+      const k = have[Math.floor(Math.random() * have.length)];
+      const n = Math.min(rec.state.items[k], DEFENSE.barn.lootPerHit);
+      rec.state.items[k] -= n;
+      enemy.loot = enemy.loot ?? {};
+      enemy.loot[k] = (enemy.loot[k] ?? 0) + n;
+      g.ui.toast(t('barn.robbed'));
+      return;
+    }
+    rec.hp -= dmg;
+    if (rec.hp <= 0) {
+      g.combat.ring({ x: rec.x, y: 0, z: rec.z }, 0xff6a2a, 5, 0.6);
+      g.ui.toast(`${t('struct.destroyed')}: ${t('building.' + rec.id)}`);
+      events.emit('slam');
+      g.build.remove(rec);
+    }
+  }
+
+  // Победили вора: добыча возвращается в амбар (а если амбара нет — в рюкзак)
+  returnLoot(enemy) {
+    if (!enemy.loot) return;
+    const barn = this.barns()[0];
+    let back = 0;
+    for (const [k, n] of Object.entries(enemy.loot)) {
+      let left = n;
+      if (barn) { const put = Math.min(left, BARN.cap - barn.state.items[k]); barn.state.items[k] += put; left -= put; }
+      if (left > 0) left -= FOOD_ORDER.includes(k) ? this.game.inventory.addFood(k, left) : this.game.inventory.add(k, left);
+      back += n - left;
+    }
+    enemy.loot = null;
+    if (back > 0) this.game.ui.toast(t('loot.returned'));
+  }
+
+  // Починка прочности (за дерево) и защиты амбара
+  repair(rec) {
+    const g = this.game;
+    if (!g.inventory.spend(DEFENSE.repair.cost)) return g.ui.toast(t('needResources'));
+    rec.hp = Math.min(rec.maxHp, rec.hp + DEFENSE.repair.heal);
+    g.combat.ring({ x: rec.x, y: 0, z: rec.z }, 0x7dff5a, 3, 0.4);
+    events.emit('collect');
+  }
+
   // ---------- взаимодействие ----------
 
   // Что рядом: грядка, загон или амбар. Возвращает { type, rec, plot?, text, disabled } или null
@@ -179,7 +310,18 @@ export class Economy {
         if (d < EDGE_RANGE && d < bestD) { bestD = d; best = { type: rec.id, rec }; }
       }
     }
+    // Ничего полезного рядом — но постройка повреждена: можно починить
+    if (!best || this.describe(best).disabled) {
+      const dmg = this.game.build.placed.find(r => r.maxHp !== undefined && r.hp < r.maxHp && this.near(r, pos));
+      if (dmg) best = { type: 'repair', rec: dmg };
+    }
     return best ? { ...best, ...this.describe(best) } : null;
+  }
+
+  near(rec, pos) {
+    const r = rec.rect;
+    const nx = Math.max(r.x - r.hw, Math.min(r.x + r.hw, pos.x)), nz = Math.max(r.z - r.hd, Math.min(r.z + r.hd, pos.z));
+    return Math.hypot(pos.x - nx, pos.z - nz) < EDGE_RANGE;
   }
 
   // Подсказка для кнопки «Действие»
@@ -195,6 +337,12 @@ export class Economy {
       if (p.s === 'ready') return { text: `${t('econ.harvest')}: ${icon} ${p.left}${p.gold ? ' ✨' : ''}` };
       return { text: t('econ.clear') };
     }
+    if (tg.type === 'repair') {
+      const c = DEFENSE.repair.cost;
+      return { text: `${t('econ.repair')} (${RESOURCES.wood.icon}${c.wood}) ${Math.round(tg.rec.hp)}/${tg.rec.maxHp}`, disabled: !this.game.inventory.has(c) };
+    }
+    if (tg.type === 'tower') return { text: t('econ.towerInfo'), disabled: true };
+    if (tg.type === 'trap') return { text: t('econ.trapInfo'), disabled: true };
     if (tg.type === 'pen') {
       const parts = tg.rec.state.slots.map((s, i) => s.stock > 0 ? `${FOODS[PEN.slots[i].food].icon}${s.stock}` : '').filter(Boolean).join(' ');
       return parts ? { text: `${t('econ.penCollect')}: ${parts}` } : { text: t('econ.penEmpty'), disabled: true };
@@ -204,6 +352,8 @@ export class Economy {
 
   act(tg) {
     const g = this.game, inv = g.inventory;
+    if (tg.type === 'repair') return this.repair(tg.rec);
+    if (tg.type === 'tower' || tg.type === 'trap') return;
     if (tg.type === 'plot') {
       const p = tg.rec.state.plots[tg.plot], crop = FARM.plots[tg.plot].crop;
       if (p.s === 'empty') { p.s = 'grow'; p.t = 0; p.water = false; p.gold = false; g.ui.toast(`${t('econ.planted')}: ${t('food.' + crop)}`); events.emit('collect'); return; }
@@ -268,6 +418,22 @@ export class Economy {
     return got;
   }
 
+  // Страховка амбара: после нападения защита восстанавливается сама (раз в сутки, пока страховка действует)
+  insure(rec) {
+    const g = this.game, D = DEFENSE.barn;
+    if (!g.inventory.spend({ gold: D.insuranceGold })) return g.ui.toast(t('needResources'));
+    rec.state.ins = D.insuranceDays;
+    g.ui.toast(t('barn.insured'));
+  }
+
+  // Усилить защиту амбара за дерево
+  repairDefense(rec) {
+    const g = this.game, D = DEFENSE.barn;
+    if (rec.def >= rec.maxDef) return;
+    if (!g.inventory.spend(D.repairCost)) return g.ui.toast(t('needResources'));
+    rec.def = Math.min(rec.maxDef, rec.def + D.repairDefense);
+  }
+
   // ---------- питание зверей ----------
 
   // Сколько еды в день нужно зверю: 1, с 4 уровня 2, с 8 уровня 3
@@ -286,7 +452,15 @@ export class Economy {
     return null;
   }
 
+  // Новые сутки: страховка амбара чинит защиту
+  insuranceDay() {
+    for (const b of this.barns()) {
+      if (b.state.ins > 0) { b.def = b.maxDef; b.state.ins--; }
+    }
+  }
+
   feedBeasts() {
+    this.insuranceDay();
     const cm = this.game.creatures;
     if (!cm.collection.length) return;
     let fed = 0, hungry = 0;

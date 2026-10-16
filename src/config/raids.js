@@ -10,6 +10,8 @@ export const RAIDS = {
   firstCount: 3,         // сколько слизней в первом рейде (он случается в обучении)
   baseCount: 3,          // обычный рейд: baseCount + уровень героя / 2
   maxCount: 8,
+  structureDamage: 0.4,  // во сколько раз слабее враги бьют постройки, чем героя (чтобы успеть защитить)
+  structureRange: 30,    // с какого расстояния рейдеры замечают постройки
   rewardXp: 40,          // награда за отбитый рейд: rewardXp + rewardPerEnemy за каждого слизня
   rewardPerEnemy: 15,
 };

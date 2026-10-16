@@ -7,6 +7,7 @@ import { MAX_LEVEL } from '../progression/Progression.js';
 import { Settings, QUALITIES } from '../save/Settings.js';
 import { events } from '../core/Events.js';
 import { FOOD_CARRY } from '../config/food.js';
+import { DEFENSE } from '../config/buildings.js';
 import { HEROES, CLASSES, CLASS_ORDER, ELEMENT_ORDER, ENABLED_ELEMENTS, DEFAULT_HERO, SKILLS, arenaStats } from '../config/heroes.js';
 
 const COMMANDS = ['follow', 'stay', 'defend', 'attack', 'ability', 'return'];
@@ -23,6 +24,8 @@ export class UIManager {
     this.onBarn = onBarn;
     this.$('barn-deposit').onclick = () => onBarn('deposit');
     this.$('barn-close').onclick = () => onBarn('close');
+    this.$('barn-insure').onclick = () => onBarn('insure');
+    this.$('barn-repair').onclick = () => onBarn('repairDef');
     this.onSelectBuilding = onSelectBuilding;
     this.buildPanelOpen = false;
     this.hintTimer = 0;
@@ -211,6 +214,10 @@ export class UIManager {
     this.$('barn-panel').classList.toggle('hidden', !show);
     if (!show) return;
     this.$('barn-title').textContent = `${t('building.barn')} · ${t('barn.cap')} ${view.cap}`;
+    this.$('barn-info').textContent = `🛡 ${t('barn.defense')}: ${view.def}/${view.maxDef} · ${t('barn.insurance')}: ${view.ins > 0 ? `${view.ins} ${t('barn.days')}` : t('barn.none')}`;
+    this.$('barn-insure').textContent = `${t('barn.insure')} (🪙${DEFENSE.barn.insuranceGold})`;
+    this.$('barn-repair').textContent = `${t('barn.repairDef')} (🌲${DEFENSE.barn.repairCost.wood})`;
+    this.$('barn-repair').disabled = !view.canRepair;
     this.$('barn-deposit').textContent = t('barn.deposit');
     this.$('barn-close').textContent = t('close');
     const list = this.$('barn-list');

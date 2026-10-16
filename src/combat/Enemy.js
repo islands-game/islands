@@ -72,6 +72,7 @@ export class Enemy {
   }
 
   respawn() {
+    this.loot = null;
     this.hp = this.maxHp;
     this.dead = false;
     this.provoked = false;
@@ -140,7 +141,26 @@ export class Enemy {
     const slam = this.def.slam;
     if (slam) this.slamCd = Math.max(0, this.slamCd - dt);
 
-    if (chasing && this.slamming) {
+    // Участники рейда, пока героя нет рядом, ломают постройки (дом им не по зубам) и пытаются ограбить амбар
+    let struct = null;
+    if (this.hunter && !(chasing && dist < 9)) struct = combat.nearestStructure(this.pos, this);
+
+    if (struct) {
+      const r = struct.rect;
+      const nx = Math.max(r.x - r.hw, Math.min(r.x + r.hw, this.pos.x)), nz = Math.max(r.z - r.hd, Math.min(r.z + r.hd, this.pos.z));
+      const d = Math.hypot(nx - this.pos.x, nz - this.pos.z);
+      if (d > this.def.attackRange * 0.9 + 0.4) {
+        this.moveTo(nx, nz, this.def.speed, dt, world);
+        moving = true;
+      } else {
+        this.body.rotation.y = Math.atan2(nx - this.pos.x, nz - this.pos.z);
+        if (this.cd <= 0) {
+          this.cd = this.def.attackCooldown;
+          this.lunge = 0.25;
+          combat.hitStructure(this, struct);
+        }
+      }
+    } else if (chasing && this.slamming) {
       // Замах: стоит на месте и смотрит на героя, красное кольцо показывает опасную зону
       this.body.rotation.y = Math.atan2(dx, dz);
     } else if (chasing) {

@@ -4,6 +4,8 @@ import { ENEMIES, ENEMY_SPAWNS, NIGHT_MONSTER_COUNT } from '../config/enemies.js
 import { t } from '../config/i18n.js';
 import { events } from '../core/Events.js';
 import { mainStats } from '../config/heroes.js';
+import { RAIDS } from '../config/raids.js';
+import { DEFENSE } from '../config/buildings.js';
 import { ELEMENT_FX } from '../config/creatures.js';
 
 const RESPAWN_DELAY = 2;
@@ -24,6 +26,8 @@ export class CombatSystem {
     this.enemies = [];
     this.effects = [];
     this.timers = [];
+    this.structureList = () => [];     // постройки, которые можно атаковать (подключает Game)
+    this.structureHit = () => {};
     this.heroCd = 0;
     this.deadTimer = 0;
     this.nightActive = false;
@@ -79,6 +83,24 @@ export class CombatSystem {
     e.hunter = true;
     this.enemies.push(e);
     return e;
+  }
+
+  // Ближайшая постройка, которую стоит атаковать рейдеру (в пределах structureRange)
+  nearestStructure(pos, enemy) {
+    let best = null, bestD = RAIDS.structureRange;
+    const loaded = enemy?.loot ? Object.values(enemy.loot).reduce((s, n) => s + n, 0) >= DEFENSE.barn.lootCap : false;
+    for (const rec of this.structureList()) {
+      if (loaded && rec.maxDef !== undefined) continue;        // нагружен добычей: амбар больше не интересует
+      const r = rec.rect;
+      const nx = Math.max(r.x - r.hw, Math.min(r.x + r.hw, pos.x)), nz = Math.max(r.z - r.hd, Math.min(r.z + r.hd, pos.z));
+      const d = Math.hypot(pos.x - nx, pos.z - nz);
+      if (d < bestD) { bestD = d; best = rec; }
+    }
+    return best;
+  }
+
+  hitStructure(enemy, rec) {
+    this.structureHit(enemy, rec);
   }
 
   raiders() {

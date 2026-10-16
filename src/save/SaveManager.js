@@ -5,6 +5,7 @@
 // Версия 7: + список зверей рядом с героем (creatures.actives, у поддержки до 3). Старые читаются с одним зверем (active).
 // Версия 8: звери из порталов (виды × стихии, creatures.*), освобождённые звери по дням (realms.freed), новый порядок заданий.
 // Старые существа превращаются в новых зверей (LEGACY_CREATURES).
+// Версия 11: прочность построек (hp), защита амбара (def), страховка амбара (state.ins). Старые версии читаются без потерь.
 // Версия 10: еда в рюкзаке (inventory.food), состояние построек (ферма, загон, амбар) и сытость зверей (fed, hunger).
 // Версия 9: золото вместо кристаллов (старые кристаллы становятся золотом), лимит рюкзака. Старые версии читаются без потерь.
 import { isCreature, LEGACY_CREATURES } from '../config/creatures.js';
@@ -20,7 +21,7 @@ import { DEFAULT_HERO, isHero } from '../config/heroes.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
@@ -128,6 +129,8 @@ function validateBuildings(raw) {
       z: Math.max(-MAX_COORD, Math.min(MAX_COORD, b.z)),
       rot: int(b.rot, 0, 3, 0),
       state: cleanState(b.id, b.state),     // ферма, загон, амбар хранят своё состояние (у остальных постройки null)
+      hp: Number.isFinite(b.hp) ? Math.max(1, Math.min(2000, b.hp)) : undefined,
+      def: Number.isFinite(b.def) ? Math.max(0, Math.min(2000, b.def)) : undefined,
     });
   }
   return list;

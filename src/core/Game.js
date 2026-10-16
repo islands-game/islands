@@ -90,6 +90,8 @@ export class Game {
     this.realms = new Realms(this);
     this.economy = new Economy(this);
     this.build.onAdded = rec => this.economy.attach(rec);
+    this.combat.structureList = () => this.economy.targets();
+    this.combat.structureHit = (enemy, rec) => this.economy.hitStructure(enemy, rec);
 
     // Качество графики: меньше пикселей на слабых устройствах. В режиме "Авто" подстраивается по FPS.
     this.autoScale = this.input.isTouch ? 0.8 : 1;
@@ -300,6 +302,7 @@ export class Game {
       this.combat.ring(enemy.pos, 0xffd23f, 8, 1);
       events.emit('levelUp');
     }
+    this.economy.returnLoot(enemy);                 // вор побеждён — добыча возвращается в амбар
     // Золото с врагов островов стихий
     const drop = GOLD_DROPS[enemy.def.id];
     if (drop) {
@@ -406,12 +409,12 @@ export class Game {
   }
 
   barnView() {
-    const inv = this.inventory, items = this.barnRec.state.items;
+    const inv = this.inventory, rec = this.barnRec, items = rec.state.items;
     const rows = BARN_ITEMS.map(k => {
       const food = Object.hasOwn(FOODS, k);
       return { key: k, icon: food ? FOODS[k].icon : RESOURCES[k].icon, name: t(food ? 'food.' + k : 'res.' + k), stored: items[k], carried: food ? inv.food[k] : inv.items[k] };
     });
-    return { rows, cap: BARN.cap };
+    return { rows, cap: BARN.cap, def: Math.round(rec.def), maxDef: rec.maxDef, ins: rec.state.ins, canRepair: rec.def < rec.maxDef };
   }
 
   openBarn(rec) {
@@ -424,6 +427,8 @@ export class Game {
     if (action === 'close') { this.barnRec = null; return this.ui.showBarn(false); }
     if (action === 'deposit') this.economy.deposit(this.barnRec);
     else if (action === 'take') this.economy.take(this.barnRec, key, 10);
+    else if (action === 'insure') this.economy.insure(this.barnRec);
+    else if (action === 'repairDef') this.economy.repairDefense(this.barnRec);
     this.ui.showBarn(true, this.barnView());
   }
 

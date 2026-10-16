@@ -23,6 +23,7 @@ button.big.primary { background: #ff9f43; color: #3a2000; font-weight: 700; }
 .lang button.active { background: #fff; color: #1e2a4a; font-weight: 700; }
 
 /* Панель существ */
+#barn-info { font-size: 13px; opacity: .9; margin: -4px 0 10px; }
 #cr-list, #barn-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 .cr-row { display: flex; align-items: center; justify-content: space-between; gap: 8px;
   background: #ffffff1a; padding: 8px 10px; border-radius: 12px; text-align: left; }
