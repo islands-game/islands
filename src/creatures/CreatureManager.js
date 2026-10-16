@@ -51,6 +51,7 @@ export class CreatureManager {
   applyMode(c) {
     c.normalized = !!this.arena;
     c.arenaMul = this.arena?.mul ?? 1;
+    c.team = this.arena ? 'blue' : null;             // команда героя на арене (чтобы проходить свои ворота)
   }
 
   spawnWild() {

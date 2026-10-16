@@ -37,8 +37,8 @@ export const CLASSES = {
     main: { hpMul: 0.55, dpsMul: 1.75 },
   },
   support: {
-    hp: 450, atk: 14, cooldown: 0.9, range: 6, speed: 5.6, beasts: 3, beastPower: 0.7,   // до 3 зверей; на арене каждый слабее (70%)
-    main: { hpMul: 0.75, dpsMul: 0.39 },
+    hp: 520, atk: 20, cooldown: 0.9, range: 6, speed: 5.6, beasts: 3, beastPower: 0.9,   // до 3 зверей; на арене каждый чуть слабее (90%)
+    main: { hpMul: 0.87, dpsMul: 0.56 },
   },
 };
 export const CLASS_ORDER = ['warrior', 'archer', 'mage', 'assassin', 'support'];
@@ -69,12 +69,42 @@ const VARIANTS = {
   assassin_air: { attack: { multi: 2 } },                                // шурикены: два броска
 };
 
+// Подстройка баланса по результатам дуэлей 1 на 1 без поддержки (tools/balance-duels.js, fitTuning): общая сила героя (1 = без изменений).
+// Делится поровну между здоровьем и уроном (каждое умножается на корень из числа).
+const TUNING = {
+  warrior_fire: 1.17,
+  warrior_water: 1.04,
+  warrior_ice: 1.01,
+  warrior_earth: 0.85,
+  warrior_air: 1.33,
+  archer_fire: 0.87,
+  archer_water: 0.83,
+  archer_ice: 1.2,
+  archer_earth: 0.64,
+  archer_air: 1.14,
+  mage_fire: 0.9,
+  mage_water: 0.92,
+  mage_ice: 0.9,
+  mage_earth: 0.62,
+  mage_air: 0.9,
+  assassin_fire: 1.41,
+  assassin_water: 1.18,
+  assassin_ice: 1.33,
+  assassin_earth: 1.1,
+  assassin_air: 1.35,
+  support_fire: 1.1,       // поддержка подбиралась отдельно: командный бой 2 на 2 с тремя зверями (supportCheck)
+  support_water: 0.97,
+  support_ice: 0.95,
+  support_earth: 0.99,
+  support_air: 1.04,
+};
+
 export const HEROES = {};
 for (const cls of CLASS_ORDER) {
   for (const el of ENABLED_ELEMENTS) {
     const id = `${cls}_${el}`;
     const skills = Object.keys(SKILLS).filter(k => k.startsWith(id + '_'));
-    HEROES[id] = { id, cls, element: el, cdMul: 1, skills, ...VARIANTS[id] };
+    HEROES[id] = { id, cls, element: el, cdMul: 1, tune: TUNING[id] ?? 1, skills, ...VARIANTS[id] };
   }
 }
 export const HERO_IDS = Object.keys(HEROES);
@@ -86,8 +116,8 @@ export const isHero = id => typeof id === 'string' && Object.hasOwn(HEROES, id);
 export function arenaStats(heroId) {
   const h = HEROES[heroId], c = CLASSES[h.cls], e = ELEMENTS[h.element];
   return {
-    hp: Math.round(c.hp * (e.hpMul ?? 1)),
-    atk: c.atk * h.cdMul,                                   // урон за удар растёт вместе с перезарядкой оружия
+    hp: Math.round(c.hp * (e.hpMul ?? 1) * Math.sqrt(h.tune)),
+    atk: c.atk * h.cdMul * Math.sqrt(h.tune),               // урон за удар растёт вместе с перезарядкой оружия
     cooldown: c.cooldown * h.cdMul * (e.cdMul ?? 1),
     range: h.range ?? c.range,
     speed: c.speed * (e.speedMul ?? 1),
@@ -99,7 +129,7 @@ export function arenaStats(heroId) {
 export function mainStats(heroId) {
   const h = HEROES[heroId], c = CLASSES[h.cls], e = ELEMENTS[h.element];
   return {
-    hpMul: c.main.hpMul * (e.hpMul ?? 1), dpsMul: c.main.dpsMul,
+    hpMul: c.main.hpMul * (e.hpMul ?? 1) * Math.sqrt(h.tune), dpsMul: c.main.dpsMul * Math.sqrt(h.tune),
     cooldown: c.cooldown * h.cdMul * (e.cdMul ?? 1), range: h.range ?? c.range,
     hitCooldown: c.cooldown * h.cdMul,                       // от неё зависит сила удара (стихия воздуха бьёт чаще, но не сильнее)
     speedMul: (c.speed / 5.6) * (e.speedMul ?? 1),

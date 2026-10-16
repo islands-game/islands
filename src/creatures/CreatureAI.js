@@ -16,12 +16,12 @@ function moveToward(c, target, speed, dt, stop, world) {
   const ox = c.pos.x, oz = c.pos.z;
   c.pos.x += (dx / d) * step;
   c.pos.z += (dz / d) * step;
-  world.resolveCollisions(c.pos, 0.45);
+  world.resolveCollisions(c.pos, 0.45, c.team);     // на арене свои ворота звери проходят, как и герой
   // Не выходим за землю (остров, платформы, мосты)
   const ground = world.groundAt(c.pos.x, c.pos.z);
   if (ground === null) { c.pos.x = ox; c.pos.z = oz; return false; }
   c.pos.y = ground;
-  return true;
+  return Math.hypot(c.pos.x - ox, c.pos.z - oz) > step * 0.3;     // упёрся в стену — считаем, что не двигался
 }
 
 function pickTarget(c, ctx) {
@@ -109,10 +109,14 @@ export function updateCreature(c, dt, ctx) {
     c.state = 'idle';
   } else {
     // Если зверей несколько, у каждого своё место рядом с героем (c.anchor)
-    const spot = c.anchor ?? player.pos;
-    const stop = c.anchor ? 0.6 : (c.command === 'defend' ? 2 : FOLLOW_DIST);
+    // Если место недостижимо (за стеной, в проходе у башни), через полсекунды идёт прямо к герою
+    const spot = c.anchor && !(c.blockT > 0.5) ? c.anchor : player.pos;
+    const stop = spot === player.pos ? (c.command === 'defend' ? 2 : FOLLOW_DIST) : 0.6;
     const speed = st.speed * (dOwner > 8 ? 1.6 : 1);
-    moving = dist(c.pos, spot) > stop + 0.4 && moveToward(c, spot, speed, dt, stop, world);
+    const want = dist(c.pos, spot) > stop + 0.4;
+    moving = want && moveToward(c, spot, speed, dt, stop, world);
+    if (want && !moving) c.blockT = (c.blockT ?? 0) + dt;
+    else if (c.blockT > 0 && (moving || !want)) c.blockT = Math.max(0, c.blockT - dt * 2);
     c.state = moving ? 'follow' : 'idle';
   }
   c.syncMesh(dt, moving);

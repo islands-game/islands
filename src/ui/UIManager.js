@@ -37,12 +37,14 @@ export class UIManager {
     this.$('hs-back').onclick = () => this.showHeroSelect(false);
     this.$('btn-continue').onclick = onContinue;
     this.$('btn-menu').onclick = onMenu;
-    this.$('btn-attack').onclick = () => press('attack');
-    this.$('btn-interact').onclick = () => press('interact');
-    this.$('btn-ability').onclick = () => press('ability');
-    this.$('btn-spell1').onclick = () => press('spell1');
-    this.$('btn-spell2').onclick = () => press('spell2');
-    this.$('btn-spell3').onclick = () => press('spell3');
+    // Боевые кнопки срабатывают в момент касания (pointerdown), а не после отпускания пальца: так их можно жать, пока другой палец ведёт джойстик.
+    // Кнопка «Атака» при удержании бьёт снова и снова.
+    this.tap('btn-attack', 'attack', 130);
+    this.tap('btn-interact', 'interact');
+    this.tap('btn-ability', 'ability');
+    this.tap('btn-spell1', 'spell1');
+    this.tap('btn-spell2', 'spell2');
+    this.tap('btn-spell3', 'spell3');
     this.$('ar-again').onclick = () => press('arenaAgain');
     this.$('ar-exit').onclick = () => press('arenaExit');
     this.$('btn-creatures').onclick = () => press('panel');
@@ -193,6 +195,20 @@ export class UIManager {
     this.setSkills(d.skillIds, d.spellCd);
     if (d.phase === 'playing') this.setArenaCountdown(d.respawn, true);
     this.drawMinimap(d.units);
+  }
+
+  // Кнопка действия: нажатие считается сразу при касании; repeatMs — повтор, пока палец держит кнопку
+  tap(id, name, repeatMs = 0) {
+    const b = this.$(id);
+    let timer = null;
+    const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+    b.addEventListener('pointerdown', e => {
+      e.preventDefault();
+      this.press(name);
+      if (repeatMs) { stop(); timer = setInterval(() => this.press(name), repeatMs); }
+    });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, stop);
+    b.addEventListener('click', e => { if (e.detail === 0) this.press(name); });      // клавиатура (Enter) на выбранной кнопке
   }
 
   // Экран выбора героя: карточки классов и описание выбранного
