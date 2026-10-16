@@ -107,6 +107,7 @@ export class ArenaSystem {
     this.kingIndex = 0;
     this.king = null;
     this.kills = { blue: 0, red: 0 };
+    this.goldEarned = 0;
     this.winner = null;
     this.playerAtkCd = 0;
     this.spellCd = [0, 0, 0];
@@ -434,6 +435,13 @@ export class ArenaSystem {
     else if (u.kind === 'crystal') { this.fall(u); this.endMatch(kteam ?? OTHER[u.team]); }
     else if (u.kind === 'king') this.onKingDeath(u);
     else if (u.kind === 'monster') this.onMonsterDeath(u);
+    // Золото игроку: за убитых им (или его зверем) врагов и за башни, разрушенные его командой
+    if (killer === this.playerUnit && u.team !== 'blue') {
+      if (u.kind === 'hero') this.awardGold(ARENA.gold.hero, u);
+      else if (u.kind === 'minion') this.awardGold(ARENA.gold.minion, u);
+      else if (u.kind === 'monster') this.awardGold(ARENA.gold.monster, u);
+    }
+    if (u.kind === 'tower' && u.team === 'red' && killer?.team === 'blue') this.awardGold(ARENA.gold.tower, u);
     if (u.kind !== 'hero') {
       // Остальные исчезают
       this.game.combat.ring(u.pos, TEAM_RING[u.team] ?? 0xffffff, u.kind === 'tower' || u.kind === 'crystal' ? 6 : 2, 0.5);
@@ -513,14 +521,23 @@ export class ArenaSystem {
     u.shieldAmt = 0;
   }
 
+  // Золото за матч копится и выдаётся в конце (в основную игру)
+  awardGold(n, at) {
+    this.goldEarned += n;
+    const p = at.pos.clone();
+    p.y += 2.8;
+    this.ui.floatText(p, `+${n} 🪙`, '#ffd23f');
+  }
+
   endMatch(winner) {
     if (this.phase === 'ended') return;
     this.phase = 'ended';
     this.winner = winner;
     const win = winner === 'blue';
-    this.ui.showArenaResult(win, this.kills, this.time);
+    if (win) this.goldEarned += ARENA.gold.win;
+    this.ui.showArenaResult(win, this.kills, this.time, this.goldEarned);
     events.emit(win ? 'levelUp' : 'hurt');
-    this.game.onArenaEnd(win);
+    this.game.onArenaEnd(win, this.goldEarned);
   }
 
   // ---------- каждый кадр ----------

@@ -1,5 +1,11 @@
 // Враги. Чтобы добавить нового — допиши сюда и добавь точку появления в ENEMY_SPAWNS.
 // aggro — с какого расстояния враг замечает героя, xp — опыт за победу, respawn — секунд до возвращения.
+// Сколько золота падает с врага [от, до]. Только на островах стихий (на домашнем острове золота нет).
+export const GOLD_DROPS = {
+  frost_slime: [1, 3], lava_slime: [2, 4], rock_slime: [1, 3], tide_slime: [1, 3], gust_slime: [1, 3],
+  stone_king: [15, 22], tide_king: [20, 28], frost_giant: [22, 30], storm_king: [22, 32], lava_king: [30, 40],
+};
+
 export const ENEMIES = {
   slime: {
     id: 'slime',

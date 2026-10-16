@@ -37,10 +37,11 @@ export class ResourceSystem {
     const def = RESOURCES[node.type];
     const [min, max] = def.amount;
     const amount = min + Math.floor(Math.random() * (max - min + 1));
-    this.inventory.add(node.type, amount);
+    const got = this.inventory.add(node.type, amount);
+    if (got === 0) return { type: node.type, amount: 0, xp: 0, full: true };    // рюкзак полон: ресурс остаётся на месте
     this.setActive(node, false);
     node.respawnAt = this.time + def.respawn;
-    return { type: node.type, amount, xp: def.xp };
+    return { type: node.type, amount: got, xp: def.xp };
   }
 
   reset() {

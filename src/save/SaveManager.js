@@ -4,19 +4,20 @@
 // Версия 6: + выбранный герой (hero). Старые сохранения читаются как «Воин огня».
 // Версия 7: + список зверей рядом с героем (creatures.actives, у поддержки до 3). Старые читаются с одним зверем (active).
 // Версия 8: звери из порталов (виды × стихии, creatures.*), освобождённые звери по дням (realms.freed), новый порядок заданий.
-// Старые существа превращаются в новых зверей (LEGACY_CREATURES). Старые версии читаются без потерь.
+// Старые существа превращаются в новых зверей (LEGACY_CREATURES).
+// Версия 9: золото вместо кристаллов (старые кристаллы становятся золотом), лимит рюкзака. Старые версии читаются без потерь.
 import { isCreature, LEGACY_CREATURES } from '../config/creatures.js';
 import { REALM_ORDER } from '../config/realms.js';
 import { BUILDINGS, MAX_BUILDINGS } from '../config/buildings.js';
 import { TUTORIAL_DONE } from '../ui/Tutorial.js';
 import { QUESTS } from '../config/quests.js';
-import { RESOURCE_ORDER } from '../config/resources.js';
+import { RESOURCE_ORDER, CARRY } from '../config/resources.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
 import { DEFAULT_HERO, isHero } from '../config/heroes.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
@@ -85,7 +86,8 @@ function validate(raw) {
       level: int(p.level, 1, MAX_LEVEL, 1),
       xp: Math.max(0, num(p.xp, 0)),
     },
-    inventory: Object.fromEntries(RESOURCE_ORDER.map(k => [k, int(inv[k], 0, 9999, 0)])),
+    // Версия 9: кристаллы стали золотом; рюкзак ограничен (CARRY)
+    inventory: Object.fromEntries(RESOURCE_ORDER.map(k => [k, int(k === 'gold' ? (inv.gold ?? inv.crystal) : inv[k], 0, CARRY[k] ?? 9999, 0)])),
     creatures: validateCreatures(raw.creatures),
     buildings: validateBuildings(raw.buildings),
     // В старых сохранениях обучения не было — считаем его пройденным

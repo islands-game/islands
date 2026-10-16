@@ -286,10 +286,10 @@ export class UIManager {
     }
   }
 
-  showArenaResult(win, kills, time) {
+  showArenaResult(win, kills, time, gold = 0) {
     this.$('ar-title').textContent = t(win ? 'arena.win' : 'arena.lose');
     const mm = Math.floor(time / 60), ss = String(Math.floor(time % 60)).padStart(2, '0');
-    this.$('ar-stats').textContent = `${t('arena.score')} ${kills.blue}:${kills.red} · ${mm}:${ss}`;
+    this.$('ar-stats').textContent = `${t('arena.score')} ${kills.blue}:${kills.red} · ${mm}:${ss} · ${RESOURCES.gold.icon} +${gold}`;
     this.$('arena-result').classList.remove('hidden');
     this.$('arena-count').classList.add('hidden');
   }
@@ -447,7 +447,11 @@ export class UIManager {
     const full = player.level >= MAX_LEVEL;
     this.$('xp-fill').style.width = `${full ? 100 : Math.min(100, (player.xp / xpNeed) * 100)}%`;
     this.$('lvl-label').textContent = `${t('level')} ${player.level}`;
-    for (const k of RESOURCE_ORDER) this.resEls[k].textContent = `${RESOURCES[k].icon} ${inventory.items[k]}`;
+    for (const k of RESOURCE_ORDER) {
+      const el = this.resEls[k], n = inventory.items[k], cap = inventory.capacity(k);
+      el.textContent = `${RESOURCES[k].icon} ${n}/${cap}`;
+      el.classList.toggle('full', n >= cap);
+    }
 
     this.$('pet').classList.toggle('hidden', !pet);
     document.body.classList.toggle('has-pet', !!pet);
@@ -483,11 +487,11 @@ export class UIManager {
       const def = CREATURES[r.id];
       info.textContent = beastTitle(def, r.level);
       const small = document.createElement('small');
-      small.textContent = `${t('level')} ${r.level}`;
+      small.textContent = `${t('level')} ${r.level} · ${activeIds.includes(r.id) ? t('active') : t('guarding')}`;
       info.appendChild(small);
       const btn = document.createElement('button');
       const isActive = activeIds.includes(r.id);
-      btn.textContent = isActive ? `${t('active')} ✕` : t('summon');
+      btn.textContent = isActive ? t('toGuard') : t('summon');
       btn.onclick = () => this.onSummon(r.id);
       // Отпустить зверя на свободу (спрашиваем подтверждение)
       const free = document.createElement('button');

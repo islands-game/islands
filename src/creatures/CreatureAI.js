@@ -86,6 +86,37 @@ export function tryAbility(c, ctx, target, force = false) {
   return true;
 }
 
+// Зверь-охранник острова: не идёт за героем, а стоит у своего поста и бьёт врагов, которые появились рядом.
+// Ему не нужны щит и лечение (они для героя), остальные способности он применяет сам.
+export function updateGuard(c, dt, ctx) {
+  const { combat, world } = ctx;
+  c.cd = Math.max(0, c.cd - dt);
+  c.atkCd = Math.max(0, c.atkCd - dt);
+  const st = c.stats;
+  let moving = false;
+  const target = combat.nearestEnemy(c.pos, 12);
+  const leash = dist(c.pos, c.post) > 22;            // ушёл слишком далеко от поста — возвращается
+  if (target && !leash) {
+    const a = c.def.ability;
+    if (a.id !== 'shield' && a.id !== 'heal') tryAbility(c, ctx, target, false);
+    c.state = 'attack';
+    const range = c.def.basicRange;
+    const d = dist(c.pos, target.pos);
+    if (d > range * 0.8) moving = moveToward(c, target.pos, st.speed, dt, range * 0.8, world);
+    else c.facing = Math.atan2(target.pos.x - c.pos.x, target.pos.z - c.pos.z);
+    if (c.atkCd <= 0 && d <= range + 0.3) {
+      c.atkCd = 1;
+      combat.creatureHit(c, target, st.atk);
+    }
+  } else if (dist(c.pos, c.post) > 1.2) {
+    c.state = 'return';
+    moving = moveToward(c, c.post, st.speed, dt, 0.8, world);
+  } else {
+    c.state = 'idle';
+  }
+  c.syncMesh(dt, moving);
+}
+
 export function updateCreature(c, dt, ctx) {
   const { player, combat, world } = ctx;
   c.cd = Math.max(0, c.cd - dt);

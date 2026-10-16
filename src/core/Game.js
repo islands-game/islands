@@ -26,6 +26,7 @@ import { initSound } from './Sound.js';
 const QUALITY_SCALE = { low: 0.6, medium: 0.85, high: 1 };
 import { SaveManager } from '../save/SaveManager.js';
 import { RESOURCES } from '../config/resources.js';
+import { GOLD_DROPS } from '../config/enemies.js';
 import { ARENA } from '../config/arena.js';
 import { t } from '../config/i18n.js';
 
@@ -290,9 +291,16 @@ export class Game {
       this.combat.ring(enemy.pos, 0xffd23f, 8, 1);
       events.emit('levelUp');
     }
+    // Золото с врагов островов стихий
+    const drop = GOLD_DROPS[enemy.def.id];
+    if (drop) {
+      const got = this.inventory.add('gold', drop[0] + Math.floor(Math.random() * (drop[1] - drop[0] + 1)));
+      if (got > 0) this.ui.floatText(enemy.pos.clone().setY(2.6), `+${got} ${RESOURCES.gold.icon}`, '#ffd23f');
+    }
     const xp = enemy.def.xp;
     this.gainXp(xp);
     this.creatures.gainXp(Math.ceil(xp * 0.6));
+    this.creatures.gainGuardXp(enemy, xp);
     const p = enemy.pos.clone();
     p.y += 1.2;
     this.ui.floatText(p, `+${xp} XP`, '#7df9ff');
@@ -357,6 +365,7 @@ export class Game {
     if (target.kind === 'node') {
       const node = target.node;
       const got = this.resources.collect(node);
+      if (got.full) return this.ui.toast(`${t('bagFull')}: ${t('res.' + got.type)}`);
       this.stats.collected++;
       events.emit('collect', got.type, got.amount);
       _label.set(node.x, 1.8, node.z);
@@ -383,12 +392,10 @@ export class Game {
   }
 
   // Матч закончился: награда в основной игре
-  onArenaEnd(win) {
+  onArenaEnd(win, gold = 0) {
     this.gainXp(win ? ARENA.winXp : ARENA.loseXp);
-    if (win) {
-      for (const [k, v] of Object.entries(ARENA.winItems)) this.inventory.add(k, v);
-      events.emit('arenaWin');
-    }
+    this.inventory.add('gold', gold);        // золото, заработанное в матче (убийства, башни, победа)
+    if (win) events.emit('arenaWin');
   }
 
   // Спать можно ночью или когда ранен

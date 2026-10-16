@@ -1,6 +1,6 @@
-import { RESOURCE_ORDER } from '../config/resources.js';
+import { RESOURCE_ORDER, CARRY } from '../config/resources.js';
 
-// Хранилище ресурсов: { wood: 0, stone: 0, crystal: 0 }
+// Рюкзак героя: { wood: 0, stone: 0, gold: 0 }. Носить можно ограниченное количество (CARRY).
 export class Inventory {
   constructor() {
     this.reset();
@@ -10,11 +10,24 @@ export class Inventory {
     this.items = Object.fromEntries(RESOURCE_ORDER.map(k => [k, 0]));
   }
 
-  add(type, n) {
-    if (type in this.items) this.items[type] = Math.min(9999, this.items[type] + n);
+  // Сколько ещё поместится в рюкзак
+  room(type) {
+    return Math.max(0, (CARRY[type] ?? 9999) - (this.items[type] ?? 0));
   }
 
-  // cost — например { crystal: 3 }
+  capacity(type) {
+    return CARRY[type] ?? 9999;
+  }
+
+  // Кладёт в рюкзак сколько поместится. Возвращает, сколько положили.
+  add(type, n) {
+    if (!(type in this.items)) return 0;
+    const got = Math.max(0, Math.min(n, this.room(type)));
+    this.items[type] += got;
+    return got;
+  }
+
+  // cost — например { gold: 3 }
   has(cost) {
     return Object.entries(cost).every(([k, v]) => (this.items[k] ?? 0) >= v);
   }
@@ -33,7 +46,7 @@ export class Inventory {
     this.reset();
     for (const k of RESOURCE_ORDER) {
       const v = data?.[k];
-      if (Number.isFinite(v)) this.items[k] = Math.max(0, Math.min(9999, Math.floor(v)));
+      if (Number.isFinite(v)) this.items[k] = Math.max(0, Math.min(CARRY[k] ?? 9999, Math.floor(v)));
     }
   }
 }

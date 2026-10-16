@@ -266,3 +266,5 @@ html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-si
 button, .round, .icon, #btn-ability { touch-action: manipulation; }
 #game, #stick, #knob { touch-action: none; }
 .cr-row .cr-release { background: #ffffff26; color: #fff; padding: 8px 10px; flex: none; }
+/* Рюкзак полон: число красное */
+#res span.full { color: #ff8a8a; }

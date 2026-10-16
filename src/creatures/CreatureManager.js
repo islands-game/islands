@@ -1,5 +1,5 @@
 import { Creature } from './Creature.js';
-import { updateCreature, tryAbility } from './CreatureAI.js';
+import { updateCreature, updateGuard, tryAbility } from './CreatureAI.js';
 import { t } from '../config/i18n.js';
 import { events } from '../core/Events.js';
 import { HEROES, CLASSES } from '../config/heroes.js';
@@ -14,7 +14,8 @@ export class CreatureManager {
     this.combat = combat;
     this.ui = ui;
     this.collection = []; // звери героя: [{ id, level, xp }]
-    this.actives = [];    // существа, которые идут за героем (сколько — зависит от класса героя: 1, у поддержки до 3)
+    this.actives = [];    // звери, которые идут за героем (сколько — зависит от класса героя: 1, у поддержки до 3)
+    this.guards = [];     // остальные звери коллекции: охраняют домашний остров и тоже растут
     this.arena = null;    // режим арены: { mul } — одинаковые характеристики у всех
   }
 
@@ -49,6 +50,33 @@ export class CreatureManager {
     c.team = this.arena ? 'blue' : null;             // команда героя на арене (чтобы проходить свои ворота)
   }
 
+  // Охранники: все звери коллекции, которых нет рядом с героем, стоят на постах домашнего острова
+  rebuildGuards() {
+    this.guards.forEach(g => g.dispose());
+    this.guards = [];
+    const following = new Set(this.actives.map(c => c.id));
+    let i = 0;
+    for (const r of this.collection) {
+      if (following.has(r.id)) continue;
+      const a = Math.PI * 0.25 + (i++ / 5) * Math.PI * 2;           // посты по кругу вокруг центра острова
+      const post = this.world.findFree(Math.cos(a) * 6, Math.sin(a) * 6, 1.4);
+      const c = new Creature(r.id, this.scene, { level: r.level, xp: r.xp });
+      c.post = { x: post.x, z: post.z };
+      c.pos.set(post.x, 0, post.z);
+      this.applyMode(c);
+      c.normalized = false;
+      c.syncMesh(0, false);
+      this.guards.push(c);
+    }
+  }
+
+  // Охранники получают часть опыта за врагов, побеждённых на домашнем острове
+  gainGuardXp(enemy, xp) {
+    if (!this.guards.length || this.world.islandIdAt(enemy.pos.x, enemy.pos.z) !== 'home') return;
+    for (const c of this.guards) this.gainOne(c, Math.ceil(xp * 0.5));
+    this.syncActive();
+  }
+
   // Зверь есть в коллекции?
   has(id) {
     return this.collection.some(r => r.id === id);
@@ -59,6 +87,7 @@ export class CreatureManager {
     if (this.has(id)) return;
     this.collection.push({ id, level: 1, xp: 0 });
     this.summon(id, at);
+    this.rebuildGuards();
   }
 
   // Отпустить зверя на свободу: он уходит из коллекции навсегда (получить такого же можно в портале снова)
@@ -69,6 +98,7 @@ export class CreatureManager {
     const c = this.actives.find(x => x.id === id);
     if (c) { this.actives = this.actives.filter(x => x !== c); c.dispose(); }
     this.collection.splice(i, 1);
+    this.rebuildGuards();
     return true;
   }
 
@@ -84,6 +114,7 @@ export class CreatureManager {
     this.applyMode(c);
     c.syncMesh(0, false);
     this.actives.push(c);
+    this.rebuildGuards();
   }
 
   // Кнопка в панели: позвать или отпустить
@@ -93,11 +124,12 @@ export class CreatureManager {
     this.syncActive();
     this.actives = this.actives.filter(x => x !== c);
     c.dispose();
+    this.rebuildGuards();                         // отпущенный из «рядом» зверь идёт охранять остров
   }
 
-  // Записывает уровень и опыт существ рядом в коллекцию
+  // Записывает уровень и опыт зверей (рядом и на посту) в коллекцию
   syncActive() {
-    for (const c of this.actives) {
+    for (const c of [...this.actives, ...this.guards]) {
       const rec = this.collection.find(r => r.id === c.id);
       if (rec) { rec.level = c.level; rec.xp = c.xp; }
     }
@@ -169,11 +201,19 @@ export class CreatureManager {
       } else c.anchor = null;
       updateCreature(c, dt, this.ctx());
     });
+    // Охранники работают, пока герой на домашнем острове (там нападают рейды)
+    const home = this.world.islandIdAt(this.player.pos.x, this.player.pos.z) === 'home';
+    for (const c of this.guards) {
+      if (home) updateGuard(c, dt, this.ctx());
+      else c.syncMesh(dt, false);
+    }
   }
 
   reset() {
     this.actives.forEach(c => c.dispose());
+    this.guards.forEach(c => c.dispose());
     this.actives = [];
+    this.guards = [];
     this.collection = [];
   }
 
@@ -188,5 +228,6 @@ export class CreatureManager {
     this.collection = data.collection.map(r => ({ ...r }));
     const ids = Array.isArray(data.actives) ? data.actives : (data.active ? [data.active] : []);
     for (const id of ids.slice(0, this.limit)) if (this.has(id)) this.summon(id);   // если класс героя берёт меньше зверей, остаются первые
+    this.rebuildGuards();
   }
 }

@@ -18,42 +18,42 @@ export const WALK_Y = 0.1; // высота платформ и мостов
 // Острова мира. Чтобы добавить новый остров: допиши запись сюда, портал в PORTALS,
 // врагов в config/enemies.js (ENEMY_SPAWNS) и, если хочешь, существо в config/creatures.js.
 //   x, z, r — центр и радиус;  spawn — где появляется герой;  seed — "зерно" расстановки деревьев и камней
-//   trees / rocks / crystals — сколько деревьев, камней и кристаллов;  colors — краски острова
+//   trees / rocks / gold — сколько деревьев, камней и золотых жил (на домашнем острове золота нет);  colors — краски острова
 export const ISLANDS = [
   {
     id: 'home', x: 0, z: 0, r: 14, spawn: { x: 0, z: 6 }, seed: 42,
-    trees: 16, rocks: 8, crystals: 6,
-    colors: { grass: 0x6cd05a, rock: 0x8a6f55, trunk: 0x7a4e2d, leaf: 0x2f9e44, stone: 0x9aa0a6, crystal: 0x7df9ff, glow: 0x2aa9c9, pad: 0xe9dfae },
+    trees: 16, rocks: 8, gold: 0,
+    colors: { grass: 0x6cd05a, rock: 0x8a6f55, trunk: 0x7a4e2d, leaf: 0x2f9e44, stone: 0x9aa0a6, crystal: 0xffc93c, glow: 0x2aa9c9, pad: 0xe9dfae },
   },
   {
     id: 'ice', x: 70, z: 0, r: 12, spawn: { x: 70, z: 4 }, seed: 99, nameKey: 'island.ice',
-    trees: 10, rocks: 8, crystals: 9,
-    colors: { grass: 0xeaf6ff, rock: 0x7aa6c4, trunk: 0x8a9db0, leaf: 0xcfeaff, stone: 0xa8c4d8, crystal: 0xb8f0ff, glow: 0x4aa8e0, pad: 0xbfe3ff },
+    trees: 10, rocks: 8, gold: 9,
+    colors: { grass: 0xeaf6ff, rock: 0x7aa6c4, trunk: 0x8a9db0, leaf: 0xcfeaff, stone: 0xa8c4d8, crystal: 0xffc93c, glow: 0x4aa8e0, pad: 0xbfe3ff },
   },
   {
     id: 'fire', x: 140, z: 0, r: 12, spawn: { x: 140, z: 4 }, seed: 123, nameKey: 'island.fire',
-    trees: 8, rocks: 10, crystals: 8,
-    colors: { grass: 0x4a3535, rock: 0x7a2a1a, trunk: 0x2a1a1a, leaf: 0x8a3a1f, stone: 0x5a4545, crystal: 0xffa04a, glow: 0xff4a00, pad: 0x8a5a4a },
+    trees: 8, rocks: 10, gold: 8,
+    colors: { grass: 0x4a3535, rock: 0x7a2a1a, trunk: 0x2a1a1a, leaf: 0x8a3a1f, stone: 0x5a4545, crystal: 0xffc93c, glow: 0xff4a00, pad: 0x8a5a4a },
   },
   {
     id: 'water', x: 210, z: 0, r: 12, spawn: { x: 210, z: 4 }, seed: 211, nameKey: 'island.water',
-    trees: 8, rocks: 6, crystals: 9,
-    colors: { grass: 0x5ec4d8, rock: 0x3a7a9a, trunk: 0x4a6a7a, leaf: 0x2f9ea8, stone: 0x8ab4c8, crystal: 0x7ad0ff, glow: 0x2a8ad0, pad: 0xbfe8f5 },
+    trees: 8, rocks: 6, gold: 9,
+    colors: { grass: 0x5ec4d8, rock: 0x3a7a9a, trunk: 0x4a6a7a, leaf: 0x2f9ea8, stone: 0x8ab4c8, crystal: 0xffc93c, glow: 0x2a8ad0, pad: 0xbfe8f5 },
   },
   {
     id: 'earth', x: -70, z: 0, r: 12, spawn: { x: -70, z: 4 }, seed: 311, nameKey: 'island.earth',
-    trees: 10, rocks: 12, crystals: 6,
-    colors: { grass: 0x8a9a4a, rock: 0x6a4a2a, trunk: 0x5a3a1a, leaf: 0x6a8a2a, stone: 0x8a7a60, crystal: 0xd8b070, glow: 0xa07030, pad: 0xc8b080 },
+    trees: 10, rocks: 12, gold: 6,
+    colors: { grass: 0x8a9a4a, rock: 0x6a4a2a, trunk: 0x5a3a1a, leaf: 0x6a8a2a, stone: 0x8a7a60, crystal: 0xffc93c, glow: 0xa07030, pad: 0xc8b080 },
   },
   {
     id: 'air', x: -140, z: 0, r: 12, spawn: { x: -140, z: 4 }, seed: 411, nameKey: 'island.air',
-    trees: 6, rocks: 6, crystals: 10,
-    colors: { grass: 0xe8f6f0, rock: 0x9ab8c0, trunk: 0xb0c8d0, leaf: 0xd8f0e8, stone: 0xc0d4d8, crystal: 0xe0fff8, glow: 0x9ae0d0, pad: 0xf0fcf8 },
+    trees: 6, rocks: 6, gold: 10,
+    colors: { grass: 0xe8f6f0, rock: 0x9ab8c0, trunk: 0xb0c8d0, leaf: 0xd8f0e8, stone: 0xc0d4d8, crystal: 0xffc93c, glow: 0x9ae0d0, pad: 0xf0fcf8 },
   },
   {
     id: 'arena', x: 300, z: 0, r: 58, spawn: { x: 300, z: 44 }, seed: 5, nameKey: 'island.arena',
-    trees: 0, rocks: 0, crystals: 0,
-    colors: { grass: 0x5f9a58, rock: 0x6a5a4a, trunk: 0x6a4a2a, leaf: 0x2f9e44, stone: 0x9aa0a6, crystal: 0x7df9ff, glow: 0x2aa9c9, pad: 0x9cc2ff },
+    trees: 0, rocks: 0, gold: 0,
+    colors: { grass: 0x5f9a58, rock: 0x6a5a4a, trunk: 0x6a4a2a, leaf: 0x2f9e44, stone: 0x9aa0a6, crystal: 0xffc93c, glow: 0x2aa9c9, pad: 0x9cc2ff },
   },
 ];
 
@@ -190,7 +190,7 @@ export class World {
     const leafMat = new THREE.MeshLambertMaterial({ color: colors.leaf, flatShading: true });
     const rockMat = new THREE.MeshLambertMaterial({ color: colors.stone, flatShading: true });
     const crystalMat = new THREE.MeshLambertMaterial({
-      color: colors.crystal, emissive: colors.glow, flatShading: true,
+      color: colors.crystal, emissive: 0x7a5200, flatShading: true,    // золотая жила
     });
 
     const place = (minR, maxR) => {
@@ -228,7 +228,7 @@ export class World {
       this.scene.add(m);
       this.addNode('stone', m, p.x, p.z, s * 0.9);
     }
-    for (let i = 0; i < island.crystals; i++) {
+    for (let i = 0; i < island.gold; i++) {
       const p = place(3, R - 2);
       if (!p) continue;
       const m = new THREE.Mesh(crystalGeo, crystalMat);
@@ -236,7 +236,7 @@ export class World {
       m.position.set(p.x, GROUND_Y + 1, p.z);
       this.scene.add(m);
       this.crystals.push(m);
-      this.addNode('crystal', m, p.x, p.z, 0.5);
+      this.addNode('gold', m, p.x, p.z, 0.5);
     }
   }
 
@@ -325,7 +325,8 @@ export class World {
 
   buildClouds() {
     const geo = new THREE.SphereGeometry(1, 8, 6);
-    const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
+    // Облака полупрозрачные, висят высоко над островами и ни с чем не сталкиваются
+    const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true, transparent: true, opacity: 0.45, depthWrite: false });
     const rand = this.rng(7);
     for (let i = 0; i < 34; i++) {
       const cloud = new THREE.Group();
@@ -339,7 +340,8 @@ export class World {
       const r = 28 + rand() * 40;
       // Облака вокруг каждого острова: первые 14 — домашний, дальше ледяной и огненный
       const ox = i < 14 ? 0 : i < 24 ? 70 : 140;
-      cloud.position.set(ox + Math.cos(a) * r, -6 + rand() * 22, Math.sin(a) * r);
+      cloud.position.set(ox + Math.cos(a) * r, 14 + rand() * 18, Math.sin(a) * r);
+      cloud.renderOrder = -1;
       this.scene.add(cloud);
       this.clouds.push(cloud);
     }

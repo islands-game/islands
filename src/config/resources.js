@@ -1,9 +1,13 @@
 // Ресурсы. Чтобы добавить новый — допиши сюда и добавь объект в мир (World.addNode).
 // amount — сколько даёт за один сбор, respawn — через сколько секунд появится снова, xp — опыт за сбор.
+// Золото на домашнем острове не растёт: его получают в порталах (жилы на островах стихий и добыча с врагов) и на арене.
 export const RESOURCES = {
-  wood:    { icon: '🌲', amount: [2, 3], respawn: 25, xp: 3 },
-  stone:   { icon: '⛰', amount: [2, 3], respawn: 30, xp: 3 },
-  crystal: { icon: '💎', amount: [1, 2], respawn: 40, xp: 6 },
+  wood:  { icon: '🌲', amount: [2, 3], respawn: 40, xp: 3 },    // деревьев много, но растут не быстро
+  stone: { icon: '⛰', amount: [2, 3], respawn: 55, xp: 3 },    // камней мало и они редкие: стены и дома «дороже» дерева
+  gold:  { icon: '🪙', amount: [1, 2], respawn: 180, xp: 8 },   // жила даёт золото раз в 3 минуты; главное золото — с врагов и арены
 };
 
-export const RESOURCE_ORDER = ['wood', 'stone', 'crystal'];
+export const RESOURCE_ORDER = ['wood', 'stone', 'gold'];
+
+// Сколько ресурса герой может носить с собой. Лишнее хранится в амбаре (появится вместе с едой).
+export const CARRY = { wood: 30, stone: 30, gold: 500 };
