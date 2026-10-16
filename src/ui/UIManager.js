@@ -12,7 +12,7 @@ import { DEFENSE } from '../config/buildings.js';
 import { GNOME } from '../config/gnomes.js';
 import { HEROES, CLASSES, CLASS_ORDER, ELEMENT_ORDER, ENABLED_ELEMENTS, DEFAULT_HERO, SKILLS, arenaStats } from '../config/heroes.js';
 
-const SPEC_ICONS = { all: '⭐', farmer: '🌱', porter: '📦', fixer: '🔧' };
+const SPEC_ICONS = { all: '⭐', farmer: '🌱', porter: '📦', fixer: '🔧', lumber: '🪓', mason: '⛏' };
 const COMMANDS = ['follow', 'stay', 'defend', 'attack', 'ability', 'return'];
 const _v = new THREE.Vector3();
 

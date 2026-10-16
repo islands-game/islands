@@ -4,14 +4,16 @@ import { hireFee } from '../config/scaling.js';
 import { FARM, PEN, FOOD_ORDER, BARN_ITEMS } from '../config/food.js';
 import { DEFENSE } from '../config/buildings.js';
 import { UPGRADES } from '../config/upgrades.js';
+import { RESOURCES } from '../config/resources.js';
 import { toWorld } from './Structures.js';
 import { HealthBar } from '../combat/HealthBar.js';
 import { todayKey } from '../world/Realms.js';
 import { t } from '../config/i18n.js';
 import { events } from '../core/Events.js';
 
-const SPEC_COLOR = { all: 0xffd23f, farmer: 0x5de08a, porter: 0xc9955a, fixer: 0x6ab0ff };
-export const SPEC_ICON = { all: '⭐', farmer: '🌱', porter: '📦', fixer: '🔧' };
+const SPEC_COLOR = { all: 0xffd23f, farmer: 0x5de08a, porter: 0xc9955a, fixer: 0x6ab0ff, lumber: 0x2f8f3a, mason: 0xb0b6c0 };
+export const SPEC_ICON = { all: '⭐', farmer: '🌱', porter: '📦', fixer: '🔧', lumber: '🪓', mason: '⛏' };
+const GATHER = { lumber: 'wood', mason: 'stone' };     // что собирает специальность
 
 // Общие геометрии и материалы гномов
 const G = {
@@ -257,6 +259,19 @@ export class Gnomes {
     return GNOME.speed + GNOME.speedStep * (slot.level - 1);
   }
 
+  // Сколько секунд занимает рубка дерева или добыча камня
+  gatherTime(slot) {
+    return GNOME.gatherTime / (1 + GNOME.levelSpeed * (slot.level - 1)) / GNOME.specBonus;
+  }
+
+  // Точка рядом с деревом или камнем (в сам объект зайти нельзя)
+  nodeApproach(node, from) {
+    let dx = from.x - node.x, dz = from.z - node.z, d = Math.hypot(dx, dz);
+    if (d < 1e-3) { dx = 0; dz = 1; d = 1; }
+    const r = node.collider.r + 0.7;
+    return { x: node.x + (dx / d) * r, z: node.z + (dz / d) * r };
+  }
+
   workTime(slot) {
     const spec = slot.spec === 'all' ? 1 : GNOME.specBonus;
     return GNOME.workTime / (1 + GNOME.levelSpeed * (slot.level - 1)) / spec;
@@ -323,6 +338,16 @@ export class Gnomes {
         if (mine(key) && rec.state.slots.some(s => s.stock > 0)) cands.push({ type: 'pen', rec, pos: this.approach(rec, run.pos), key, pri: 1 });
       }
     }
+    // Дровосек и каменотёс: срубить дерево / добыть камень на домашнем острове и отнести в амбар
+    const gather = GATHER[spec];
+    if (gather && barn && room > 0 && barn.state.items[gather] < g.economy.capOf(barn)) {
+      for (const n of g.world.nodes) {
+        if (n.type !== gather || !n.active || n.locked || g.world.islandIdAt(n.x, n.z) !== 'home') continue;
+        const key = `node:${Math.round(n.x * 10)}:${Math.round(n.z * 10)}`;
+        if (!mine(key)) continue;
+        cands.push({ type: 'gather', node: n, pos: this.nodeApproach(n, run.pos), key, pri: 2 });
+      }
+    }
     // Починка: нужны повреждённая постройка и дерево в амбаре
     if ((all || spec === 'fixer') && barn && barn.state.items.wood >= DEFENSE.repair.cost.wood) {
       for (const rec of eco.breakables()) {
@@ -387,6 +412,17 @@ export class Gnomes {
       if (barn && barn.state.items.wood >= DEFENSE.barn.repairCost.wood && rec.def < rec.maxDef) {
         barn.state.items.wood -= DEFENSE.barn.repairCost.wood;
         rec.def = Math.min(rec.maxDef, rec.def + DEFENSE.barn.repairDefense);
+      } else did = false;
+    } else if (task.type === 'gather') {
+      const n = task.node, def = RESOURCES[n.type];
+      if (n.active && !n.locked && this.capacity(slot) > this.carryTotal(run)) {
+        const [min, max] = def.amount;
+        const amount = min + Math.floor(Math.random() * (max - min + 1));
+        const take = Math.min(amount, this.capacity(slot) - this.carryTotal(run));
+        run.carry[n.type] = (run.carry[n.type] ?? 0) + take;
+        g.resources.setActive(n, false);                    // дерево или камень вырастет заново, как после сбора героем
+        n.respawnAt = g.resources.time + def.respawn;
+        g.combat.ring({ x: n.x, y: 0, z: n.z }, n.type === 'wood' ? 0x7dff5a : 0xc9d0d8, 1.8, 0.3);
       } else did = false;
     } else if (task.type === 'deliver') {
       this.deliver(slot);
@@ -479,7 +515,7 @@ export class Gnomes {
       // Упёрся в препятствие: обходит его в сторону (до трёх попыток), потом бросает дело
       if (run.detour && run.detour.until > this.t) {
         this.moveTo(slot, run, run.detour.x, run.detour.z, dt);
-      } else if (this.moveTo(slot, run, tk.pos.x, tk.pos.z, dt)) { run.state = 'work'; run.timer = this.workTime(slot); }
+      } else if (this.moveTo(slot, run, tk.pos.x, tk.pos.z, dt)) { run.state = 'work'; run.timer = tk.type === 'gather' ? this.gatherTime(slot) : this.workTime(slot); }
       else if (run.stuck > 0.5 && (run.tries ?? 0) < 3) {
         const dx = tk.pos.x - run.pos.x, dz = tk.pos.z - run.pos.z, d = Math.hypot(dx, dz) || 1, side = Math.random() < 0.5 ? 1 : -1;
         run.detour = { x: run.pos.x - (dz / d) * 3 * side + (dx / d), z: run.pos.z + (dx / d) * 3 * side + (dz / d), until: this.t + 1.3 };
