@@ -16,11 +16,11 @@ export function buildArenaMap(scene) {
 
   // Три линии
   for (const x of Object.values(ARENA.lanes)) {
-    g.add(flat(new THREE.BoxGeometry(6, 0.06, len), road, x, 0.03, 0));
+    g.add(flat(new THREE.BoxGeometry(9, 0.06, len), road, x, 0.03, 0));
   }
   // Дороги от баз к линиям
   for (const sign of [1, -1]) {
-    g.add(flat(new THREE.BoxGeometry(ARENA.lanes.right * 2 + 6, 0.06, 5), road, 0, 0.03, sign * ARENA.spawnZ));
+    g.add(flat(new THREE.BoxGeometry(ARENA.lanes.right * 2 + 9, 0.06, 5), road, 0, 0.03, sign * ARENA.spawnZ));
     // База: площадка с цветом команды
     const base = flat(new THREE.CylinderGeometry(9, 9, 0.1, 28), sign > 0 ? 0x4a78c9 : 0xc94a4a, 0, 0.05, sign * ARENA.baseZ);
     g.add(base);

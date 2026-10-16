@@ -44,7 +44,7 @@ export class ArenaSystem {
     // На телефоне камера ближе и наклонена сильнее, а юниты крупнее — иначе героя не видно
     const landscape = innerHeight <= 520;
     this.unitScale = g.input.isTouch ? (landscape ? 1.7 : 1.5) : 1;
-    g.cameraCtl.tacticalDistance = g.input.isTouch ? (landscape ? 15 : 19) : 19;
+    g.cameraCtl.tacticalDistance = g.input.isTouch ? (landscape ? 19 : 24) : 24;
     g.cameraCtl.tacticalPitch = g.input.isTouch ? 0.85 : 1.0;
     p.mesh.scale.setScalar(HERO_SCALE * this.unitScale);
     document.body.classList.add('arena');
@@ -215,7 +215,8 @@ export class ArenaSystem {
     const rockMat = new THREE.MeshLambertMaterial({ color: 0x6b6f78, flatShading: true });
     const half = 62, th = 0.7, lh = 3;
     const laneX = Object.values(ARENA.lanes);
-    const gateHalf = 3;
+    const gateHalf = 4.5;      // ширина ворот 9 — крупные юниты проходят свободно
+    const sideGaps = ARENA.camps.map(c => c.x).filter((x, i, a) => a.indexOf(x) === i);   // боковые проходы в лес
     const addWall = (x0, x1, z) => {
       if (x1 - x0 < 0.5) return;
       const rect = { x: C.x + (x0 + x1) / 2, z: C.z + z, hw: (x1 - x0) / 2, hd: th, arena: true };
@@ -230,9 +231,12 @@ export class ArenaSystem {
     for (const side of [1, -1]) {
       for (const tw of ARENA.towers) {
         const z = side * tw.z;
-        const xs = [...laneX].sort((a, b) => a - b);
+        // Проёмы: ворота линий и (на первом ярусе) боковые проходы к лесу. Через боковой проход можно только в лес до второй башни.
+        const gaps = laneX.map(lx => [lx - gateHalf, lx + gateHalf]);
+        if (tw.tier === 1) for (const sx of sideGaps) gaps.push([sx - 3.5, sx + 3.5]);
+        gaps.sort((a, b) => a[0] - b[0]);
         let from = -half;
-        for (const lx of xs) { addWall(from, lx - gateHalf, z); from = lx + gateHalf; }
+        for (const [g0, g1] of gaps) { addWall(from, g0, z); from = g1; }
         addWall(from, half, z);
         const team = side > 0 ? 'blue' : 'red';
         for (const [lane, lx] of Object.entries(ARENA.lanes)) {
