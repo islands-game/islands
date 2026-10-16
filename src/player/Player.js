@@ -15,6 +15,7 @@ export class Player {
     this.vy = 0;
     this.onGround = true;
     this.facing = 0;
+    this.team = null;     // команда на арене
     this.level = 1;
     this.xp = 0;
     this.dead = false;
@@ -125,7 +126,7 @@ export class Player {
       this.facing += diff * Math.min(1, dt * 12);
     }
 
-    this.world.resolveCollisions(this.pos, RADIUS);
+    this.world.resolveCollisions(this.pos, RADIUS, this.team);
 
     if (input.consumeJump() && this.onGround) {
       this.vy = JUMP_SPEED;

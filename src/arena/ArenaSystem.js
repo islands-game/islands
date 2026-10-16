@@ -48,6 +48,7 @@ export class ArenaSystem {
     g.cameraCtl.tacticalPitch = g.input.isTouch ? 0.85 : 1.0;
     p.mesh.scale.setScalar(HERO_SCALE * this.unitScale);
     document.body.classList.add('arena');
+    p.team = 'blue';
     // Спутник участвует в матче с одинаковыми для всех характеристиками
     g.creatures.combat = this.facade;
     if (g.creatures.active) g.creatures.active.normalized = true;
@@ -60,6 +61,7 @@ export class ArenaSystem {
     this.clearMatch();
     this.active = false;
     this.phase = 'idle';
+    p.team = null;
     p.frozen = false;
     p.mesh.visible = true;
     p.recalcStats();
@@ -107,6 +109,7 @@ export class ArenaSystem {
     this.respawnLeft = 0;
     this.camps = ARENA.camps.map(c => ({ ...c, monsters: [], respawnAt: 0 }));
 
+    this.buildTerrain();
     // Башни и кристаллы
     for (const team of ['blue', 'red']) {
       for (const lane of LANES) {
@@ -200,6 +203,58 @@ export class ArenaSystem {
     for (const u of this.units) u.dispose();
     this.units = [];
     this.world.colliders = this.world.colliders.filter(c => !c.arena);
+    this.world.rects = this.world.rects.filter(r => !r.arena);
+    for (const gt of this.gates ?? []) { this.scene.remove(gt.mesh); gt.mesh.geometry.dispose(); gt.mesh.material.dispose(); }
+    this.gates = [];
+  }
+
+  // Рельеф: каменные хребты поперёк карты на уровне башен. Через них можно пройти только по линии,
+  // а на линии стоят ворота — они открываются, когда башня разрушена. Свои ворота свои проходят.
+  buildTerrain() {
+    this.gates = [];
+    const rockMat = new THREE.MeshLambertMaterial({ color: 0x6b6f78, flatShading: true });
+    const half = 62, th = 0.7, lh = 3;
+    const laneX = Object.values(ARENA.lanes);
+    const gateHalf = 3;
+    const addWall = (x0, x1, z) => {
+      if (x1 - x0 < 0.5) return;
+      const rect = { x: C.x + (x0 + x1) / 2, z: C.z + z, hw: (x1 - x0) / 2, hd: th, arena: true };
+      this.world.rects.push(rect);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, lh, th * 2), rockMat);
+      const w = { x: rect.x, z: rect.z };
+      m.position.set(w.x, lh / 2, w.z);
+      m.userData.arenaWall = true;
+      this.scene.add(m);
+      this.gates.push({ mesh: m, wall: true, rect });
+    };
+    for (const side of [1, -1]) {
+      for (const tw of ARENA.towers) {
+        const z = side * tw.z;
+        const xs = [...laneX].sort((a, b) => a - b);
+        let from = -half;
+        for (const lx of xs) { addWall(from, lx - gateHalf, z); from = lx + gateHalf; }
+        addWall(from, half, z);
+        const team = side > 0 ? 'blue' : 'red';
+        for (const [lane, lx] of Object.entries(ARENA.lanes)) {
+          const rect = { x: C.x + lx, z: C.z + z, hw: gateHalf, hd: th, team, arena: true };
+          this.world.rects.push(rect);
+          const mat = new THREE.MeshLambertMaterial({ color: side > 0 ? 0x4a78c9 : 0xc94a4a, transparent: true, opacity: 0.55, flatShading: true });
+          const m = new THREE.Mesh(new THREE.BoxGeometry(gateHalf * 2, lh, th * 2), mat);
+          const w = world(lx, z);
+          m.position.set(w.x, lh / 2, w.z);
+          this.scene.add(m);
+          this.gates.push({ mesh: m, rect, team, lane, tier: tw.tier });
+        }
+      }
+    }
+  }
+
+  openGate(tower) {
+    for (const gt of this.gates ?? []) {
+      if (gt.wall || gt.team !== tower.team || gt.lane !== tower.lane || gt.tier !== tower.tier) continue;
+      this.world.rects = this.world.rects.filter(r => r !== gt.rect);
+      gt.mesh.visible = false;
+    }
   }
 
   // ---------- общие правила боя ----------
@@ -291,7 +346,7 @@ export class ArenaSystem {
     const ox = u.pos.x, oz = u.pos.z;
     u.pos.x += (dx / d) * step;
     u.pos.z += (dz / d) * step;
-    this.world.resolveCollisions(u.pos, u.radius);
+    this.world.resolveCollisions(u.pos, u.radius, u.team);
     if (this.world.groundAt(u.pos.x, u.pos.z) === null) { u.pos.x = ox; u.pos.z = oz; }
     u.facing = Math.atan2(dx, dz);
     return true;
@@ -311,7 +366,7 @@ export class ArenaSystem {
     u.hp = 0;
     if (u.collider) u.collider.active = false;
     if (u.kind === 'hero') this.onHeroDeath(u, killer);
-    else if (u.kind === 'tower') this.fall(u);
+    else if (u.kind === 'tower') { this.openGate(u); this.fall(u); }
     else if (u.kind === 'crystal') { this.fall(u); this.endMatch(kteam ?? OTHER[u.team]); }
     else if (u.kind === 'king') this.onKingDeath(u);
     else if (u.kind === 'monster') this.onMonsterDeath(u);

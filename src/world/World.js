@@ -390,9 +390,11 @@ export class World {
   }
 
   // Выталкивает точку из препятствий
-  resolveCollisions(pos, radius) {
+  // team — команда на арене: свои ворота она проходит, чужие нет
+  resolveCollisions(pos, radius, team = null) {
     // Прямоугольные препятствия: стены и дома
     for (const r of this.rects) {
+      if (team && r.team === team) continue;
       const nx = Math.max(r.x - r.hw, Math.min(r.x + r.hw, pos.x));
       const nz = Math.max(r.z - r.hd, Math.min(r.z + r.hd, pos.z));
       const dx = pos.x - nx, dz = pos.z - nz;
