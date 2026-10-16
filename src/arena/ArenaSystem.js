@@ -218,8 +218,10 @@ export class ArenaSystem {
     const laneX = Object.values(ARENA.lanes);
     const gateHalf = 4.5;      // ширина ворот 9 — крупные юниты проходят свободно
     const sideGaps = ARENA.camps.map(c => c.x).filter((x, i, a) => a.indexOf(x) === i);   // боковые проходы в лес
+    const trees = [];   // точки для сосен и камней на хребтах (рисуются одним InstancedMesh)
     const addWall = (x0, x1, z) => {
       if (x1 - x0 < 0.5) return;
+      for (let x = x0 + 1; x < x1 - 0.5; x += 2.6) trees.push({ x: C.x + x, z: C.z + z + ((trees.length % 3) - 1) * 0.35, k: trees.length });
       const rect = { x: C.x + (x0 + x1) / 2, z: C.z + z, hw: (x1 - x0) / 2, hd: th, arena: true };
       this.world.rects.push(rect);
       const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, lh, th * 2), rockMat);
@@ -251,6 +253,29 @@ export class ArenaSystem {
           this.gates.push({ mesh: m, rect, team, lane, tier: tw.tier });
         }
       }
+    }
+    this.addRidgeDecor(trees.filter(t => Math.hypot(t.x - C.x, t.z - C.z) < ARENA.radius - 3), lh);
+  }
+
+  // Сосны и камни на хребтах: две общие геометрии, по одному вызову отрисовки на каждую
+  addRidgeDecor(points, wallTop) {
+    const pine = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 2.6, 6), new THREE.MeshLambertMaterial({ color: 0x1f5a2c, flatShading: true }), points.length);
+    const rock = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(0.7, 0), new THREE.MeshLambertMaterial({ color: 0x8a8f99, flatShading: true }), points.length);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), pos = new THREE.Vector3();
+    points.forEach((p, i) => {
+      const big = 0.8 + (p.k % 4) * 0.12;
+      s.set(big, big, big);
+      pos.set(p.x, wallTop + 1.1 * big, p.z);
+      pine.setMatrixAt(i, m.compose(pos, q, s));
+      s.set(1, 0.8, 1.2);
+      pos.set(p.x + 1.3, wallTop + 0.3, p.z);
+      rock.setMatrixAt(i, m.compose(pos, q, s));
+    });
+    for (const im of [pine, rock]) {
+      im.instanceMatrix.needsUpdate = true;
+      im.frustumCulled = false;
+      this.scene.add(im);
+      this.gates.push({ mesh: im, wall: true });
     }
   }
 
