@@ -6,6 +6,7 @@ import { CREATURES, creatureNameKey } from '../config/creatures.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
 import { Settings, QUALITIES } from '../save/Settings.js';
 import { events } from '../core/Events.js';
+import { HEROES, HERO_IDS, DEFAULT_HERO, SKILLS, arenaStats } from '../config/heroes.js';
 
 const COMMANDS = ['follow', 'stay', 'defend', 'attack', 'ability', 'return'];
 const _v = new THREE.Vector3();
@@ -27,10 +28,13 @@ export class UIManager {
     const saved = SaveManager.loadLang();
     setLang(LANGS.includes(saved) ? saved : 'ru');
 
+    this.selectedHero = DEFAULT_HERO;
     this.$('btn-new').onclick = () => {
       if (SaveManager.load() && !confirm(t('confirmNew'))) return;
-      onStart();
+      this.showHeroSelect(true);
     };
+    this.$('hs-go').onclick = () => { this.showHeroSelect(false); onStart(this.selectedHero); };
+    this.$('hs-back').onclick = () => this.showHeroSelect(false);
     this.$('btn-continue').onclick = onContinue;
     this.$('btn-menu').onclick = onMenu;
     this.$('btn-attack').onclick = () => press('attack');
@@ -38,6 +42,7 @@ export class UIManager {
     this.$('btn-ability').onclick = () => press('ability');
     this.$('btn-spell1').onclick = () => press('spell1');
     this.$('btn-spell2').onclick = () => press('spell2');
+    this.$('btn-spell3').onclick = () => press('spell3');
     this.$('ar-again').onclick = () => press('arenaAgain');
     this.$('ar-exit').onclick = () => press('arenaExit');
     this.$('btn-creatures').onclick = () => press('panel');
@@ -185,13 +190,51 @@ export class UIManager {
     const mm = String(Math.floor(d.time / 60)).padStart(2, '0') + ':' + String(Math.floor(d.time % 60)).padStart(2, '0');
     this.$('arena-score').innerHTML = `<span class="b">${d.kills.blue}</span> : <span class="r">${d.kills.red}</span>`;
     this.$('arena-info').textContent = `${mm} · ${t('arena.towers')} ${d.towers.blue}:${d.towers.red}`;
-    ['spell1', 'spell2'].forEach((id, i) => {
-      const b = this.$('btn-' + id), cd = Math.ceil(d.spellCd[i]);
-      b.classList.toggle('cd', cd > 0);
-      b.textContent = cd > 0 ? String(cd) : t('arena.' + id);
-    });
+    this.setSkills(d.skillIds, d.spellCd);
     if (d.phase === 'playing') this.setArenaCountdown(d.respawn, true);
     this.drawMinimap(d.units);
+  }
+
+  // Экран выбора героя: карточки классов и описание выбранного
+  showHeroSelect(show) {
+    this.$('hero-select').classList.toggle('hidden', !show);
+    this.$('menu').classList.toggle('hidden', show);
+    if (show) this.renderHeroSelect();
+  }
+
+  renderHeroSelect() {
+    this.$('hs-title').textContent = t('heroTitle');
+    this.$('hs-go').textContent = t('heroGo');
+    this.$('hs-back').textContent = t('heroBack');
+    const list = this.$('hs-list');
+    list.innerHTML = '';
+    const ICON = { warrior: '⚔', archer: '🏹', mage: '🔮', assassin: '🗡', support: '💚' };
+    for (const id of HERO_IDS) {
+      const h = HEROES[id];
+      const b = document.createElement('button');
+      b.className = id === this.selectedHero ? 'sel' : '';
+      b.innerHTML = `<span class="ic">${ICON[h.cls]}</span><span>${t('cls.' + h.cls)}</span>`;
+      b.onclick = () => { this.selectedHero = id; this.renderHeroSelect(); };
+      list.appendChild(b);
+    }
+    const h = HEROES[this.selectedHero], st = arenaStats(this.selectedHero);
+    const skills = h.skills.map(s => `<div class="sk"><b>${SKILLS[s].icon} ${t('skill.' + s)}</b><span>${t('skilltype.' + SKILLS[s].type)}</span></div>`).join('');
+    this.$('hs-info').innerHTML =
+      `<div class="desc"><b>${t('cls.' + h.cls)} · ${t('el.' + h.element)}</b><br>${t('clsd.' + h.cls)}<br>${t('elp.' + h.element)}</div>` +
+      `<div class="stats"><span>❤ ${t('stat.hp')}: ${st.hp}</span><span>⚔ ${t('stat.atk')}: ${Math.round(st.atk)}</span>` +
+      `<span>🎯 ${t('stat.range')}: ${st.range}</span><span>👟 ${t('stat.speed')}: ${st.speed}</span></div>` +
+      `<h4>${t('autoAttack')} + ${t('skillsLabel')}</h4>${skills}`;
+  }
+
+  // Три кнопки умений героя: значок умения или секунды до готовности
+  setSkills(ids, cds) {
+    ids.forEach((sid, i) => {
+      const b = this.$('btn-spell' + (i + 1)), cd = Math.ceil(cds[i]);
+      b.classList.toggle('cd', cd > 0);
+      const text = cd > 0 ? String(cd) : (SKILLS[sid]?.icon ?? '?');
+      if (b.textContent !== text) b.textContent = text;
+      b.title = t('skill.' + sid);
+    });
   }
 
   drawMinimap(units) {
@@ -244,8 +287,6 @@ export class UIManager {
     this.$('hp-label').textContent = t('hp');
     this.$('lvl-label').textContent = `${t('level')} ${this.level ?? 1}`;
     this.$('btn-jump').textContent = t('jump');
-    this.$('btn-spell1').textContent = t('arena.spell1');
-    this.$('btn-spell2').textContent = t('arena.spell2');
     this.$('ar-again').textContent = t('arena.again');
     this.$('ar-exit').textContent = t('arena.exit');
     this.$('btn-attack').textContent = `⚔ ${t('attack')}`;

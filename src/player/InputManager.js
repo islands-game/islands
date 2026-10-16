@@ -13,6 +13,7 @@ const KEY_ACTIONS = {
   KeyP: 'panel',
   Digit2: 'spell1',
   Digit3: 'spell2',
+  Digit4: 'spell3',
   KeyB: 'build',
   KeyZ: 'rotate',
   KeyQ: 'cancel',

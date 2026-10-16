@@ -3,9 +3,8 @@ import { Enemy } from './Enemy.js';
 import { ENEMIES, ENEMY_SPAWNS, NIGHT_MONSTER_COUNT } from '../config/enemies.js';
 import { t } from '../config/i18n.js';
 import { events } from '../core/Events.js';
+import { HEROES, ELEMENTS, mainStats } from '../config/heroes.js';
 
-const HERO_RANGE = 2.8;
-const HERO_COOLDOWN = 0.5;
 const RESPAWN_DELAY = 2;
 
 const ringGeo = new THREE.RingGeometry(0.5, 0.65, 28).rotateX(-Math.PI / 2);
@@ -115,14 +114,44 @@ export class CombatSystem {
   heroAttack() {
     const p = this.player;
     if (p.dead || this.heroCd > 0) return;
-    this.heroCd = HERO_COOLDOWN;
+    const hero = HEROES[p.heroId], st = mainStats(p.heroId);
+    this.heroCd = st.cooldown;
     events.emit('swing');
-    const target = this.nearestEnemy(p.pos, HERO_RANGE);
+    const target = this.nearestEnemy(p.pos, st.range);
     const front = new THREE.Vector3(Math.sin(p.facing), 0, Math.cos(p.facing)).multiplyScalar(1.2).add(p.pos);
-    this.ring(front, 0xffffff, 1.2, 0.2);
+    if (st.range < 4) this.ring(front, 0xffffff, 1.2, 0.2);
     if (!target) return;
     p.facing = Math.atan2(target.pos.x - p.pos.x, target.pos.z - p.pos.z);
-    this.damageEnemy(target, Math.round(p.atk * (0.9 + Math.random() * 0.2)), '#ffffff');
+    const dmg = Math.round(this.heroHit(p) * (0.9 + Math.random() * 0.2));
+    const color = ELEMENTS[hero.element].color;
+    if (st.range >= 4) this.projectile(p.pos, target, color, () => this.heroDamage(target, dmg, hero), 0.25);
+    else this.heroDamage(target, dmg, hero);
+  }
+
+  // Урон одного удара героя: базовый урон уровня × класс. Перезарядка дольше — удар сильнее, урон в секунду тот же.
+  heroHit(p) {
+    const st = mainStats(p.heroId);
+    return p.atk * st.dpsMul * (st.cooldown / 0.5);
+  }
+
+  // Удар героя по врагу + эффект стихии
+  heroDamage(enemy, dmg, hero) {
+    this.damageEnemy(enemy, dmg, '#ffffff');
+    const burn = ELEMENTS[hero.element].burn;
+    if (burn && !enemy.dead) this.applyBurn(enemy, dmg * burn.ratio, burn.time);
+  }
+
+  // Горение: урон раз в секунду, всего total за time секунд
+  applyBurn(enemy, total, time) {
+    enemy.burnT = time;
+    enemy.burnDps = total / time;
+    enemy.burnAcc = 0;
+  }
+
+  // Замедление врага
+  applySlow(enemy, mul, time) {
+    enemy.slowT = time;
+    enemy.slowMul = 1 - mul;
   }
 
   // Удар существа. Если у существа дальняя атака — летит снаряд.
@@ -236,6 +265,15 @@ export class CombatSystem {
     for (const e of this.enemies) {
       e.update(dt, ctx);
       if (!e.dead) e.bar.face(camera);
+      if (e.slowT > 0) e.slowT -= dt;
+      if (e.burnT > 0 && !e.dead) {
+        e.burnT -= dt;
+        e.burnAcc += dt;
+        if (e.burnAcc >= 1) {
+          e.burnAcc -= 1;
+          this.damageEnemy(e, Math.max(1, Math.round(e.burnDps)), '#ff8a3d');
+        }
+      }
     }
 
     if (this.player.dead) {

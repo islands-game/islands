@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { ARENA, lanePath } from '../config/arena.js';
 import { Unit } from './ArenaUnit.js';
+import { HEROES, SKILLS, ELEMENTS, arenaStats } from '../config/heroes.js';
+import { castSkill } from '../combat/Skills.js';
 import { events } from '../core/Events.js';
 import { t } from '../config/i18n.js';
 
@@ -105,7 +107,7 @@ export class ArenaSystem {
     this.kills = { blue: 0, red: 0 };
     this.winner = null;
     this.playerAtkCd = 0;
-    this.spellCd = [0, 0];
+    this.spellCd = [0, 0, 0];
     this.respawnLeft = 0;
     this.camps = ARENA.camps.map(c => ({ ...c, monsters: [], respawnAt: 0 }));
 
@@ -150,26 +152,29 @@ export class ArenaSystem {
 
   makeHeroes() {
     const make = (team, spec, i, isPlayer) => {
-      const base = ARENA.heroes[spec.hero];
-      const s = { ...base, radius: 0.5, scale: HERO_SCALE };
+      const base = arenaStats(spec.hero);
+      const s = { ...base, radius: 0.5, scale: HERO_SCALE, heroId: spec.hero };
       if (isPlayer) s.external = this.player;
       const sp = this.spawnPoint(team, i);
       const u = this.add('hero', team, s, sp.x, sp.z);
       u.heroType = spec.hero;
+      u.heroId = spec.hero;
+      u.element = HEROES[spec.hero].element;
+      u.skillIds = HEROES[spec.hero].skills;
+      u.skillCd = [3 + Math.random() * 4, 3 + Math.random() * 4, 3 + Math.random() * 4];
       u.lane = spec.lane;
       u.isPlayer = isPlayer;
       if (isPlayer) u.bar.setColor(0x7dff5a);     // у героя-игрока полоска зелёная
       u.deaths = 0;
-      u.spellCd = 3 + Math.random() * 4;
       u.lastHurt = -99;
       u.retreat = false;
       u.respawnAt = 0;
       return u;
     };
-    this.playerUnit = make('blue', { hero: ARENA.playerHero, lane: 'mid' }, 0, true);
+    this.playerUnit = make('blue', { hero: this.player.heroId, lane: 'mid' }, 0, true);
     ARENA.blueBots.forEach((b, i) => make('blue', b, i + 1, false));
     ARENA.redBots.forEach((b, i) => make('red', b, i, false));
-    const p = this.player, hs = ARENA.heroes[ARENA.playerHero];
+    const p = this.player, hs = arenaStats(p.heroId);
     p.maxHp = hs.hp;
     p.hp = hs.hp;
     p.def = 0;
@@ -355,6 +360,8 @@ export class ArenaSystem {
       if (b.dead) return;
       const dealt = b.takeDamage(dmg, a);
       if (dealt > 0 && (a.isPlayer || b.isPlayer)) this.number(b, dealt, b.isPlayer ? '#ff6b6b' : '#ffffff');
+      const burn = a.element ? ELEMENTS[a.element].burn : null;
+      if (burn && dealt > 0 && !b.dead) this.burnUnit(b, a, dmg * burn.ratio, burn.time);
     };
     if (a.range > 3.2) this.game.combat.projectile(a.pos, b, a.team === 'blue' ? 0x7ab8ff : a.team === 'red' ? 0xff7a7a : 0xffd27a, apply, 0.28);
     else apply();
@@ -372,7 +379,7 @@ export class ArenaSystem {
   moveTo(u, tx, tz, dt, stop = 0.1, speedMul = 1) {
     const dx = tx - u.pos.x, dz = tz - u.pos.z, d = Math.hypot(dx, dz);
     if (d <= stop + 0.08) return false;   // запас, чтобы юнит не застревал у самой границы
-    const step = Math.min(u.speed * speedMul * dt, d - stop);
+    const step = Math.min(u.speed * speedMul * this.speedFactor(u) * dt, d - stop);
     const ox = u.pos.x, oz = u.pos.z;
     u.pos.x += (dx / d) * step;
     u.pos.z += (dz / d) * step;
@@ -475,6 +482,8 @@ export class ArenaSystem {
       this.game.cameraCtl.target.copy(this.player.pos);
     }
     u.hp = u.maxHp;
+    u.burnT = u.slowT = u.hasteT = u.shieldT = 0;
+    u.shieldAmt = 0;
   }
 
   endMatch(winner) {
@@ -501,13 +510,14 @@ export class ArenaSystem {
       this.spawnLogic(dt);
       this.updateShields();
       this.playerAtkCd = Math.max(0, this.playerAtkCd - dt);
-      for (let i = 0; i < 2; i++) this.spellCd[i] = Math.max(0, this.spellCd[i] - dt);
+      for (let i = 0; i < 3; i++) this.spellCd[i] = Math.max(0, this.spellCd[i] - dt);
       const p = this.player, pu = this.playerUnit;
       pu.hp = p.hp;
       pu.maxHp = p.maxHp;
       for (const u of this.units.slice()) {
         u.atkCd = Math.max(0, u.atkCd - dt);
         if (u.dead && u.kind !== 'hero') continue;
+        this.tickStatus(u, dt);
         this.think(u, dt);
       }
       this.units = this.units.filter(u => !u.dead || u.kind === 'hero');
@@ -613,7 +623,6 @@ export class ArenaSystem {
   thinkBot(u, dt) {
     if (u.dead) return;
     this.heroRegen(u, dt);
-    u.spellCd = Math.max(0, u.spellCd - dt);
     const hr = u.hp / u.maxHp;
     const home = this.units.find(x => x.kind === 'crystal' && x.team === u.team && !x.dead);
     const base = home ? home.pos : world(0, SIGN[u.team] * ARENA.baseZ);
@@ -624,11 +633,7 @@ export class ArenaSystem {
     }
     if (hr < 0.3) { u.retreat = true; return; }
 
-    // Способность: удар по области, когда рядом несколько врагов
-    if (u.spellCd <= 0) {
-      const near = this.units.filter(b => this.targetable(b) && this.isEnemy(u, b) && b.kind !== 'tower' && b.kind !== 'crystal' && edge(u, b) < ARENA.spells.slam.radius);
-      if (near.length >= 2 || near.some(b => b.kind === 'hero')) { this.areaDamage(u, ARENA.spells.slam.radius, ARENA.spells.slam.damage); u.spellCd = ARENA.spells.slam.cooldown + 4; }
-    }
+    this.botSkills(u, dt);
 
     // Цель: герой (если здоров), потом крипы, потом постройки
     const bias = hr > 0.5 ? { hero: -3, minion: 0, monster: 1, king: 2, tower: 5, crystal: 5 } : { minion: 0, monster: 1, hero: 4, king: 6, tower: 6, crystal: 6 };
@@ -801,22 +806,192 @@ export class ArenaSystem {
     this.attack(u, target);
   }
 
-  // 1 — удар по области, 2 — лечение
+  // Умения героя-игрока: 1, 2, 3 (клавиши 2, 3, 4)
   castSpell(n) {
-    if (this.phase !== 'playing' || this.playerUnit.dead || this.spellCd[n - 1] > 0) return;
+    const i = n - 1;
+    if (this.phase !== 'playing' || this.playerUnit.dead || this.spellCd[i] > 0) return;
     const u = this.playerUnit;
     u.pos.copy(this.player.pos);
-    if (n === 1) {
-      this.areaDamage(u, ARENA.spells.slam.radius, ARENA.spells.slam.damage);
-      this.spellCd[0] = ARENA.spells.slam.cooldown;
-    } else {
-      const healed = this.player.heal(ARENA.spells.heal.amount);
-      this.game.combat.ring(this.player.pos, 0x5de08a, 3, 0.5);
-      const pos = this.player.pos.clone();
-      pos.y += 2.2;
-      this.ui.floatText(pos, `+${healed}`, '#6bff9a');
-      this.spellCd[1] = ARENA.spells.heal.cooldown;
-      events.emit('ability');
+    u.facing = this.player.facing;
+    const id = u.skillIds[i];
+    if (!id) return;
+    if (!castSkill(this.skillCtx(u), id)) return this.ui.toast(t('noTarget'));
+    this.spellCd[i] = SKILLS[id].cooldown;
+    events.emit('slam');
+  }
+
+  // ---------- статусы: горение, замедление, ускорение, щит ----------
+
+  speedFactor(u) {
+    if (u.s.external) return 1;                        // игрок: скорость считает сам Player
+    return (u.slowT > 0 ? u.slowMul : 1) * (u.hasteT > 0 ? u.hasteMul : 1);
+  }
+
+  burnUnit(b, source, total, time) {
+    b.burnT = time;
+    b.burnDps = total / time;
+    b.burnAcc = 0;
+    b.burnSource = source;
+  }
+
+  slowUnit(b, mul, time) {
+    b.slowT = time;
+    b.slowMul = 1 - mul;
+    if (b.s.external) b.s.external.slowT = time;
+  }
+
+  shieldUnit(b, amount, time) {
+    if (b.s.external) return b.s.external.addShield(amount, time);
+    b.shieldAmt = Math.max(b.shieldAmt ?? 0, amount);
+    b.shieldT = time;
+  }
+
+  tickStatus(u, dt) {
+    if (u.dead) return;
+    if (u.slowT > 0) u.slowT -= dt;
+    if (u.hasteT > 0) u.hasteT -= dt;
+    if (u.shieldT > 0) { u.shieldT -= dt; if (u.shieldT <= 0) u.shieldAmt = 0; }
+    if (u.burnT > 0) {
+      u.burnT -= dt;
+      u.burnAcc += dt;
+      if (u.burnAcc >= 1) {
+        u.burnAcc -= 1;
+        const dealt = u.takeDamage(Math.max(1, Math.round(u.burnDps)), u.burnSource);
+        if (dealt > 0 && (u.isPlayer || u.burnSource?.isPlayer)) this.number(u, dealt, '#ff8a3d');
+      }
+    }
+  }
+
+  // Подключение умений (combat/Skills.js) к юнитам арены
+  skillCtx(u, aim = null) {
+    const g = this.game, p = this.player, sys = this;
+    const isPlayer = !!u.s.external;
+    const color = ELEMENTS[u.element ?? 'fire'].color;
+    const foeAdapter = b => ({
+      pos: b.pos, radius: b.radius,
+      get hpRatio() { return b.hp / b.maxHp; },
+      hit: d => {
+        const dealt = b.takeDamage(d, u);
+        if (dealt > 0 && (u.isPlayer || b.isPlayer)) sys.number(b, dealt, b.isPlayer ? '#ff6b6b' : '#ffffff');
+      },
+      slow: (m, s) => sys.slowUnit(b, m, s),
+      burn: (total, s) => sys.burnUnit(b, u, total, s),
+    });
+    const allyAdapter = b => ({
+      pos: b.pos, get maxHp() { return b.maxHp; },
+      heal: n => {
+        const before = b.hp;
+        b.heal(n);
+        const got = Math.round((b.s.external ? p.hp : b.hp) - before);
+        if (got > 0 && (u.isPlayer || b.isPlayer)) {
+          const at = b.pos.clone(); at.y += 2.2;
+          sys.ui.floatText(at, `+${got}`, '#6bff9a');
+        }
+      },
+      shield: (n, s) => sys.shieldUnit(b, n, s),
+    });
+    return {
+      caster: { pos: u.pos, facing: u.facing, hit: u.atk, color },
+      foes: r => this.units
+        .filter(b => this.targetable(b) && this.isEnemy(u, b) && b.kind !== 'tower' && b.kind !== 'crystal' && edge(u, b) <= r)
+        .sort((a, b) => dist(u, a) - dist(u, b))
+        .map(foeAdapter),
+      allies: r => this.units
+        .filter(b => !b.dead && b.team === u.team && (b === u || (r > 0.5 && (b.kind === 'hero' || b.kind === 'minion') && dist(u, b) <= r)))
+        .map(allyAdapter),
+      slide: (dx, dz, d) => {
+        if (isPlayer) { const m = p.slide(dx, dz, d); u.pos.copy(p.pos); return m; }
+        return this.slideUnit(u, dx, dz, d);
+      },
+      dir: () => {
+        if (aim) return aim;
+        if (isPlayer) {
+          const input = g.input, mx = input.move.x, my = input.move.y;
+          if (Math.hypot(mx, my) > 0.1) {
+            const yaw = g.cameraCtl.yaw, sin = Math.sin(yaw), cos = Math.cos(yaw);
+            return { x: mx * cos + my * sin, z: -mx * sin + my * cos };
+          }
+        }
+        return { x: Math.sin(u.facing), z: Math.cos(u.facing) };
+      },
+      haste: (mul, s) => {
+        if (isPlayer) { p.hasteMul = mul; p.hasteT = s; } else { u.hasteMul = mul; u.hasteT = s; }
+      },
+      face: a => { u.facing = a; if (isPlayer) p.facing = a; },
+      ring: (pos, c, size, dur) => g.combat.ring(pos, c, size, dur),
+      shot: (from, toPos, c, onHit, dur = 0.25) => g.combat.projectile(from, { pos: toPos }, c, onHit, dur),
+    };
+  }
+
+  // Сдвиг юнита-бота (рывок, телепорт) с проверкой стен и края острова
+  slideUnit(u, dx, dz, dist) {
+    const n = Math.hypot(dx, dz) || 1;
+    const ux = dx / n, uz = dz / n;
+    let moved = 0;
+    while (moved < dist - 0.001) {
+      const st = Math.min(0.4, dist - moved);
+      const ox = u.pos.x, oz = u.pos.z;
+      u.pos.x += ux * st;
+      u.pos.z += uz * st;
+      this.world.resolveCollisions(u.pos, u.radius, u.team);
+      if (this.world.groundAt(u.pos.x, u.pos.z) === null) { u.pos.x = ox; u.pos.z = oz; break; }
+      if (Math.hypot(u.pos.x - ox, u.pos.z - oz) < st * 0.5) break;
+      moved += st;
+    }
+    return moved;
+  }
+
+  // Умения героя-бота: простые правила «когда применить»
+  botSkills(u, dt) {
+    for (let i = 0; i < 3; i++) u.skillCd[i] = Math.max(0, u.skillCd[i] - dt);
+    if (u.skillCd.every(c => c > 0)) return;
+    const hr = u.hp / u.maxHp;
+    const near = r => this.units.filter(b => this.targetable(b) && this.isEnemy(u, b) && b.kind !== 'tower' && b.kind !== 'crystal' && edge(u, b) <= r);
+    for (let i = 0; i < 3; i++) {
+      if (u.skillCd[i] > 0) continue;
+      const def = SKILLS[u.skillIds[i]];
+      let aim = null, use = false;
+      switch (def.type) {
+        case 'dash': {
+          const f = near(def.dist).filter(b => dist(u, b) > 3.5);
+          use = f.length > 0 && hr > 0.4 && f.some(b => b.kind === 'hero' || b.kind === 'minion');
+          break;
+        }
+        case 'nova': {
+          const f = near(def.radius);
+          use = f.length >= 2 || f.some(b => b.kind === 'hero');
+          break;
+        }
+        case 'shot': case 'volley': {
+          const f = near(def.range * 0.9);
+          use = f.some(b => b.kind === 'hero') || f.length >= 2;
+          break;
+        }
+        case 'blink': {
+          const f = near(5);
+          if (f.length && (hr < 0.45 || u.range > 5 && f.some(b => dist(u, b) < 3))) {
+            const e = f[0];
+            const dx = u.pos.x - e.pos.x, dz = u.pos.z - e.pos.z, n = Math.hypot(dx, dz) || 1;
+            aim = { x: dx / n, z: dz / n };
+            use = true;
+          }
+          break;
+        }
+        case 'buff':
+          use = near(7).some(b => b.kind === 'hero') || (hr < 0.6 && near(7).length > 0);
+          break;
+        case 'heal': {
+          const hurt = this.units.filter(b => !b.dead && b.team === u.team && (b.kind === 'hero') && b.hp / b.maxHp < 0.65 && dist(u, b) <= def.radius);
+          use = hurt.length > 0 || hr < 0.55;
+          break;
+        }
+        default: break;
+      }
+      if (!use) continue;
+      if (castSkill(this.skillCtx(u, aim), u.skillIds[i])) {
+        u.skillCd[i] = def.cooldown + 1 + Math.random() * 2;
+        break;
+      }
     }
   }
 
@@ -829,7 +1004,7 @@ export class ArenaSystem {
     const towers = team => this.units.filter(u => u.kind === 'tower' && u.team === team && !u.dead).length;
     this.ui.updateArena({
       kills: this.kills, time: this.time, towers: { blue: towers('blue'), red: towers('red') },
-      spellCd: this.spellCd, respawn: this.respawnLeft, phase: this.phase,
+      spellCd: this.spellCd, skillIds: this.playerUnit.skillIds, respawn: this.respawnLeft, phase: this.phase,
       units: this.units.filter(u => !u.dead || u.kind === 'hero').map(u => ({ x: u.pos.x - C.x, z: u.pos.z - C.z, team: u.team, kind: u.kind, dead: u.dead, me: u.isPlayer })),
     });
   }

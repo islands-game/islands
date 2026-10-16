@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { HealthBar } from '../combat/HealthBar.js';
+import { HEROES } from '../config/heroes.js';
+import { buildHeroModel } from '../player/HeroModels.js';
 
 // Цвет полоски здоровья = команда (красный на красном теле не виден, поэтому цвета яркие и с белой рамкой)
 const BAR_COLOR = { blue: 0x2fd0ff, red: 0xff3b30, neutral: 0xffd23f };
@@ -33,13 +35,6 @@ const mesh = (geo, material, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1) => {
 };
 
 // Модели
-function heroModel(team, color) {
-  const g = new THREE.Group();
-  g.add(mesh(G.capsule, mat(TEAM_COLOR[team]), 0, 0.75, 0));
-  g.add(mesh(G.head, mat(0xffd9b3), 0, 1.5, 0));
-  g.add(mesh(G.cone, mat(color), 0, 2.05, 0, 0.25, 0.5, 0.25)); // шлем-шпиль цвета героя
-  return g;
-}
 function minionModel(team, ranged) {
   const g = new THREE.Group();
   g.add(mesh(ranged ? G.octa : G.sphere, mat(TEAM_COLOR[team]), 0, 0.5, 0, 1, ranged ? 1.3 : 0.9, 1));
@@ -101,7 +96,7 @@ export class Unit {
     const scale = s.scale ?? 1;
     // body вращается в сторону движения, mesh (с полоской здоровья) — нет
     if (s.external) this.body = new THREE.Group();            // игрок: модель героя уже есть у самого игрока
-    else if (kind === 'hero') this.body = heroModel(team, s.color ?? 0xffffff);
+    else if (kind === 'hero') this.body = buildHeroModel(HEROES[s.heroId].cls, HEROES[s.heroId].element, TEAM_COLOR[team]);
     else if (kind === 'minion') this.body = minionModel(team, s.ranged);
     else if (kind === 'tower') this.body = towerModel(team, s.tier);
     else if (kind === 'crystal') this.body = crystalModel(team);
@@ -148,6 +143,11 @@ export class Unit {
       this.hp = player.hp;
       this.sys.ui.flashHurt();
     } else {
+      if (this.shieldAmt > 0) {            // щит от умений поглощает урон
+        const absorbed = Math.min(this.shieldAmt, amount);
+        this.shieldAmt -= absorbed;
+        amount -= absorbed;
+      }
       this.hp = Math.max(0, this.hp - amount);
     }
     if (this.hp <= 0) this.sys.killUnit(this, source);

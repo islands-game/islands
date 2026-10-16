@@ -106,7 +106,7 @@ export class Enemy {
     const dx = tx - this.pos.x, dz = tz - this.pos.z;
     const d = Math.hypot(dx, dz);
     if (d < 0.05) return;
-    const step = Math.min(speed * dt, d);
+    const step = Math.min(speed * (this.slowT > 0 ? this.slowMul : 1) * dt, d);
     const ox = this.pos.x, oz = this.pos.z;
     this.pos.x += (dx / d) * step;
     this.pos.z += (dz / d) * step;

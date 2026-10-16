@@ -16,6 +16,8 @@ import { Settings } from '../save/Settings.js';
 import { QuestManager } from '../quests/QuestManager.js';
 import { RaidSystem } from '../combat/RaidSystem.js';
 import { ArenaSystem } from '../arena/ArenaSystem.js';
+import { HeroSkills } from '../player/HeroSkills.js';
+import { DEFAULT_HERO } from '../config/heroes.js';
 import { QUESTS } from '../config/quests.js';
 import { events } from './Events.js';
 import { initSound } from './Sound.js';
@@ -51,7 +53,7 @@ export class Game {
     this.ui = new UIManager({
       isTouch: this.input.isTouch,
       press: name => this.input.press(name),
-      onStart: () => this.start(false),
+      onStart: heroId => this.start(false, heroId),
       onContinue: () => this.start(true),
       onMenu: () => this.pause(),
       onSummon: id => { this.creatures.summon(id); this.refreshPanel(); },
@@ -77,6 +79,7 @@ export class Game {
     this.quests = new QuestManager(this);
     this.raids = new RaidSystem(this);
     this.arena = new ArenaSystem(this);
+    this.skills = new HeroSkills(this);
 
     // Качество графики: меньше пикселей на слабых устройствах. В режиме "Авто" подстраивается по FPS.
     this.autoScale = this.input.isTouch ? 0.8 : 1;
@@ -105,7 +108,7 @@ export class Game {
     this.renderer.setAnimationLoop(() => this.frame());
   }
 
-  start(loadSave) {
+  start(loadSave, heroId = DEFAULT_HERO) {
     this.arena.exit();
     this.resources.reset();
     this.combat.reset();
@@ -114,6 +117,8 @@ export class Game {
     this.build.reset();
     this.stats = { kills: 0, collected: 0, built: 0 };
     const data = loadSave ? SaveManager.load() : null;
+    this.player.setHero(data ? data.hero : heroId);
+    this.skills.reset();
     if (data) {
       this.player.fromSave(data.player);
       // Если сохранились на арене (старая версия) — возвращаем домой
@@ -162,6 +167,7 @@ export class Game {
     const playerData = this.player.toSave();
     if (inArena) Object.assign(playerData, { x: -8.5, y: 0, z: 5, hp: this.arena.returnSave().hp });
     SaveManager.save({
+      hero: this.player.heroId,
       player: playerData,
       inventory: this.inventory.toSave(),
       creatures: this.creatures.toSave(),
@@ -455,8 +461,7 @@ export class Game {
     if (this.arena.active) {
       // Арена: атака, две способности героя и кнопки итога матча
       if (input.consume('attack')) this.arena.playerAttack();
-      if (input.consume('spell1')) this.arena.castSpell(1);
-      if (input.consume('spell2')) this.arena.castSpell(2);
+      for (let i = 1; i <= 3; i++) if (input.consume('spell' + i)) this.arena.castSpell(i);
       if (input.consume('arenaAgain')) { this.ui.hideArenaResult(); this.arena.restart(); }
       if (input.consume('arenaExit')) this.leaveArena();
       input.consume('build'); input.consume('confirm'); input.consume('rotate'); input.consume('cancel');
@@ -470,12 +475,14 @@ export class Game {
     if (this.build.active) {
       // В режиме строительства "Действие" ставит постройку, "Атака" не работает
       input.consume('attack');
+      for (let i = 1; i <= 3; i++) input.consume('spell' + i);
       if (input.consume('interact') | input.consume('confirm')) this.build.confirm();
       if (input.consume('rotate')) this.build.rotate();
       if (input.consume('cancel')) this.build.cancel();
     } else {
       input.consume('confirm'); input.consume('rotate'); input.consume('cancel');
       if (input.consume('attack')) this.combat.heroAttack();
+      for (let i = 1; i <= 3; i++) if (input.consume('spell' + i)) this.skills.cast(i - 1);
       if (input.consume('interact')) this.interact();
     }
     if (input.consume('panel')) { this.ui.showBuildPanel(false); this.togglePanel(); }
@@ -503,6 +510,7 @@ export class Game {
       this.resources.update(dt);
       this.updateNightMonsters();
       this.combat.update(dt, this.camera);
+      this.skills.update(dt);
       this.creatures.update(dt);
       this.build.update();
       this.updateBuildBar();
@@ -515,6 +523,7 @@ export class Game {
       this.updateTopBar();
       this.ui.setClock(this.world.night);
       this.ui.updateHud(this.player, this.inventory, this.creatures.active, xpNeeded(this.player.level));
+      if (!this.arena.active) this.ui.setSkills(this.skills.ids, this.skills.cd);
 
       this.saveTimer += dt;
       if (this.saveTimer > 5) { this.saveTimer = 0; this.save(); }

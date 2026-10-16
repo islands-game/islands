@@ -27,6 +27,17 @@
     </div>
   </div>
 
+  <!-- Выбор героя -->
+  <div id="hero-select" class="overlay hidden">
+    <div class="panel wide">
+      <h2 id="hs-title"></h2>
+      <div id="hs-list"></div>
+      <div id="hs-info"></div>
+      <button id="hs-go" class="big primary"></button>
+      <button id="hs-back" class="big"></button>
+    </div>
+  </div>
+
   <!-- Настройки -->
   <div id="settings-panel" class="overlay hidden">
     <div class="panel wide">
@@ -118,8 +129,11 @@
     </div>
 
     <div id="actions">
-      <button id="btn-spell2" class="round small spell"></button>
-      <button id="btn-spell1" class="round small spell"></button>
+      <div id="spells">
+        <button id="btn-spell3" class="round small spell"></button>
+        <button id="btn-spell2" class="round small spell"></button>
+        <button id="btn-spell1" class="round small spell"></button>
+      </div>
       <button id="btn-interact" class="round small"></button>
       <button id="btn-attack" class="round"></button>
     </div>

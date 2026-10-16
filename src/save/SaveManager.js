@@ -1,6 +1,7 @@
 // Локальные сохранения (localStorage). Хранятся только данные (JSON), код не выполняется.
 // Версия 1: позиция, уровень, опыт. Версия 2: + ресурсы и приручённые существа.
 // Версия 3: + постройки и шаг обучения. Версия 4: + задания. Версия 5: + время суток и рейды.
+// Версия 6: + выбранный герой (hero). Старые сохранения читаются как «Воин огня».
 // Старые версии читаются без потерь.
 import { CREATURES } from '../config/creatures.js';
 import { BUILDINGS, MAX_BUILDINGS } from '../config/buildings.js';
@@ -8,10 +9,11 @@ import { TUTORIAL_DONE } from '../ui/Tutorial.js';
 import { QUESTS } from '../config/quests.js';
 import { RESOURCE_ORDER } from '../config/resources.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
+import { DEFAULT_HERO, isHero } from '../config/heroes.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 const MAX_COORD = 40;
 
 const num = (v, fallback) => (Number.isFinite(v) ? v : fallback);
@@ -37,6 +39,7 @@ function validate(raw) {
   const inv = raw.inventory ?? {};
   return {
     version: SAVE_VERSION,
+    hero: isHero(raw.hero) ? raw.hero : DEFAULT_HERO,
     player: {
       x: num(p.x, 0), y: num(p.y, 0), z: num(p.z, 6),
       hp: Math.max(1, num(p.hp, 100)),

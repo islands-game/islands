@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { GROUND_Y } from '../world/World.js';
+import { DEFAULT_HERO, HEROES, ELEMENTS, mainStats } from '../config/heroes.js';
+import { buildHeroModel } from './HeroModels.js';
 
 const SPEED = 6;
 const JUMP_SPEED = 8;
@@ -23,6 +25,11 @@ export class Player {
     this.frozen = false;  // на арене: герой погиб и ждёт возрождения
     this.shield = 0;
     this.shieldTime = 0;
+    this.slowT = 0;       // замедление от умений врагов
+    this.hasteT = 0;      // ускорение от своих умений
+    this.hasteMul = 1;
+    this.heroId = DEFAULT_HERO;
+    this.modelHolder = null;
     this.recalcStats();
     this.hp = this.maxHp;
 
@@ -32,29 +39,16 @@ export class Player {
 
   // Характеристики растут вместе с уровнем
   recalcStats() {
-    this.maxHp = 100 + (this.level - 1) * 10;
+    this.maxHp = Math.round((100 + (this.level - 1) * 10) * mainStats(this.heroId).hpMul);
     this.atk = 10 + (this.level - 1) * 2;
     this.def = Math.floor((this.level - 1) / 2);
   }
 
   buildMesh() {
     const g = new THREE.Group();
-    const body = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.4, 0.6, 4, 10),
-      new THREE.MeshLambertMaterial({ color: 0x4d8bff })
-    );
-    body.position.y = 0.75;
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.34, 12, 10),
-      new THREE.MeshLambertMaterial({ color: 0xffd9b3 })
-    );
-    head.position.y = 1.5;
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
-    const eyeGeo = new THREE.SphereGeometry(0.05, 6, 6);
-    const e1 = new THREE.Mesh(eyeGeo, eyeMat), e2 = new THREE.Mesh(eyeGeo, eyeMat);
-    e1.position.set(-0.12, 1.55, 0.3);
-    e2.position.set(0.12, 1.55, 0.3);
-    g.add(body, head, e1, e2);
+    this.modelHolder = new THREE.Group();
+    g.add(this.modelHolder);
+    this.applyModel();
 
     // Щит (виден, когда его накладывает существо)
     this.shieldMesh = new THREE.Mesh(
@@ -65,6 +59,36 @@ export class Player {
     this.shieldMesh.visible = false;
     g.add(this.shieldMesh);
     return g;
+  }
+
+  // Внешний вид героя: класс (оружие, силуэт) и цвет стихии
+  applyModel() {
+    const h = HEROES[this.heroId];
+    const holder = this.modelHolder;
+    for (const c of [...holder.children]) holder.remove(c);
+    const model = buildHeroModel(h.cls, h.element);
+    holder.add(model);
+    // Глаза смотрят вперёд (+z): добавляем отдельно, чтобы было видно, куда повёрнут герой
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
+    const eyeGeo = new THREE.SphereGeometry(0.05, 6, 6);
+    const eyeY = h.cls === 'mage' || h.cls === 'support' ? 1.55 : 1.55;
+    const e1 = new THREE.Mesh(eyeGeo, eyeMat), e2 = new THREE.Mesh(eyeGeo, eyeMat);
+    e1.position.set(-0.12, eyeY, 0.3);
+    e2.position.set(0.12, eyeY, 0.3);
+    holder.add(e1, e2);
+  }
+
+  // Выбор героя: меняет класс, характеристики и внешний вид
+  setHero(id) {
+    if (!Object.hasOwn(HEROES, id)) id = DEFAULT_HERO;
+    this.heroId = id;
+    this.recalcStats();
+    this.hp = Math.min(this.hp, this.maxHp);
+    if (this.modelHolder) this.applyModel();
+  }
+
+  get elementColor() {
+    return ELEMENTS[HEROES[this.heroId].element].color;
   }
 
   addShield(amount, seconds) {
@@ -108,6 +132,8 @@ export class Player {
       if (this.shieldTime <= 0) this.shield = 0;
     }
     this.shieldMesh.visible = this.shield > 0;
+    if (this.slowT > 0) this.slowT -= dt;
+    if (this.hasteT > 0) this.hasteT -= dt;
     if (this.dead || this.frozen) return;
 
     const mx = input.move.x, my = input.move.y;
@@ -118,8 +144,9 @@ export class Player {
       const dx = mx * cos + my * sin;
       const dz = -mx * sin + my * cos;
       const n = Math.hypot(dx, dz) || 1;
-      this.pos.x += (dx / n) * SPEED * len * dt;
-      this.pos.z += (dz / n) * SPEED * len * dt;
+      const speed = SPEED * mainStats(this.heroId).speedMul * (this.slowT > 0 ? 0.65 : 1) * (this.hasteT > 0 ? this.hasteMul : 1);
+      this.pos.x += (dx / n) * speed * len * dt;
+      this.pos.z += (dz / n) * speed * len * dt;
       const target = Math.atan2(dx, dz);
       let diff = target - this.facing;
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));
@@ -149,6 +176,26 @@ export class Player {
 
     this.mesh.position.copy(this.pos);
     this.mesh.rotation.y = this.facing;
+  }
+
+  // Рывок/перекат/телепорт: сдвигает героя на dist по направлению (dx, dz), не проходя сквозь препятствия.
+  // Возвращает, на сколько удалось сдвинуться.
+  slide(dx, dz, dist) {
+    const n = Math.hypot(dx, dz) || 1;
+    const ux = dx / n, uz = dz / n;
+    let moved = 0;
+    while (moved < dist - 0.001) {
+      const st = Math.min(0.4, dist - moved);
+      const ox = this.pos.x, oz = this.pos.z;
+      this.pos.x += ux * st;
+      this.pos.z += uz * st;
+      this.world.resolveCollisions(this.pos, RADIUS, this.team);
+      if (this.world.groundAt(this.pos.x, this.pos.z) === null) { this.pos.x = ox; this.pos.z = oz; break; }
+      if (Math.hypot(this.pos.x - ox, this.pos.z - oz) < st * 0.5) break;
+      moved += st;
+    }
+    this.mesh.position.copy(this.pos);
+    return moved;
   }
 
   respawn() {

@@ -26,26 +26,15 @@ export const ARENA = {
   // Герои. Характеристики одинаковы для всех и не зависят от уровня (честная игра)
   respawnBase: 8, respawnPerDeath: 2, respawnMax: 20,
   baseRegen: 30,                               // лечение у своей базы (хп в секунду)
-  heroes: {
-    warrior: { name: 'warrior', hp: 600, atk: 32, range: 2.8, speed: 5.6, cooldown: 0.8, color: 0xd9d9d9 },
-    archer:  { name: 'archer',  hp: 420, atk: 28, range: 8,   speed: 5.6, cooldown: 0.8, color: 0xe6d8b0 },
-    mage:    { name: 'mage',    hp: 380, atk: 24, range: 7,   speed: 5.4, cooldown: 0.9, color: 0xc9b3ff },
-  },
-  // Способности героя-игрока: 1 — удар по области, 2 — лечение
-  spells: {
-    slam: { cooldown: 8, radius: 4.5, damage: 70 },
-    heal: { cooldown: 20, amount: 150 },
-  },
-  // Состав команд (первый синий герой — игрок). lane: left | mid | right | jungle
+  // Состав команд (первый синий герой — игрок, он выбирает героя при старте). Герои — из config/heroes.js. lane: left | mid | right | jungle
   blueBots: [
-    { hero: 'warrior', lane: 'left' }, { hero: 'archer', lane: 'mid' },
-    { hero: 'mage', lane: 'right' }, { hero: 'warrior', lane: 'jungle' },
+    { hero: 'warrior_fire', lane: 'left' }, { hero: 'mage_fire', lane: 'mid' },
+    { hero: 'archer_fire', lane: 'right' }, { hero: 'assassin_fire', lane: 'jungle' },
   ],
   redBots: [
-    { hero: 'warrior', lane: 'left' }, { hero: 'archer', lane: 'left' },
-    { hero: 'mage', lane: 'mid' }, { hero: 'archer', lane: 'right' }, { hero: 'warrior', lane: 'jungle' },
+    { hero: 'warrior_fire', lane: 'left' }, { hero: 'support_fire', lane: 'left' },
+    { hero: 'mage_fire', lane: 'mid' }, { hero: 'archer_fire', lane: 'right' }, { hero: 'assassin_fire', lane: 'jungle' },
   ],
-  playerHero: 'warrior',
 
   // Лес: лагеря лесных монстров. Победивший монстра забирает его себе, пока тот не погибнет
   camps: [
