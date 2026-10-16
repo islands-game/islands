@@ -74,6 +74,29 @@ export const ENEMIES = {
     xp: 300,
     respawn: 300,
   },
+  // --- Острова стихий: земля, вода, воздух (огонь и лёд выше). Короли охраняют зверя дня. ---
+  rock_slime: {
+    id: 'rock_slime', color: 0x9a7040, hp: 70, atk: 8, speed: 2.2, aggro: 7, attackRange: 1.5, attackCooldown: 1.3, xp: 40, respawn: 25,
+  },
+  tide_slime: {
+    id: 'tide_slime', color: 0x3aa0ff, hp: 65, atk: 10, speed: 2.8, aggro: 7.5, attackRange: 1.5, attackCooldown: 1.1, xp: 45, respawn: 25,
+  },
+  gust_slime: {
+    id: 'gust_slime', color: 0xbff0e0, hp: 50, atk: 11, speed: 3.4, aggro: 8, attackRange: 1.5, attackCooldown: 1, xp: 45, respawn: 25,
+  },
+  // Король земли: самый лёгкий из королей — с него удобно начинать
+  stone_king: {
+    id: 'stone_king', color: 0x9a7040, boss: true, crown: true, scale: 2.3, hp: 300, atk: 10, speed: 2, aggro: 9,
+    attackRange: 3.3, attackCooldown: 1.6, slam: { cooldown: 8, windup: 1.4, radius: 4, damage: 20 }, xp: 160, respawn: 300,
+  },
+  tide_king: {
+    id: 'tide_king', color: 0x2f8cff, boss: true, crown: true, scale: 2.2, hp: 380, atk: 12, speed: 2.4, aggro: 9,
+    attackRange: 3.3, attackCooldown: 1.5, slam: { cooldown: 7, windup: 1.3, radius: 4.5, damage: 24 }, xp: 200, respawn: 300,
+  },
+  storm_king: {
+    id: 'storm_king', color: 0xbff0e0, boss: true, crown: true, scale: 2.1, hp: 420, atk: 12, speed: 2.8, aggro: 9.5,
+    attackRange: 3.2, attackCooldown: 1.4, slam: { cooldown: 7, windup: 1.1, radius: 5, damage: 26 }, xp: 230, respawn: 300,
+  },
   // Появляется только ночью: ожившее дерево. Утром исчезает, дерево возвращается на место.
   // shape: 'treant' — рисуется как дерево с глазами.
   tree_monster: {
@@ -106,4 +129,19 @@ export const ENEMY_SPAWNS = [
   { type: 'lava_slime', x: 149, z: -1 },
   { type: 'lava_slime', x: 144, z: -4 },
   { type: 'lava_king', x: 136, z: -4 },
+  // Остров земли (король охраняет клетку со зверем)
+  { type: 'rock_slime', x: -77, z: -1 },
+  { type: 'rock_slime', x: -62, z: -2 },
+  { type: 'rock_slime', x: -67, z: -4 },
+  { type: 'stone_king', x: -79, z: -2 },
+  // Остров воды
+  { type: 'tide_slime', x: 203, z: -1 },
+  { type: 'tide_slime', x: 218, z: -2 },
+  { type: 'tide_slime', x: 213, z: -4 },
+  { type: 'tide_king', x: 201, z: -2 },
+  // Остров воздуха
+  { type: 'gust_slime', x: -147, z: -1 },
+  { type: 'gust_slime', x: -132, z: -2 },
+  { type: 'gust_slime', x: -137, z: -4 },
+  { type: 'storm_king', x: -149, z: -2 },
 ];

@@ -36,6 +36,21 @@ export const ISLANDS = [
     colors: { grass: 0x4a3535, rock: 0x7a2a1a, trunk: 0x2a1a1a, leaf: 0x8a3a1f, stone: 0x5a4545, crystal: 0xffa04a, glow: 0xff4a00, pad: 0x8a5a4a },
   },
   {
+    id: 'water', x: 210, z: 0, r: 12, spawn: { x: 210, z: 4 }, seed: 211, nameKey: 'island.water',
+    trees: 8, rocks: 6, crystals: 9,
+    colors: { grass: 0x5ec4d8, rock: 0x3a7a9a, trunk: 0x4a6a7a, leaf: 0x2f9ea8, stone: 0x8ab4c8, crystal: 0x7ad0ff, glow: 0x2a8ad0, pad: 0xbfe8f5 },
+  },
+  {
+    id: 'earth', x: -70, z: 0, r: 12, spawn: { x: -70, z: 4 }, seed: 311, nameKey: 'island.earth',
+    trees: 10, rocks: 12, crystals: 6,
+    colors: { grass: 0x8a9a4a, rock: 0x6a4a2a, trunk: 0x5a3a1a, leaf: 0x6a8a2a, stone: 0x8a7a60, crystal: 0xd8b070, glow: 0xa07030, pad: 0xc8b080 },
+  },
+  {
+    id: 'air', x: -140, z: 0, r: 12, spawn: { x: -140, z: 4 }, seed: 411, nameKey: 'island.air',
+    trees: 6, rocks: 6, crystals: 10,
+    colors: { grass: 0xe8f6f0, rock: 0x9ab8c0, trunk: 0xb0c8d0, leaf: 0xd8f0e8, stone: 0xc0d4d8, crystal: 0xe0fff8, glow: 0x9ae0d0, pad: 0xf0fcf8 },
+  },
+  {
     id: 'arena', x: 300, z: 0, r: 58, spawn: { x: 300, z: 44 }, seed: 5, nameKey: 'island.arena',
     trees: 0, rocks: 0, crystals: 0,
     colors: { grass: 0x5f9a58, rock: 0x6a5a4a, trunk: 0x6a4a2a, leaf: 0x2f9e44, stone: 0x9aa0a6, crystal: 0x7df9ff, glow: 0x2aa9c9, pad: 0x9cc2ff },
@@ -49,6 +64,14 @@ export const PORTALS = [
   { x: 70, z: -7, rot: 0.4, color: 0x8fe3ff, glow: 0x2a9fd0, dest: { x: 8, z: -3.2 }, nameKey: 'island.home' },
   { x: -10, z: 7, rot: 0.8, color: 0xff9a4a, glow: 0xd04a10, dest: { x: 140, z: 4 }, nameKey: 'island.fire', recLevel: 6 },
   { x: 140, z: -7, rot: 0.4, color: 0xffb070, glow: 0xd04a10, dest: { x: -8.5, z: 5 }, nameKey: 'island.home' },
+  // Порталы стихий: у каждой стихии свой остров с королём, который охраняет зверя дня (config/realms.js).
+  // Огонь и лёд — порталы выше. clear — убрать деревья и камни вокруг портала на домашнем острове.
+  { x: -4.3, z: 11.7, rot: 3.1, color: 0xd8b070, glow: 0xa07030, dest: { x: -70, z: 4 }, nameKey: 'island.earth', recLevel: 2, clear: true },
+  { x: -70, z: -7, rot: 0.4, color: 0xd8b070, glow: 0xa07030, dest: { x: -4, z: 8.8 }, nameKey: 'island.home' },
+  { x: 0, z: -12.5, rot: 0, color: 0x5ac8ff, glow: 0x1a7ad0, dest: { x: 210, z: 4 }, nameKey: 'island.water', recLevel: 3, clear: true },
+  { x: 210, z: -7, rot: 0.4, color: 0x8fe3ff, glow: 0x2a9fd0, dest: { x: 0, z: -9.5 }, nameKey: 'island.home' },
+  { x: 12.5, z: 0, rot: -1.57, color: 0xbff0e0, glow: 0x5ac8b0, dest: { x: -140, z: 4 }, nameKey: 'island.air', recLevel: 4, clear: true },
+  { x: -140, z: -7, rot: 0.4, color: 0xbff0e0, glow: 0x5ac8b0, dest: { x: 9.7, z: 0 }, nameKey: 'island.home' },
   // Арена 5 на 5: портал на домашнем острове и обратный портал у синей базы
   { x: 9, z: 8, rot: 2.2, color: 0x6aa8ff, glow: 0x1a4aa0, dest: { x: 300, z: 44 }, nameKey: 'island.arena' },
   { x: 288, z: 50, rot: 0.4, color: 0x8fe3ff, glow: 0x2a9fd0, dest: { x: 9, z: 5 }, nameKey: 'island.home' },
@@ -76,7 +99,7 @@ export class World {
     // Места, где ничего не должно стоять: точки появления и порталы дальних островов
     this.reserved = ISLANDS.map(i => ({ x: i.spawn.x, z: i.spawn.z, r: 3.5 }));
     // Порталы на дальних островах (на домашнем острове расстановка уже сложилась, её не трогаем)
-    for (const p of PORTALS) if (p.x > 30) this.reserved.push({ x: p.x, z: p.z, r: 3 });
+    for (const p of PORTALS) if (Math.hypot(p.x, p.z) > 25) this.reserved.push({ x: p.x, z: p.z, r: 3 });
 
     scene.background = new THREE.Color(0x8fd3ff);
     scene.fog = new THREE.Fog(0x8fd3ff, 40, 140);
@@ -87,6 +110,7 @@ export class World {
       this.buildProps(island);
     }
     this.buildHouse();
+    for (const p of PORTALS) if (p.clear) this.clearArea(p.x - 2.5, p.z - 2.5, p.x + 2.5, p.z + 2.5);
     buildArenaMap(scene);
     for (const p of PORTALS) this.buildPortal(p);
     this.buildClouds();

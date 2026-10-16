@@ -4,6 +4,7 @@ import { ENEMIES, ENEMY_SPAWNS, NIGHT_MONSTER_COUNT } from '../config/enemies.js
 import { t } from '../config/i18n.js';
 import { events } from '../core/Events.js';
 import { mainStats } from '../config/heroes.js';
+import { ELEMENT_FX } from '../config/creatures.js';
 
 const RESPAWN_DELAY = 2;
 
@@ -174,11 +175,34 @@ export class CombatSystem {
   // Удар существа. Если у существа дальняя атака — летит снаряд.
   creatureHit(creature, enemy, damage) {
     const dmg = Math.round(damage);
-    if (creature.def.basicRange > 3) {
-      this.projectile(creature.pos, enemy, creature.def.color, () => this.damageEnemy(enemy, dmg, '#ffd27a'));
-    } else {
-      this.damageEnemy(enemy, dmg, '#ffd27a');
+    const hit = () => { this.damageEnemy(enemy, dmg, '#ffd27a'); this.creatureElement(creature, enemy, dmg); };
+    if (creature.def.basicRange > 3) this.projectile(creature.pos, enemy, creature.def.color, hit);
+    else hit();
+  }
+
+  // Стихия зверя: огонь поджигает, лёд замедляет, вода лечит героя
+  creatureElement(creature, enemy, dmg) {
+    const fx = ELEMENT_FX[creature.def.element];
+    if (!fx || enemy.dead) return;
+    if (fx.burn) this.applyBurn(enemy, dmg * fx.burn, 3);
+    if (fx.slow) this.applySlow(enemy, fx.slow, 1.5);
+    if (fx.drain) {
+      const got = this.player.heal(dmg * fx.drain);
+      if (got > 0) this.ui.floatText(this.player.pos.clone().setY(2.2), `+${got}`, '#6bff9a');
     }
+  }
+
+  // Дыхание дракона: шар огня и взрыв по области вокруг цели
+  breath(creature, enemy, damage, aoe, color = 0xff5a1a) {
+    const dmg = Math.round(damage);
+    this.projectile(creature.pos, enemy, color, () => {
+      this.ring(enemy.pos, color, aoe * 1.6, 0.4);
+      for (const e of this.enemies) {
+        if (e.dead || Math.hypot(e.pos.x - enemy.pos.x, e.pos.z - enemy.pos.z) > aoe) continue;
+        this.damageEnemy(e, dmg, '#ff8a3d');
+        this.creatureElement(creature, e, dmg);
+      }
+    }, 0.35, 0.5);
   }
 
   fireball(creature, enemy, damage, color = 0xff5a1a) {

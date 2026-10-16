@@ -3,8 +3,10 @@
 // Версия 3: + постройки и шаг обучения. Версия 4: + задания. Версия 5: + время суток и рейды.
 // Версия 6: + выбранный герой (hero). Старые сохранения читаются как «Воин огня».
 // Версия 7: + список зверей рядом с героем (creatures.actives, у поддержки до 3). Старые читаются с одним зверем (active).
-// Старые версии читаются без потерь.
-import { CREATURES } from '../config/creatures.js';
+// Версия 8: звери из порталов (виды × стихии, creatures.*), освобождённые звери по дням (realms.freed), новый порядок заданий.
+// Старые существа превращаются в новых зверей (LEGACY_CREATURES). Старые версии читаются без потерь.
+import { isCreature, LEGACY_CREATURES } from '../config/creatures.js';
+import { REALM_ORDER } from '../config/realms.js';
 import { BUILDINGS, MAX_BUILDINGS } from '../config/buildings.js';
 import { TUTORIAL_DONE } from '../ui/Tutorial.js';
 import { QUESTS } from '../config/quests.js';
@@ -14,29 +16,58 @@ import { DEFAULT_HERO, isHero } from '../config/heroes.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
 const num = (v, fallback) => (Number.isFinite(v) ? v : fallback);
 const int = (v, min, max, fallback) => Math.max(min, Math.min(max, Math.floor(num(v, fallback))));
 
+// Старый id существа (v1–v7) -> новый зверь
+const creatureId = id => (typeof id === 'string' && Object.hasOwn(LEGACY_CREATURES, id) ? LEGACY_CREATURES[id] : id);
+
 function validateCreatures(raw) {
   const seen = new Set();
   const collection = [];
   for (const r of Array.isArray(raw?.collection) ? raw.collection : []) {
-    if (!r || typeof r.id !== 'string' || !Object.hasOwn(CREATURES, r.id) || seen.has(r.id)) continue;
-    seen.add(r.id);
-    collection.push({ id: r.id, level: int(r.level, 1, MAX_LEVEL, 1), xp: Math.max(0, num(r.xp, 0)) });
+    const id = creatureId(r?.id);
+    if (!r || !isCreature(id) || seen.has(id)) continue;
+    seen.add(id);
+    collection.push({ id, level: int(r.level, 1, MAX_LEVEL, 1), xp: Math.max(0, num(r.xp, 0)) });
   }
-  const active = typeof raw?.active === 'string' && seen.has(raw.active) ? raw.active : null;
+  const activeId = creatureId(raw?.active);
+  const active = typeof activeId === 'string' && seen.has(activeId) ? activeId : null;
   // Звери рядом: список (v7) или один active (старые сохранения), без повторов и только приручённые
-  const listed = Array.isArray(raw?.actives) ? raw.actives : (active ? [active] : []);
+  const listed = (Array.isArray(raw?.actives) ? raw.actives : (active ? [active] : [])).map(creatureId);
   const actives = [];
   for (const id of listed) {
     if (typeof id === 'string' && seen.has(id) && !actives.includes(id) && actives.length < MAX_ACTIVE) actives.push(id);
   }
   return { active: actives[0] ?? null, actives, collection };
+}
+
+// Порядок заданий до версии 8: по нему переносим прогресс в новый порядок
+const OLD_QUEST_ORDER = ['wood10', 'stone5', 'tame1', 'slime3', 'build3', 'level3', 'visitIce', 'frost5', 'tame3', 'level6', 'visitFire', 'lava3', 'boss', 'treant3', 'arena', 'bossIce'];
+
+function validateQuests(raw, version) {
+  const index = int(raw?.index, 0, QUESTS.length, 0);
+  const progress = int(raw?.progress, 0, 99999, 0);
+  if (version >= 8) return { index, progress };
+  // Старое сохранение: первое задание нового списка, которое игрок ещё не делал
+  const done = new Set(OLD_QUEST_ORDER.slice(0, Math.min(index, OLD_QUEST_ORDER.length)));
+  const next = QUESTS.findIndex(q => !done.has(q.id));
+  const nowId = OLD_QUEST_ORDER[index];
+  return { index: next < 0 ? QUESTS.length : next, progress: QUESTS[next]?.id === nowId ? progress : 0 };
+}
+
+// Когда освобождали зверей стихий: { стихия: 'ГГГГ-ММ-ДД' }
+function validateRealms(raw) {
+  const freed = {};
+  for (const el of REALM_ORDER) {
+    const d = raw?.freed?.[el];
+    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) freed[el] = d;
+  }
+  return { freed };
 }
 
 // Проверка и приведение данных к безопасному виду. Старые сохранения (v1) тоже подходят.
@@ -67,10 +98,8 @@ function validate(raw) {
       firstDone: typeof raw.time?.firstDone === 'boolean' ? raw.time.firstDone : true,
     },
     // Задания появились в версии 4: в старых сохранениях начинаем с первого
-    quests: {
-      index: int(raw.quests?.index, 0, QUESTS.length, 0),
-      progress: int(raw.quests?.progress, 0, 99999, 0),
-    },
+    quests: validateQuests(raw.quests, num(raw.version, 1)),
+    realms: validateRealms(raw.realms),
   };
 }
 

@@ -62,10 +62,26 @@ export function tryAbility(c, ctx, target, force = false) {
     const p = player.pos.clone();
     p.y += 2;
     ui.floatText(p, `+${healed}`, '#6bff9a');
+  } else if (a.id === 'breath') {
+    // Дракон: огненное дыхание по области вокруг цели
+    const t = target ?? (force ? combat.nearestEnemy(c.pos, a.range) : null);
+    if (!t || dist(c.pos, t.pos) > a.range) return false;
+    combat.breath(c, t, a.power + st.atk * 0.6, a.aoe, a.color);
+  } else if (a.id === 'pounce') {
+    // Волк: прыгает к врагу и кусает
+    const t = target ?? (force ? combat.nearestEnemy(c.pos, a.range) : null);
+    if (!t || dist(c.pos, t.pos) > a.range) return false;
+    const dx = t.pos.x - c.pos.x, dz = t.pos.z - c.pos.z, d = Math.hypot(dx, dz) || 1;
+    const run = Math.max(0, d - 1.2);
+    combat.ring(c.pos, a.color, 2, 0.3);
+    c.pos.x += (dx / d) * run;
+    c.pos.z += (dz / d) * run;
+    c.facing = Math.atan2(dx, dz);
+    combat.creatureHit(c, t, a.power + st.atk * 0.8);
   } else {
     return false;
   }
-  c.cd = a.cooldown;
+  c.cd = c.abilityCd;
   events.emit('ability');
   return true;
 }

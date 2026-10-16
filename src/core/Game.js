@@ -17,6 +17,7 @@ import { QuestManager } from '../quests/QuestManager.js';
 import { RaidSystem } from '../combat/RaidSystem.js';
 import { ArenaSystem } from '../arena/ArenaSystem.js';
 import { HeroSkills } from '../player/HeroSkills.js';
+import { Realms } from '../world/Realms.js';
 import { DEFAULT_HERO } from '../config/heroes.js';
 import { QUESTS } from '../config/quests.js';
 import { events } from './Events.js';
@@ -42,7 +43,7 @@ export class Game {
     this.playing = false;
     this.started = false;
     this.saveTimer = 0;
-    this.stats = { kills: 0, collected: 0, built: 0 }; // счётчики для обучения
+    this.stats = { kills: 0, collected: 0, built: 0, portals: 0 }; // счётчики для обучения
     this.tutorialStep = TUTORIAL_DONE;
 
     this.world = new World(this.scene);
@@ -57,6 +58,7 @@ export class Game {
       onContinue: () => this.start(true),
       onMenu: () => this.pause(),
       onSummon: id => { this.creatures.toggle(id); this.refreshPanel(); },
+      onRelease: id => { if (this.creatures.release(id)) { this.ui.toast(t('released')); this.refreshPanel(); } },
       onSelectBuilding: id => { this.ui.showBuildPanel(false); this.build.select(id); },
       onSkipTutorial: () => this.setTutorialStep(TUTORIAL_DONE),
     });
@@ -80,6 +82,7 @@ export class Game {
     this.raids = new RaidSystem(this);
     this.arena = new ArenaSystem(this);
     this.skills = new HeroSkills(this);
+    this.realms = new Realms(this);
 
     // Качество графики: меньше пикселей на слабых устройствах. В режиме "Авто" подстраивается по FPS.
     this.autoScale = this.input.isTouch ? 0.8 : 1;
@@ -115,7 +118,8 @@ export class Game {
     this.inventory.reset();
     this.creatures.reset();
     this.build.reset();
-    this.stats = { kills: 0, collected: 0, built: 0 };
+    this.stats = { kills: 0, collected: 0, built: 0, portals: 0 };
+    this.realms.reset();
     const data = loadSave ? SaveManager.load() : null;
     this.player.setHero(data ? data.hero : heroId);
     this.skills.reset();
@@ -125,6 +129,7 @@ export class Game {
       if (this.world.islandIdAt(this.player.pos.x, this.player.pos.z) === 'arena') this.player.respawn();
       this.inventory.fromSave(data.inventory);
       this.creatures.fromSave(data.creatures);
+      this.realms.fromSave(data.realms);
       this.build.fromSave(data.buildings);
       this.quests.fromSave(data.quests);
       this.world.day = data.time.day;
@@ -171,6 +176,7 @@ export class Game {
       player: playerData,
       inventory: this.inventory.toSave(),
       creatures: this.creatures.toSave(),
+      realms: this.realms.toSave(),
       buildings: this.build.toSave(),
       tutorial: this.tutorialStep,
       quests: this.quests.toSave(),
@@ -296,8 +302,8 @@ export class Game {
 
   // Что находится рядом: дикое существо (важнее) или ресурс
   interactTarget() {
-    const wild = this.creatures.nearestWild(this.player.pos);
-    if (wild) return { kind: 'wild', ...wild };
+    const cage = this.realms.nearest(this.player.pos);
+    if (cage) return { kind: 'cage', ...cage };
     const portal = this.world.nearestPortal(this.player.pos);
     if (portal) return { kind: 'portal', ...portal };
     const room = this.player.inside;
@@ -337,12 +343,12 @@ export class Game {
       const rec = p.recLevel > 1 ? ` (${t('recLevel')} ${p.recLevel})` : '';
       return this.ui.setPrompt(`${key}${t('portal')}: ${t(p.nameKey)}${rec}`, this.player.level < p.recLevel);
     }
-    const def = target.creature.def;
-    const name = t('creature.' + def.id);
-    if (this.inventory.has(def.tame.cost)) {
-      return this.ui.setPrompt(`${key}${t('tame')}: ${name} (${this.costText(def.tame.cost)})`);
+    if (target.kind === 'cage') {
+      const name = this.realms.beastName(target.element);
+      if (target.state === 'ready') return this.ui.setPrompt(`${key}${t('cage.free')}: ${name}`);
+      if (target.state === 'freed') return this.ui.setPrompt(t('cage.empty'), true);
+      return this.ui.setPrompt(`${name} — ${t('cage.locked')}`, true);
     }
-    return this.ui.setPrompt(`${name} — ${t('need')}: ${this.costText(def.tame.cost)}`, true);
   }
 
   interact() {
@@ -360,15 +366,13 @@ export class Game {
       this.sleep();
     } else if (target.kind === 'portal') {
       this.teleport(target.portal);
-    } else {
-      const wild = target.creature;
-      if (this.creatures.tame(wild)) {
-        this.ui.toast(`${t('tamed')} ${t('creature.' + wild.id)}`);
-        events.emit('tame', wild.id);
-        this.combat.ring(wild.pos, 0xffe066, 4, 0.8);
-      } else {
-        this.ui.toast(`${t('need')}: ${this.costText(wild.def.tame.cost)}`);
-      }
+    } else if (target.kind === 'cage') {
+      const name = this.realms.beastName(target.element);
+      const res = this.realms.free(target.element);
+      if (res === 'ok') this.ui.toast(`${t('cage.freed')}: ${name}`);
+      else if (res === 'owned') this.ui.toast(`${t('cage.owned')}: ${name}`);
+      else if (res === 'freed') this.ui.toast(t('cage.empty'));
+      else this.ui.toast(t('cage.locked'));
     }
   }
 
@@ -420,10 +424,12 @@ export class Game {
     this.combat.ring(p.pos, 0xb388ff, 4, 0.6);
     this.ui.toast(t(portal.nameKey));
     events.emit('portal', portal.nameKey.replace('island.', ''));
+    this.stats.portals++;
     // Арена: при входе начинается матч, при выходе он заканчивается
     const to = this.world.islandIdAt(portal.dest.x, portal.dest.z);
     if (this.arena.active && to !== 'arena') this.arena.exit();
     else if (!this.arena.active && to === 'arena') this.arena.enter();
+    this.realms.onEnter(to);
   }
 
   // Ночью деревья оживают, утром всё возвращается как было
@@ -511,6 +517,7 @@ export class Game {
       this.updateNightMonsters();
       this.combat.update(dt, this.camera);
       this.skills.update(dt);
+      this.realms.update(dt);
       this.creatures.update(dt);
       this.build.update();
       this.updateBuildBar();

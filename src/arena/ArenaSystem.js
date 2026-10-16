@@ -4,6 +4,7 @@ import { Unit } from './ArenaUnit.js';
 import { HEROES, SKILLS, ELEMENTS, arenaStats } from '../config/heroes.js';
 import { castSkill } from '../combat/Skills.js';
 import { performHeroAttack } from '../combat/Attacks.js';
+import { ELEMENT_FX } from '../config/creatures.js';
 import { events } from '../core/Events.js';
 import { t } from '../config/i18n.js';
 
@@ -338,9 +339,20 @@ export class ArenaSystem {
       enemyNear: (pos, range) => !!sys.nearestEnemyTo(pos, range, 'blue'),
       ring: (...a) => sys.game.combat.ring(...a),
       creatureHit(c, target, dmg) {
-        const hit = () => { if (!target.dead) target.takeDamage(dmg, sys.playerUnit); };
+        const hit = () => { if (target.dead) return; target.takeDamage(dmg, sys.playerUnit); sys.beastElement(c, target, dmg); };
         if (c.def.basicRange > 3) sys.game.combat.projectile(c.pos, target, c.def.color, hit);
         else hit();
+      },
+      breath(c, target, dmg, aoe, color = 0xff5a1a) {
+        sys.game.combat.projectile(c.pos, target, color, () => {
+          sys.game.combat.ring(target.pos, color, aoe * 1.6, 0.4);
+          for (const b of sys.units.slice()) {
+            if (!sys.targetable(b) || !sys.isEnemy(sys.playerUnit, b) || b.kind === 'tower' || b.kind === 'crystal') continue;
+            if (Math.hypot(b.pos.x - target.pos.x, b.pos.z - target.pos.z) - b.radius > aoe) continue;
+            b.takeDamage(Math.round(dmg), sys.playerUnit);
+            sys.beastElement(c, b, dmg);
+          }
+        }, 0.35, 0.5);
       },
       fireball(c, target, dmg, color = 0xff5a1a) {
         sys.game.combat.projectile(c.pos, target, color, () => {
@@ -350,6 +362,15 @@ export class ArenaSystem {
         }, 0.35, 0.45);
       },
     };
+  }
+
+  // Стихия зверя игрока на арене: огонь поджигает, лёд замедляет, вода лечит героя
+  beastElement(c, target, dmg) {
+    const fx = ELEMENT_FX[c.def.element];
+    if (!fx || target.dead) return;
+    if (fx.burn) this.burnUnit(target, this.playerUnit, dmg * fx.burn, 3);
+    if (fx.slow) this.slowUnit(target, fx.slow, 1.5);
+    if (fx.drain) this.playerUnit.heal(dmg * fx.drain);
   }
 
   // Атака: ближняя бьёт сразу, дальняя пускает снаряд

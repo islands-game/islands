@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CREATURES, stageForLevel, creatureNameKey } from '../config/creatures.js';
+import { CREATURES, ELEMENT_FX, stageForLevel, creatureNameKey, beastTitle } from '../config/creatures.js';
 import { buildCreatureModel } from './CreatureModels.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
 
@@ -46,13 +46,28 @@ export class Creature {
     return creatureNameKey(this.def, this.level);
   }
 
+  // Полное имя: «Огненный Медведь» (стихия + вид с учётом стадии развития)
+  get displayName() {
+    return beastTitle(this.def, this.level);
+  }
+
+  get fx() {
+    return ELEMENT_FX[this.def.element] ?? {};
+  }
+
+  // Через сколько секунд способность готова снова (воздух восстанавливает быстрее)
+  get abilityCd() {
+    return this.def.ability.cooldown * (this.fx.cdMul ?? 1);
+  }
+
   get stats() {
     // На арене у всех спутников одинаковые характеристики (как у существа 5 уровня без эволюции)
     const s = this.def.stats, g = this.def.growth, l = (this.normalized ? 5 : this.level) - 1;
     const evo = this.normalized ? null : this.def.evolutions[this.stage - 2]; // текущая эволюция (если есть)
     const m = evo ? evo.statMult : 1;
     const k = this.normalized ? (this.arenaMul ?? 1) : 1;     // на арене сила зверей зависит от класса героя
-    return { hp: (s.hp + g.hp * l) * m * k, atk: (s.atk + g.atk * l) * m * k, def: (s.def + g.def * l) * m, speed: s.speed };
+    const fx = this.fx;
+    return { hp: (s.hp + g.hp * l) * m * k, atk: (s.atk + g.atk * l) * m * k, def: (s.def + g.def * l) * m * (fx.defMul ?? 1), speed: s.speed * (fx.speedMul ?? 1) };
   }
 
   // Рисует модель под текущую стадию: после эволюции существо крупнее и меняет цвет
@@ -73,7 +88,7 @@ export class Creature {
 
   // Доля восстановления способности: 1 — готова
   get abilityReady() {
-    return 1 - this.cd / this.def.ability.cooldown;
+    return 1 - this.cd / this.abilityCd;
   }
 
   // Возвращает true, если получен новый уровень
@@ -98,7 +113,7 @@ export class Creature {
   // Рисует положение, лёгкое покачивание и поворот
   syncMesh(dt, moving) {
     this.t += dt;
-    const floaty = this.def.model === 'spirit';
+    const floaty = this.def.model === 'owl' || this.def.model === 'dragon';
     const bob = floaty ? 0.2 + Math.sin(this.t * 2.5) * 0.12
       : (moving ? Math.abs(Math.sin(this.t * 10)) * 0.12 : 0);
     this.mesh.position.set(this.pos.x, this.pos.y + bob, this.pos.z);

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { t, setLang, getLang, LANGS } from '../config/i18n.js';
 import { SaveManager } from '../save/SaveManager.js';
 import { RESOURCES, RESOURCE_ORDER } from '../config/resources.js';
-import { CREATURES, creatureNameKey } from '../config/creatures.js';
+import { CREATURES, beastTitle } from '../config/creatures.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
 import { Settings, QUALITIES } from '../save/Settings.js';
 import { events } from '../core/Events.js';
@@ -13,11 +13,12 @@ const _v = new THREE.Vector3();
 
 // Интерфейс: меню, полоски, ресурсы, спутник, подсказки, панель существ, всплывающий урон.
 export class UIManager {
-  constructor({ onStart, onContinue, onMenu, onSummon, onSelectBuilding, onSkipTutorial, press, isTouch }) {
+  constructor({ onStart, onContinue, onMenu, onSummon, onRelease, onSelectBuilding, onSkipTutorial, press, isTouch }) {
     this.$ = id => document.getElementById(id);
     this.isTouch = isTouch;
     this.press = press;
     this.onSummon = onSummon;
+    this.onRelease = onRelease;
     this.onSelectBuilding = onSelectBuilding;
     this.buildPanelOpen = false;
     this.hintTimer = 0;
@@ -45,6 +46,7 @@ export class UIManager {
     this.tap('btn-spell1', 'spell1');
     this.tap('btn-spell2', 'spell2');
     this.tap('btn-spell3', 'spell3');
+    for (const c of ['follow', 'stay', 'defend', 'attack']) this.tap('pc-' + c, 'cmd-' + c);
     this.$('ar-again').onclick = () => press('arenaAgain');
     this.$('ar-exit').onclick = () => press('arenaExit');
     this.$('btn-creatures').onclick = () => press('panel');
@@ -448,8 +450,10 @@ export class UIManager {
     for (const k of RESOURCE_ORDER) this.resEls[k].textContent = `${RESOURCES[k].icon} ${inventory.items[k]}`;
 
     this.$('pet').classList.toggle('hidden', !pet);
+    document.body.classList.toggle('has-pet', !!pet);
     if (pet) {
-      this.$('pet-name').textContent = `${t(pet.nameKey)} · ${t('level')} ${pet.level}${petCount > 1 ? ` +${petCount - 1}` : ''}`;
+      this.$('pet-name').textContent = `${pet.displayName} · ${t('level')} ${pet.level}${petCount > 1 ? ` +${petCount - 1}` : ''}`;
+      for (const c of ['follow', 'stay', 'defend', 'attack']) this.$('pc-' + c).classList.toggle('on', pet.command === c);
       this.$('pet-cd').style.width = `${Math.max(0, Math.min(1, pet.abilityReady)) * 100}%`;
       this.$('btn-ability').title = t('ability.' + pet.def.ability.id);
     }
@@ -476,7 +480,8 @@ export class UIManager {
       const row = document.createElement('div');
       row.className = 'cr-row';
       const info = document.createElement('div');
-      info.textContent = t(creatureNameKey(CREATURES[r.id], r.level));
+      const def = CREATURES[r.id];
+      info.textContent = beastTitle(def, r.level);
       const small = document.createElement('small');
       small.textContent = `${t('level')} ${r.level}`;
       info.appendChild(small);
@@ -484,11 +489,18 @@ export class UIManager {
       const isActive = activeIds.includes(r.id);
       btn.textContent = isActive ? `${t('active')} ✕` : t('summon');
       btn.onclick = () => this.onSummon(r.id);
-      row.append(info, btn);
+      // Отпустить зверя на свободу (спрашиваем подтверждение)
+      const free = document.createElement('button');
+      free.textContent = '🕊';
+      free.title = t('release');
+      free.className = 'cr-release';
+      free.onclick = () => { if (confirm(`${t('releaseConfirm')} ${info.firstChild.textContent}?`)) this.onRelease(r.id); };
+      row.append(info, btn, free);
       list.appendChild(row);
     }
     const cmds = this.$('cr-cmds');
     cmds.textContent = '';
+    for (const c of ['follow', 'stay', 'defend', 'attack']) this.$('pc-' + c).title = t('cmd.' + c);
     for (const c of COMMANDS) {
       const b = document.createElement('button');
       b.textContent = t('cmd.' + c);

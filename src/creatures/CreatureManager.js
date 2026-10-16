@@ -1,13 +1,10 @@
 import { Creature } from './Creature.js';
 import { updateCreature, tryAbility } from './CreatureAI.js';
-import { CREATURES } from '../config/creatures.js';
 import { t } from '../config/i18n.js';
 import { events } from '../core/Events.js';
 import { HEROES, CLASSES } from '../config/heroes.js';
 
-const TAME_RANGE = 2.8;
-
-// Дикие и приручённые существа: появление, приручение, команды, опыт.
+// Звери героя: коллекция, кто идёт рядом, освобождение и отпускание, команды, опыт.
 export class CreatureManager {
   constructor({ scene, world, player, inventory, combat, ui }) {
     this.scene = scene;
@@ -16,11 +13,9 @@ export class CreatureManager {
     this.inventory = inventory;
     this.combat = combat;
     this.ui = ui;
-    this.wild = [];
-    this.collection = []; // приручённые: [{ id, level, xp }]
+    this.collection = []; // звери героя: [{ id, level, xp }]
     this.actives = [];    // существа, которые идут за героем (сколько — зависит от класса героя: 1, у поддержки до 3)
     this.arena = null;    // режим арены: { mul } — одинаковые характеристики у всех
-    this.spawnWild();
   }
 
   // Первое существо (для значка в углу экрана и строительства)
@@ -54,38 +49,30 @@ export class CreatureManager {
     c.team = this.arena ? 'blue' : null;             // команда героя на арене (чтобы проходить свои ворота)
   }
 
-  spawnWild() {
-    for (const def of Object.values(CREATURES)) {
-      if (this.collection.some(r => r.id === def.id) || this.wild.some(w => w.id === def.id)) continue;
-      const p = this.world.findFree(def.spawn.x, def.spawn.z, 1.5);
-      const c = new Creature(def.id, this.scene, { wild: true });
-      c.pos.set(p.x, 0, p.z);
-      c.syncMesh(0, false);
-      this.wild.push(c);
-    }
+  // Зверь есть в коллекции?
+  has(id) {
+    return this.collection.some(r => r.id === id);
   }
 
-  nearestWild(pos) {
-    let best = null, bestD = TAME_RANGE;
-    for (const w of this.wild) {
-      const d = Math.hypot(w.pos.x - pos.x, w.pos.z - pos.z);
-      if (d < bestD) { bestD = d; best = w; }
-    }
-    return best ? { creature: best, dist: bestD } : null;
+  // Зверя освободили из клетки: он попадает в коллекцию и сразу идёт за героем
+  addFreed(id, at) {
+    if (this.has(id)) return;
+    this.collection.push({ id, level: 1, xp: 0 });
+    this.summon(id, at);
   }
 
-  // Приручение: отдаём нужные ресурсы — существо становится спутником
-  tame(wild) {
-    const cost = wild.def.tame.cost;
-    if (!this.inventory.spend(cost)) return false;
-    wild.dispose();
-    this.wild = this.wild.filter(w => w !== wild);
-    this.collection.push({ id: wild.id, level: 1, xp: 0 });
-    this.summon(wild.id, wild.pos);
+  // Отпустить зверя на свободу: он уходит из коллекции навсегда (получить такого же можно в портале снова)
+  release(id) {
+    const i = this.collection.findIndex(r => r.id === id);
+    if (i < 0) return false;
+    this.syncActive();
+    const c = this.actives.find(x => x.id === id);
+    if (c) { this.actives = this.actives.filter(x => x !== c); c.dispose(); }
+    this.collection.splice(i, 1);
     return true;
   }
 
-  // Позвать существо. Если места нет, уходит то, которое с героем дольше всех.
+  // Позвать зверя. Если места нет, уходит тот, который с героем дольше всех.
   summon(id, at) {
     const rec = this.collection.find(r => r.id === id);
     if (!rec || this.actives.some(c => c.id === id)) return;
@@ -132,11 +119,11 @@ export class CreatureManager {
     if (c.justEvolved) {
       // Эволюция: новая стадия, большой эффект и особый звук
       c.justEvolved = false;
-      this.ui.toast(`${t('evolved')} ${t(c.nameKey)}`);
+      this.ui.toast(`${t('evolved')} ${c.displayName}`);
       this.combat.ring(c.pos, 0xff9bf5, 5, 0.9);
       events.emit('evolve');
     } else {
-      this.ui.toast(`${t(c.nameKey)}: ${t('levelUp')} ${c.level}`);
+      this.ui.toast(`${c.displayName}: ${t('levelUp')} ${c.level}`);
       this.combat.ring(c.pos, 0xffe066, 3, 0.6);
       events.emit('levelUp');
     }
@@ -173,12 +160,6 @@ export class CreatureManager {
   }
 
   update(dt) {
-    for (const w of this.wild) {
-      // Дикие существа просто стоят и поглядывают на героя
-      const dx = this.player.pos.x - w.pos.x, dz = this.player.pos.z - w.pos.z;
-      if (Math.hypot(dx, dz) < 8) w.facing = Math.atan2(dx, dz);
-      w.syncMesh(dt, false);
-    }
     // Звери рядом занимают разные места вокруг героя, чтобы не слипаться
     const n = this.actives.length;
     this.actives.forEach((c, i) => {
@@ -193,10 +174,7 @@ export class CreatureManager {
   reset() {
     this.actives.forEach(c => c.dispose());
     this.actives = [];
-    this.wild.forEach(w => w.dispose());
-    this.wild = [];
     this.collection = [];
-    this.spawnWild();
   }
 
   toSave() {
@@ -208,11 +186,7 @@ export class CreatureManager {
     this.reset();
     if (!data) return;
     this.collection = data.collection.map(r => ({ ...r }));
-    const tamed = new Set(this.collection.map(r => r.id));
-    this.wild.filter(w => tamed.has(w.id)).forEach(w => w.dispose());
-    this.wild = this.wild.filter(w => !tamed.has(w.id));
-    // Версия 7 хранит список зверей рядом, старые — одного (active)
     const ids = Array.isArray(data.actives) ? data.actives : (data.active ? [data.active] : []);
-    for (const id of ids) if (tamed.has(id)) this.summon(id);
+    for (const id of ids.slice(0, this.limit)) if (this.has(id)) this.summon(id);   // если класс героя берёт меньше зверей, остаются первые
   }
 }
