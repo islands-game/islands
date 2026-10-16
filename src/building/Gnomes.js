@@ -5,14 +5,15 @@ import { FARM, PEN, FOOD_ORDER, BARN_ITEMS } from '../config/food.js';
 import { DEFENSE } from '../config/buildings.js';
 import { UPGRADES } from '../config/upgrades.js';
 import { RESOURCES } from '../config/resources.js';
+import { rollFish, FISH_REWARD } from '../config/fishing.js';
 import { toWorld } from './Structures.js';
 import { HealthBar } from '../combat/HealthBar.js';
 import { todayKey } from '../world/Realms.js';
 import { t } from '../config/i18n.js';
 import { events } from '../core/Events.js';
 
-const SPEC_COLOR = { all: 0xffd23f, farmer: 0x5de08a, porter: 0xc9955a, fixer: 0x6ab0ff, lumber: 0x2f8f3a, mason: 0xb0b6c0 };
-export const SPEC_ICON = { all: '⭐', farmer: '🌱', porter: '📦', fixer: '🔧', lumber: '🪓', mason: '⛏' };
+const SPEC_COLOR = { all: 0xffd23f, farmer: 0x5de08a, porter: 0xc9955a, fixer: 0x6ab0ff, lumber: 0x2f8f3a, mason: 0xb0b6c0, fisher: 0x39a7d6 };
+export const SPEC_ICON = { all: '⭐', farmer: '🌱', porter: '📦', fixer: '🔧', lumber: '🪓', mason: '⛏', fisher: '🎣' };
 const GATHER = { lumber: 'wood', mason: 'stone' };     // что собирает специальность
 
 // Общие геометрии и материалы гномов
@@ -272,6 +273,18 @@ export class Gnomes {
     return { x: node.x + (dx / d) * r, z: node.z + (dz / d) * r };
   }
 
+  // Дальний от центра острова конец пирса (там удят рыбу)
+  pierEnd(rec) {
+    const r = rec.rect;
+    let best = null, bestD = -1;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const p = { x: r.x + sx * Math.max(0, r.hw - 0.5), z: r.z + sz * Math.max(0, r.hd - 0.5) };
+      const d = Math.hypot(p.x, p.z);
+      if (d > bestD) { bestD = d; best = p; }
+    }
+    return best;
+  }
+
   workTime(slot) {
     const spec = slot.spec === 'all' ? 1 : GNOME.specBonus;
     return GNOME.workTime / (1 + GNOME.levelSpeed * (slot.level - 1)) / spec;
@@ -346,6 +359,14 @@ export class Gnomes {
         const key = `node:${Math.round(n.x * 10)}:${Math.round(n.z * 10)}`;
         if (!mine(key)) continue;
         cands.push({ type: 'gather', node: n, pos: this.nodeApproach(n, run.pos), key, pri: 2 });
+      }
+    }
+    // Рыбак: ловит рыбу на конце пирса и носит в амбар
+    if (spec === 'fisher' && barn && room > 0 && barn.state.items.fish < g.economy.capOf(barn)) {
+      for (const pier of g.build.placed) {
+        if (pier.id !== 'pier') continue;
+        const key = `pier:${Math.round(pier.x * 10)}:${Math.round(pier.z * 10)}`;
+        if (mine(key)) cands.push({ type: 'fish', rec: pier, pos: this.pierEnd(pier), key, pri: 2 });
       }
     }
     // Починка: нужны повреждённая постройка и дерево в амбаре
@@ -423,6 +444,14 @@ export class Gnomes {
         g.resources.setActive(n, false);                    // дерево или камень вырастет заново, как после сбора героем
         n.respawnAt = g.resources.time + def.respawn;
         g.combat.ring({ x: n.x, y: 0, z: n.z }, n.type === 'wood' ? 0x7dff5a : 0xc9d0d8, 1.8, 0.3);
+      } else did = false;
+    } else if (task.type === 'fish') {
+      const kind = rollFish({ pier: true, night: g.world.isNight });
+      const n = kind === 'rare' ? FISH_REWARD.rare.fish : 1;                       // сундучки рыбак не достаёт: считаем за одну рыбу
+      const take = Math.min(n, this.capacity(slot) - this.carryTotal(run));
+      if (take > 0) {
+        run.carry.fish = (run.carry.fish ?? 0) + take;
+        g.combat.ring({ x: run.pos.x, y: 0, z: run.pos.z }, 0x39a7d6, 1.6, 0.3);
       } else did = false;
     } else if (task.type === 'deliver') {
       this.deliver(slot);
@@ -515,7 +544,7 @@ export class Gnomes {
       // Упёрся в препятствие: обходит его в сторону (до трёх попыток), потом бросает дело
       if (run.detour && run.detour.until > this.t) {
         this.moveTo(slot, run, run.detour.x, run.detour.z, dt);
-      } else if (this.moveTo(slot, run, tk.pos.x, tk.pos.z, dt)) { run.state = 'work'; run.timer = tk.type === 'gather' ? this.gatherTime(slot) : this.workTime(slot); }
+      } else if (this.moveTo(slot, run, tk.pos.x, tk.pos.z, dt)) { run.state = 'work'; run.timer = tk.type === 'gather' ? this.gatherTime(slot) : tk.type === 'fish' ? this.gatherTime(slot) * 1.1 : this.workTime(slot); }
       else if (run.stuck > 0.5 && (run.tries ?? 0) < 3) {
         const dx = tk.pos.x - run.pos.x, dz = tk.pos.z - run.pos.z, d = Math.hypot(dx, dz) || 1, side = Math.random() < 0.5 ? 1 : -1;
         run.detour = { x: run.pos.x - (dz / d) * 3 * side + (dx / d), z: run.pos.z + (dx / d) * 3 * side + (dz / d), until: this.t + 1.3 };

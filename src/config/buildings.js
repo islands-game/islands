@@ -17,6 +17,9 @@ export const BUILDINGS = {
     cost: { wood: 1, stone: 2 }, solid: true, walkable: false, hp: 120 },
   bridge: { id: 'bridge', model: 'bridge', size: { w: 2, d: 6 }, color: 0xb98a5a,
     cost: { wood: 5 }, solid: false, walkable: true },
+  // Пирс: деревянный мостик в море. С него удобно ловить рыбу (рыбак-гном работает только у пирса).
+  pier: { id: 'pier', model: 'bridge', size: { w: 2.4, d: 8 }, color: 0xa87b45,
+    cost: { wood: 8 }, solid: false, walkable: true },
   house: { id: 'house', model: 'house', size: { w: 4, d: 4 }, color: 0xf2d9a6,
     cost: { wood: 8, stone: 4 }, solid: false, walkable: false, structure: 'house' },
   pen: { id: 'pen', model: 'pen', size: { w: 6, d: 6 }, color: 0x8b5a2b,

@@ -12,6 +12,7 @@ import { LEVELS } from '../config/levels.js';
 import { Items } from '../inventory/Items.js';
 import { ItemsPanel } from '../ui/ItemsPanel.js';
 import { BookPanel } from '../ui/BookPanel.js';
+import { Fishing } from '../world/Fishing.js';
 import { SLOT_INFO, ITEMS, ENEMY_DROP } from '../config/items.js';
 import { itemName, rollItem } from '../inventory/Items.js';
 import { UIManager } from '../ui/UIManager.js';
@@ -124,6 +125,7 @@ export class Game {
     this.economy = new Economy(this);
     this.merchant = new Merchant(this);
     this.items = new Items(this);
+    this.fishing = new Fishing(this);
     this.itemsPanel = new ItemsPanel(id => document.getElementById(id), this);
     this.bookPanel = new BookPanel(id => document.getElementById(id), this);
     this.ui.itemsPanel = this.itemsPanel;
@@ -172,6 +174,7 @@ export class Game {
     this.combat.reset();
     this.inventory.reset();
     this.items.reset();
+    this.fishing.cancel();
     this.creatures.reset();
     this.build.reset();
     this.stats = { kills: 0, collected: 0, built: 0, portals: 0 };
@@ -431,6 +434,7 @@ export class Game {
 
   // Что находится рядом: дикое существо (важнее) или ресурс
   interactTarget() {
+    if (this.fishing.busy) return { kind: 'fish' };                    // удочка заброшена: «Действие» подсекает
     const cage = this.realms.nearest(this.player.pos);
     if (cage) return { kind: 'cage', ...cage };
     const vein = this.realms.nearestVein(this.player.pos);
@@ -445,7 +449,8 @@ export class Game {
     const room = this.player.inside;
     if (room && Math.hypot(this.player.pos.x - room.bed.x, this.player.pos.z - room.bed.z) < 1.7) return { kind: 'bed', room };
     const node = this.resources.nearest(this.player.pos);
-    return node ? { kind: 'node', ...node } : null;
+    if (node) return { kind: 'node', ...node };
+    return this.fishing.castTarget() ? { kind: 'fish' } : null;       // у воды можно ловить рыбу
   }
 
   costText(cost) {
@@ -476,6 +481,7 @@ export class Game {
     if (target.kind === 'bed') {
       return this.ui.setPrompt(`${key}${t('sleep')}`, !this.canSleep());
     }
+    if (target.kind === 'fish') return this.ui.setPrompt(`${key}${this.fishing.promptText()}`);
     if (target.kind === 'portal') {
       // Если уровень героя ниже рекомендуемого, подсказка предупреждает (но пройти всё равно можно)
       const p = target.portal;
@@ -504,6 +510,8 @@ export class Game {
       _label.set(node.x, 1.8, node.z);
       this.ui.floatText(_label, `+${got.amount} ${RESOURCES[got.type].icon}`, '#ffffff');
       this.gainXp(got.xp);
+    } else if (target.kind === 'fish') {
+      this.fishing.act();
     } else if (target.kind === 'bed') {
       this.sleep();
     } else if (target.kind === 'portal') {
@@ -749,6 +757,7 @@ export class Game {
       this.combat.update(dt, this.camera);
       this.skills.update(dt);
       this.items.update(dt);
+      this.fishing.update(dt);
       this.realms.update(dt);
       this.economy.update(dt);
       this.gnomes.update(dt);

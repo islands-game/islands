@@ -20,6 +20,6 @@ export const BAG = { woodStone: 15, food: 6, cost: [1, 2, 3].map(n => scaled(40,
 // Больше dailyGold в сутки он не платит, чтобы золото всё равно оставалось в боях.
 export const MERCHANT = {
   dailyGold: 25,
-  base: { wood: 1, stone: 2, berries: 2, grain: 2, eggs: 3, meat: 4 },    // цена за штуку до множителя дня
+  base: { wood: 1, stone: 2, berries: 2, grain: 2, eggs: 3, meat: 4, fish: 3 },    // цена за штуку до множителя дня
   mulMin: 0.6, mulMax: 1.6,
 };

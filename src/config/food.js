@@ -7,12 +7,13 @@ export const FOODS = {
   grain: { icon: '🌾', source: 'farm' },
   eggs: { icon: '🥚', source: 'pen' },
   meat: { icon: '🍖', source: 'pen' },
+  fish: { icon: '🐟', source: 'fishing' },      // рыбалка (config/fishing.js), рыбак-гном
 };
-export const FOOD_ORDER = ['berries', 'grain', 'eggs', 'meat'];
+export const FOOD_ORDER = ['berries', 'grain', 'eggs', 'meat', 'fish'];
 export const FOOD_CARRY = 12;            // сколько еды (всего) герой носит с собой
 
 // Любимая еда каждого вида зверя: даёт бонус к опыту
-export const FAVORITE = { bear: 'berries', fox: 'eggs', wolf: 'meat', dragon: 'meat', owl: 'grain' };
+export const FAVORITE = { bear: 'berries', fox: 'eggs', wolf: 'fish', dragon: 'meat', owl: 'fish' };       // рыбу любят волк и сова
 
 // Питание: раз в сутки (игровые сутки, 4 минуты) каждый зверь ест perDay еды (+1 за каждые 4 уровня).
 export const BEAST_FOOD = {
