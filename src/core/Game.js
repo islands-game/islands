@@ -14,6 +14,8 @@ import { ItemsPanel } from '../ui/ItemsPanel.js';
 import { BookPanel } from '../ui/BookPanel.js';
 import { Fishing } from '../world/Fishing.js';
 import { Vessels } from '../world/Vessels.js';
+import { Guide } from '../quests/Guide.js';
+import { BEACH_START } from '../config/story.js';
 import { ISLANDS } from '../world/World.js';
 import { VESSELS } from '../config/vessels.js';
 import { SLOT_INFO, ITEMS, ENEMY_DROP } from '../config/items.js';
@@ -35,7 +37,6 @@ import { UPGRADES } from '../config/upgrades.js';
 import { BARN, BARN_ITEMS, FOODS } from '../config/food.js';
 import { CREATURES, beastTitle } from '../config/creatures.js';
 import { DEFAULT_HERO } from '../config/heroes.js';
-import { QUESTS } from '../config/quests.js';
 import { events } from './Events.js';
 import { initSound } from './Sound.js';
 
@@ -130,6 +131,8 @@ export class Game {
     this.items = new Items(this);
     this.fishing = new Fishing(this);
     this.vessels = new Vessels(this);
+    this.guide = new Guide(this);
+    this.ui.intro.game = this;
     this.player.onRevive = () => this.vessels.returnAll();
     this.itemsPanel = new ItemsPanel(id => document.getElementById(id), this);
     this.bookPanel = new BookPanel(id => document.getElementById(id), this);
@@ -191,6 +194,7 @@ export class Game {
     this.merchant.fromSave(null);
     this.gnomes.reset();
     const data = loadSave ? SaveManager.load() : null;
+    let newStory = false;
     this.player.setHero(data ? data.hero : heroId);
     this.skills.reset();
     if (data) {
@@ -220,15 +224,31 @@ export class Game {
       this.world.dayCount = 0;
       this.world.applyLighting();
       this.raids.reset();
-      this.setTutorialStep(0, false);
+      this.setTutorialStep(TUTORIAL_DONE, false);          // старое короткое обучение заменено сюжетными заданиями
       this.economy.reset();
+      // Новая игра: кораблекрушение. Герой на пляже у обломков, заставка, потом первое задание.
+      this.player.pos.set(BEACH_START.x, 0, BEACH_START.z);
+      this.player.facing = BEACH_START.facing;
+      this.cameraCtl.yaw = 0;
+      newStory = true;
     }
     this.input.clearActions();
     this.started = true;
-    this.playing = true;
-    this.input.enabled = true;
     this.ui.showMenu(false);
     this.ui.showHint();
+    if (newStory) {
+      // Заставка с музыкой; пока она идёт, игра стоит на паузе
+      this.playing = false;
+      this.input.enabled = false;
+      this.ui.intro.show(() => {
+        this.playing = true;
+        this.input.enabled = true;
+        this.quests.begin();
+      });
+    } else {
+      this.playing = true;
+      this.input.enabled = true;
+    }
   }
 
   pause() {
@@ -369,7 +389,8 @@ export class Game {
   updateQuestUi() {
     const q = this.quests.current;
     const show = this.tutorialStep >= TUTORIAL_DONE;
-    this.ui.setQuest(show ? (q ?? 'done') : null, q ? Math.min(this.quests.value(q), q.amount) : 0, QUESTS.length);
+    this.ui.setQuest(show ? (q ?? (this.quests.began ? 'done' : null)) : null, q ? Math.min(this.quests.value(q), q.amount) : 0, this.quests.total);
+    this.ui.setGuide(this.guide.distanceText());
   }
 
   updateTutorial() {
@@ -377,6 +398,16 @@ export class Game {
       this.setTutorialStep(this.tutorialStep + 1);
       if (this.tutorialStep < TUTORIAL_DONE) this.ui.toast('✔');
     }
+  }
+
+  // Зверь рядом голоден (или этого просит задание), и у героя есть еда
+  canFeedNow() {
+    if (this.player.dead || this.inventory.foodTotal() <= 0) return false;
+    const cm = this.creatures;
+    const c = cm.actives.find(x => Math.hypot(x.pos.x - this.player.pos.x, x.pos.z - this.player.pos.z) < 3.2);
+    if (!c) return false;
+    const rec = cm.collection.find(r => r.id === c.id);
+    return !!rec && (rec.fed === false || this.quests.current?.type === 'fed');
   }
 
   // «Остров · расстояние» для подсказки на судне
@@ -458,6 +489,7 @@ export class Game {
     if (this.player.vessel) return { kind: 'vessel' };                  // на судне: «Действие» причаливает
     const nearVessel = this.vessels.nearest(this.player.pos);
     if (nearVessel) return { kind: 'vessel', v: nearVessel };
+    if (this.quests.current?.type === 'fed' && this.canFeedNow()) return { kind: 'beast' };       // задание «покорми зверя» важнее грядок рядом
     const cage = this.realms.nearest(this.player.pos);
     if (cage) return { kind: 'cage', ...cage };
     const vein = this.realms.nearestVein(this.player.pos);
@@ -473,6 +505,7 @@ export class Game {
     if (room && Math.hypot(this.player.pos.x - room.bed.x, this.player.pos.z - room.bed.z) < 1.7) return { kind: 'bed', room };
     const node = this.resources.nearest(this.player.pos);
     if (node) return { kind: 'node', ...node };
+    if (this.canFeedNow()) return { kind: 'beast' };
     return this.fishing.castTarget() ? { kind: 'fish' } : null;       // у воды можно ловить рыбу
   }
 
@@ -505,6 +538,7 @@ export class Game {
       return this.ui.setPrompt(`${key}${t('sleep')}`, !this.canSleep());
     }
     if (target.kind === 'fish') return this.ui.setPrompt(`${key}${this.fishing.promptText()}`);
+    if (target.kind === 'beast') return this.ui.setPrompt(`${key}${t('beast.feedNow')}`);
     if (target.kind === 'vessel') {
       if (!target.v) {
         const can = this.vessels.canDock();
@@ -540,6 +574,8 @@ export class Game {
       _label.set(node.x, 1.8, node.z);
       this.ui.floatText(_label, `+${got.amount} ${RESOURCES[got.type].icon}`, '#ffffff');
       this.gainXp(got.xp);
+    } else if (target.kind === 'beast') {
+      this.economy.feedNow();
     } else if (target.kind === 'vessel') {
       if (target.v) this.vessels.board(target.v);
       else if (!this.vessels.dock()) this.ui.toast(t('vessel.noLand'));
@@ -803,6 +839,7 @@ export class Game {
       this.updatePrompt();
       this.updateTutorial();
       this.quests.update();
+      this.guide.update(dt);
       this.raids.update(dt);
       this.arena.update(dt);
       this.updateQuestUi();

@@ -4,7 +4,7 @@ import { events } from '../core/Events.js';
 const KEY = 'islands.settings';
 export const QUALITIES = ['auto', 'low', 'medium', 'high'];
 
-const DEFAULTS = { sound: true, volume: 0.6, quality: 'auto', showFps: false };
+const DEFAULTS = { sound: true, volume: 0.6, quality: 'auto', showFps: false, guide: true };
 
 function validate(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
@@ -13,6 +13,7 @@ function validate(raw) {
     volume: Number.isFinite(r.volume) ? Math.max(0, Math.min(1, r.volume)) : DEFAULTS.volume,
     quality: QUALITIES.includes(r.quality) ? r.quality : DEFAULTS.quality,
     showFps: typeof r.showFps === 'boolean' ? r.showFps : DEFAULTS.showFps,
+    guide: typeof r.guide === 'boolean' ? r.guide : DEFAULTS.guide,           // стрелка-подсказка к цели задания
   };
 }
 

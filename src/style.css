@@ -166,6 +166,18 @@ body.has-pet #pet-cmds { display: flex; }
 .it-btns .big { margin: 6px 0 0; padding: 10px; font-size: 15px; }
 .it-btns .big:disabled { opacity: .45; }
 
+/* Сюжет: заставка и стрелка */
+#intro { position: fixed; inset: 0; z-index: 60; background: linear-gradient(#050b1efa, #0a1a3afa); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 24px; text-align: center; color: #fff; }
+#intro.hidden { display: none; }
+#intro-text { font-size: 22px; line-height: 1.5; max-width: 520px; opacity: 0; }
+#intro-text.in { animation: intro-in 1.4s ease-out forwards; }
+#intro-dots { letter-spacing: 6px; opacity: .7; }
+#intro-next { max-width: 260px; }
+@keyframes intro-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.quest-guide { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; }
+#quest-where { padding: 4px 10px; border-radius: 10px; background: #3d5a99; font-size: 15px; min-width: 40px; min-height: 34px; touch-action: manipulation; }
+#quest-where.off { opacity: .5; }
+
 /* Книга открытий */
 #book-panel { z-index: 13; }
 #bk-list { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; text-align: left; }

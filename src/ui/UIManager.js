@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { t, setLang, getLang, LANGS } from '../config/i18n.js';
 import { SaveManager } from '../save/SaveManager.js';
 import { CloudPanel } from './CloudPanel.js';
+import { Intro } from './Intro.js';
 import { RESOURCES, RESOURCE_ORDER } from '../config/resources.js';
 import { CREATURES, beastTitle } from '../config/creatures.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
@@ -75,6 +76,8 @@ export class UIManager {
     this.$('tut-skip').onclick = onSkipTutorial;
     this.initSettings();
     this.cloudPanel = new CloudPanel(id => this.$(id), this);
+    this.intro = new Intro(id => this.$(id), null);
+    this.$('quest-where').onclick = () => { Settings.set({ guide: !Settings.get().guide }); };
     document.querySelectorAll('[data-lang]').forEach(b => {
       b.onclick = () => {
         setLang(b.dataset.lang);
@@ -154,7 +157,7 @@ export class UIManager {
     const box = this.$('quest');
     box.classList.toggle('hidden', q === null);
     if (q === null) return;
-    this.$('quest-title').textContent = t('quest.title');
+    this.$('quest-title').textContent = q !== 'done' && q.chapter !== undefined ? `${t('chapter.' + q.chapter)}` : t('quest.title');
     if (q === 'done') {
       this.$('quest-text').textContent = t('quest.allDone');
       this.$('quest-count').textContent = '';
@@ -162,6 +165,7 @@ export class UIManager {
       this.$('quest-reward').textContent = '';
       return;
     }
+    progress = Math.floor(progress);
     const key = `${q.id}:${progress}`;
     if (key === this.questKey && getLang() === this.questLang) return; // ничего не изменилось
     this.questKey = key;
@@ -171,7 +175,13 @@ export class UIManager {
     this.$('quest-fill').style.width = `${(progress / q.amount) * 100}%`;
     const r = q.reward;
     const items = Object.entries(r.items ?? {}).map(([k, v]) => `${RESOURCES[k].icon}${v}`).join(' ');
-    this.$('quest-reward').textContent = `${t('quest.reward')}: ${r.xp ? `${r.xp} XP ` : ''}${items}`;
+    this.$('quest-reward').textContent = `${t('quest.reward')}: ${r.gold ? `💰${r.gold} ` : ''}${r.xp ? `${r.xp} XP ` : ''}${items}`;
+  }
+
+  // Стрелка-подсказка: расстояние и состояние кнопки (вкл/выкл)
+  setGuide(distText) {
+    this.$('quest-dist').textContent = distText;
+    this.$('quest-where').classList.toggle('off', !Settings.get().guide);
   }
 
   // Полоска сверху экрана: здоровье босса или оставшиеся слизни рейда (name === null — скрыть)

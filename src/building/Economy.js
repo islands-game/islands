@@ -541,6 +541,27 @@ export class Economy {
 
   // ---------- питание зверей ----------
 
+  // Покормить зверя рядом прямо сейчас: любимая еда из рюкзака (или любая). Возвращает true, если покормили.
+  feedNow() {
+    const g = this.game, cm = g.creatures;
+    const c = cm.actives.find(x => Math.hypot(x.pos.x - g.player.pos.x, x.pos.z - g.player.pos.z) < 3.2);
+    if (!c) return false;
+    const rec = cm.collection.find(r => r.id === c.id);
+    if (!rec) return false;
+    const fav = FAVORITE[CREATURES[rec.id].species];
+    const order = [fav, ...FOOD_ORDER.filter(k => k !== fav)];
+    const k = order.find(x => g.inventory.food[x] > 0);
+    if (!k) { g.ui.toast(t('beast.needFood')); return false; }
+    g.inventory.takeFood(k, 1);
+    rec.fed = true; rec.hunger = 0;
+    cm.addXpToRecord(rec, k === fav ? BEAST_FOOD.favoriteXp : BEAST_FOOD.otherXp);
+    cm.applyHunger();
+    g.ui.floatText(c.pos.clone().setY(2.2), `${FOODS[k].icon} ❤`, '#ffd0e0');
+    g.ui.toast(`${t('beast.fed')}: ${c.displayName}`);
+    events.emit('fed');
+    return true;
+  }
+
   // Сколько еды в день нужно зверю: растёт с уровнем (config/scaling.js: beastFood)
   upkeep(rec) {
     return beastUpkeep(rec.level);

@@ -4,6 +4,7 @@ import { BUILDINGS } from '../config/buildings.js';
 import { buildModel } from '../building/BuildingModels.js';
 import { structureRects, interiorRect, bedPosition } from '../building/Structures.js';
 import { buildArenaMap } from '../arena/ArenaMap.js';
+import { WRECK, BEACH_START } from '../config/story.js';
 
 export const DAY_LENGTH = 240; // сколько секунд длятся целые сутки
 const SKY_DAY = new THREE.Color(0x8fd3ff);
@@ -133,6 +134,7 @@ export class World {
     this.dayCount = 0;     // сколько суток прошло (нужно рейдам)
     // Места, где ничего не должно стоять: точки появления и порталы дальних островов
     this.reserved = ISLANDS.map(i => ({ x: i.spawn.x, z: i.spawn.z, r: 3.5 }));
+    this.reserved.push({ x: WRECK.x, z: WRECK.z, r: 6 }, { x: BEACH_START.x, z: BEACH_START.z, r: 3 });      // обломки корабля и место старта: деревья не растут
     // Порталы на дальних островах (на домашнем острове расстановка уже сложилась, её не трогаем)
     for (const p of PORTALS) if (Math.hypot(p.x, p.z) > 25) this.reserved.push({ x: p.x, z: p.z, r: 3 });
 
@@ -150,6 +152,7 @@ export class World {
     for (const p of PORTALS) this.buildPortal(p);
     this.buildClouds();
     this.buildSea();
+    this.buildWreck();
   }
 
   buildLights() {
@@ -431,6 +434,26 @@ export class World {
     }
     const dx = x - best.x, dz = z - best.z, len = Math.hypot(dx, dz) || 1;
     return { x: best.x + (dx / len) * (best.r - 2), z: best.z + (dz / len) * (best.r - 2) };
+  }
+
+  // Обломки корабля на южном пляже: сюда выбросило героя в начале истории
+  buildWreck() {
+    const wood = new THREE.MeshLambertMaterial({ color: 0x7a4e2d, flatShading: true });
+    const dark = new THREE.MeshLambertMaterial({ color: 0x4a3018, flatShading: true });
+    const cloth = new THREE.MeshLambertMaterial({ color: 0xe8e0c8, flatShading: true, side: THREE.DoubleSide });
+    const g = new THREE.Group();
+    const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); g.add(m); return m; };
+    add(new THREE.BoxGeometry(6, 1.4, 2.4), wood, 0, 0.5, 0, 0, 0.2, 0.22);                  // корпус
+    add(new THREE.BoxGeometry(2.4, 1, 2), dark, 2.6, 0.3, 0.4, 0, 0.5, -0.3);                // обломок кормы
+    add(new THREE.CylinderGeometry(0.14, 0.18, 4.6, 6), dark, -1, 1.7, 1.6, 0.2, 0, 1.2);     // сломанная мачта
+    add(new THREE.PlaneGeometry(2.6, 1.8), cloth, -0.4, 1.4, 1.9, 0.4, 0.3, 0.25);           // обрывок паруса
+    const barrel = new THREE.CylinderGeometry(0.4, 0.4, 0.8, 8);
+    add(barrel, wood, -3.4, 0.4, 2.4); add(barrel, wood, -2.5, 0.4, 3.1, 0, 0, 1.4); add(barrel, wood, 3.9, 0.4, 2.2);
+    add(new THREE.BoxGeometry(1, 0.7, 0.7), dark, 1.8, 0.35, 2.7, 0, 0.4, 0);                // сундук
+    g.position.set(WRECK.x, 0, WRECK.z);
+    g.rotation.y = -0.4;
+    this.scene.add(g);
+    this.colliders.push({ x: WRECK.x, z: WRECK.z, r: 2.3, active: true });
   }
 
   buildClouds() {

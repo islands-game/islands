@@ -5,6 +5,7 @@
 // Версия 7: + список зверей рядом с героем (creatures.actives, у поддержки до 3). Старые читаются с одним зверем (active).
 // Версия 8: звери из порталов (виды × стихии, creatures.*), освобождённые звери по дням (realms.freed), новый порядок заданий.
 // Старые существа превращаются в новых зверей (LEGACY_CREATURES).
+// Версия 21: сюжетные задания «Путь выжившего» (quests.index считает сначала сюжет, потом «Приключения»). Старые сохранения (до 21) пропускают сюжет и продолжают «Приключения».
 // Версия 20: судно у пирса (пирс помнит, где оно стоит: vx, vz, vr), острова в открытом море. Старые сохранения читаются без потерь.
 // Версия 19: рыба (еда fish в рюкзаке и амбаре), пирс, специальность гнома fisher. Старые сохранения читаются без потерь.
 // Версия 18: Книга открытий (items.book: открытые тайные сочетания). Старые сохранения читаются с пустой книгой.
@@ -25,6 +26,7 @@ import { cleanState } from '../building/BuildingState.js';
 import { BUILDINGS, MAX_BUILDINGS } from '../config/buildings.js';
 import { TUTORIAL_DONE } from '../ui/Tutorial.js';
 import { QUESTS } from '../config/quests.js';
+import { STORY } from '../config/story.js';
 import { RESOURCE_ORDER, CARRY } from '../config/resources.js';
 import { MAX_LEVEL, BEAST_MAX_LEVEL } from '../progression/Progression.js';
 import { DEFAULT_HERO, isHero } from '../config/heroes.js';
@@ -33,7 +35,7 @@ import { events } from '../core/Events.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 20;
+export const SAVE_VERSION = 21;
 const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
@@ -67,6 +69,12 @@ function validateCreatures(raw) {
 const OLD_QUEST_ORDER = ['wood10', 'stone5', 'tame1', 'slime3', 'build3', 'level3', 'visitIce', 'frost5', 'tame3', 'level6', 'visitFire', 'lava3', 'boss', 'treant3', 'arena', 'bossIce'];
 
 function validateQuests(raw, version) {
+  if (version >= 21) return { index: int(raw?.index, 0, STORY.length + QUESTS.length, 0), progress: int(raw?.progress, 0, 99999, 0) };
+  const old = validateOldQuests(raw, version);
+  return { index: STORY.length + old.index, progress: old.progress };       // старые игроки продолжают с «Приключений»
+}
+
+function validateOldQuests(raw, version) {
   const index = int(raw?.index, 0, QUESTS.length, 0);
   const progress = int(raw?.progress, 0, 99999, 0);
   if (version >= 8) return { index, progress };

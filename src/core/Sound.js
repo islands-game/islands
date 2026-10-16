@@ -78,6 +78,52 @@ const SOUNDS = {
   demolish: () => { noise(0.25, { vol: 0.2, freq: 900 }); tone(90, 0.2, { type: 'square', vol: 0.15, slideTo: 50 }); },
 };
 
+// Музыка заставки: низкий гул, шум моря и медленная мелодия в ля миноре. Играет только пока идёт заставка.
+let musicTimer = null, musicNodes = [];
+
+export function startIntroMusic() {
+  const s = Settings.get();
+  if (!s.sound || s.volume <= 0 || !ensureContext()) return;
+  if (ctx.state === 'suspended') ctx.resume();
+  stopMusic(0);
+  master.gain.value = s.volume * 0.6;
+  const now = ctx.currentTime;
+  const drone = ctx.createOscillator(), dg = ctx.createGain();
+  drone.type = 'sine'; drone.frequency.value = 110;
+  dg.gain.setValueAtTime(0, now); dg.gain.linearRampToValueAtTime(0.08, now + 3);
+  drone.connect(dg).connect(master); drone.start();
+  const sea = ctx.createBufferSource(); sea.buffer = noiseBuffer; sea.loop = true;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 450;
+  const sg = ctx.createGain(); sg.gain.setValueAtTime(0, now); sg.gain.linearRampToValueAtTime(0.05, now + 2);
+  sea.connect(lp).connect(sg).connect(master); sea.start();
+  const notes = [220, 261.63, 329.63, 392, 329.63, 261.63, 293.66, 220];
+  let i = 0;
+  const step = () => {
+    const n = notes[i % notes.length];
+    tone(n, 1.8, { type: 'triangle', vol: 0.1 });
+    if (i % 4 === 0) tone(n / 2, 3, { type: 'sine', vol: 0.08 });
+    i++;
+  };
+  step();
+  musicTimer = setInterval(step, 1100);
+  musicNodes = [{ src: drone, gain: dg }, { src: sea, gain: sg }];
+}
+
+export function stopMusic(fade = 1.5) {
+  clearInterval(musicTimer);
+  musicTimer = null;
+  if (!ctx) return;
+  for (const { src, gain } of musicNodes) {
+    try {
+      gain.gain.cancelScheduledValues(ctx.currentTime);
+      gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + Math.max(0.01, fade));
+      src.stop(ctx.currentTime + fade + 0.05);
+    } catch { /* уже остановлен */ }
+  }
+  musicNodes = [];
+}
+
 function play(name) {
   const s = Settings.get();
   if (!s.sound || s.volume <= 0) return;
