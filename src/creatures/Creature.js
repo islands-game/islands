@@ -51,7 +51,8 @@ export class Creature {
     const s = this.def.stats, g = this.def.growth, l = (this.normalized ? 5 : this.level) - 1;
     const evo = this.normalized ? null : this.def.evolutions[this.stage - 2]; // текущая эволюция (если есть)
     const m = evo ? evo.statMult : 1;
-    return { hp: (s.hp + g.hp * l) * m, atk: (s.atk + g.atk * l) * m, def: (s.def + g.def * l) * m, speed: s.speed };
+    const k = this.normalized ? (this.arenaMul ?? 1) : 1;     // на арене сила зверей зависит от класса героя
+    return { hp: (s.hp + g.hp * l) * m * k, atk: (s.atk + g.atk * l) * m * k, def: (s.def + g.def * l) * m, speed: s.speed };
   }
 
   // Рисует модель под текущую стадию: после эволюции существо крупнее и меняет цвет

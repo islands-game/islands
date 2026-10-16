@@ -3,6 +3,7 @@ import { updateCreature, tryAbility } from './CreatureAI.js';
 import { CREATURES } from '../config/creatures.js';
 import { t } from '../config/i18n.js';
 import { events } from '../core/Events.js';
+import { HEROES, CLASSES } from '../config/heroes.js';
 
 const TAME_RANGE = 2.8;
 
@@ -17,12 +18,39 @@ export class CreatureManager {
     this.ui = ui;
     this.wild = [];
     this.collection = []; // приручённые: [{ id, level, xp }]
-    this.active = null;   // существо, которое идёт за героем
+    this.actives = [];    // существа, которые идут за героем (сколько — зависит от класса героя: 1, у поддержки до 3)
+    this.arena = null;    // режим арены: { mul } — одинаковые характеристики у всех
     this.spawnWild();
+  }
+
+  // Первое существо (для значка в углу экрана и строительства)
+  get active() {
+    return this.actives[0] ?? null;
   }
 
   get activeId() {
     return this.active?.id ?? null;
+  }
+
+  get activeIds() {
+    return this.actives.map(c => c.id);
+  }
+
+  // Сколько зверей может сопровождать героя
+  get limit() {
+    return CLASSES[HEROES[this.player.heroId].cls].beasts;
+  }
+
+  // Арена: все спутники получают одинаковые характеристики (mul — множитель силы класса героя)
+  setArenaMode(on) {
+    const mul = CLASSES[HEROES[this.player.heroId].cls].beastPower ?? 1;
+    this.arena = on ? { mul } : null;
+    for (const c of this.actives) this.applyMode(c);
+  }
+
+  applyMode(c) {
+    c.normalized = !!this.arena;
+    c.arenaMul = this.arena?.mul ?? 1;
   }
 
   spawnWild() {
@@ -56,23 +84,35 @@ export class CreatureManager {
     return true;
   }
 
+  // Позвать существо. Если места нет, уходит то, которое с героем дольше всех.
   summon(id, at) {
     const rec = this.collection.find(r => r.id === id);
-    if (!rec) return;
+    if (!rec || this.actives.some(c => c.id === id)) return;
     this.syncActive();
-    this.active?.dispose();
+    while (this.actives.length >= this.limit) this.actives.shift().dispose();
     const c = new Creature(id, this.scene, { level: rec.level, xp: rec.xp });
     const p = at ?? { x: this.player.pos.x + 1.5, z: this.player.pos.z + 1.5 };
     c.pos.set(p.x, 0, p.z);
+    this.applyMode(c);
     c.syncMesh(0, false);
-    this.active = c;
+    this.actives.push(c);
   }
 
-  // Записывает уровень и опыт активного существа в коллекцию
+  // Кнопка в панели: позвать или отпустить
+  toggle(id) {
+    const c = this.actives.find(x => x.id === id);
+    if (!c) return this.summon(id);
+    this.syncActive();
+    this.actives = this.actives.filter(x => x !== c);
+    c.dispose();
+  }
+
+  // Записывает уровень и опыт существ рядом в коллекцию
   syncActive() {
-    if (!this.active) return;
-    const rec = this.collection.find(r => r.id === this.active.id);
-    if (rec) { rec.level = this.active.level; rec.xp = this.active.xp; }
+    for (const c of this.actives) {
+      const rec = this.collection.find(r => r.id === c.id);
+      if (rec) { rec.level = c.level; rec.xp = c.xp; }
+    }
   }
 
   list() {
@@ -80,9 +120,14 @@ export class CreatureManager {
     return this.collection.map(r => ({ ...r }));
   }
 
+  // Опыт делится между всеми зверями рядом (с небольшой надбавкой за каждого)
   gainXp(n) {
-    const c = this.active;
-    if (!c?.addXp(n)) return;
+    const share = Math.ceil((n / Math.max(1, this.actives.length)) * (1 + 0.15 * (this.actives.length - 1)));
+    for (const c of this.actives) this.gainOne(c, share);
+  }
+
+  gainOne(c, n) {
+    if (!c.addXp(n)) return;
     if (c.justEvolved) {
       // Эволюция: новая стадия, большой эффект и особый звук
       c.justEvolved = false;
@@ -97,34 +142,28 @@ export class CreatureManager {
   }
 
   // Команды: follow | stay | defend | attack | ability | return
+  // Команда действует на всех зверей рядом
   command(cmd) {
-    const c = this.active;
-    if (!c) { this.ui.toast(t('noCreatures')); return; }
+    if (!this.actives.length) { this.ui.toast(t('noCreatures')); return; }
     const ctx = this.ctx();
-    switch (cmd) {
-      case 'follow':
-      case 'stay':
-      case 'defend':
-        c.command = cmd;
-        c.manualTarget = null;
-        break;
-      case 'return':
-        c.command = 'follow';
-        c.manualTarget = null;
-        c.state = 'return';
-        break;
-      case 'attack': {
-        const target = this.combat.nearestEnemy(this.player.pos, 14);
-        if (!target) { this.ui.toast(t('noTarget')); return; }
-        c.command = 'attack';
-        c.manualTarget = target;
-        break;
+    if (cmd === 'attack') {
+      const target = this.combat.nearestEnemy(this.player.pos, 14);
+      if (!target) { this.ui.toast(t('noTarget')); return; }
+      for (const c of this.actives) { c.command = 'attack'; c.manualTarget = target; }
+      return;
+    }
+    if (cmd === 'ability') {
+      let used = 0, waiting = 0;
+      for (const c of this.actives) {
+        if (tryAbility(c, ctx, c.manualTarget, true)) used++;
+        else if (c.cd > 0) waiting++;
       }
-      case 'ability':
-        if (!tryAbility(c, ctx, c.manualTarget, true)) {
-          this.ui.toast(c.cd > 0 ? t('notReady') : t('noTarget'));
-        }
-        break;
+      if (!used) this.ui.toast(waiting ? t('notReady') : t('noTarget'));
+      return;
+    }
+    for (const c of this.actives) {
+      if (cmd === 'return') { c.command = 'follow'; c.manualTarget = null; c.state = 'return'; }
+      else { c.command = cmd; c.manualTarget = null; }       // follow | stay | defend
     }
   }
 
@@ -139,12 +178,20 @@ export class CreatureManager {
       if (Math.hypot(dx, dz) < 8) w.facing = Math.atan2(dx, dz);
       w.syncMesh(dt, false);
     }
-    if (this.active) updateCreature(this.active, dt, this.ctx());
+    // Звери рядом занимают разные места вокруг героя, чтобы не слипаться
+    const n = this.actives.length;
+    this.actives.forEach((c, i) => {
+      if (n > 1) {
+        const a = Math.PI + (i / n) * Math.PI * 2;
+        c.anchor = { x: this.player.pos.x + Math.cos(a) * 2.4, z: this.player.pos.z + Math.sin(a) * 2.4 };
+      } else c.anchor = null;
+      updateCreature(c, dt, this.ctx());
+    });
   }
 
   reset() {
-    this.active?.dispose();
-    this.active = null;
+    this.actives.forEach(c => c.dispose());
+    this.actives = [];
     this.wild.forEach(w => w.dispose());
     this.wild = [];
     this.collection = [];
@@ -153,7 +200,7 @@ export class CreatureManager {
 
   toSave() {
     this.syncActive();
-    return { active: this.activeId, collection: this.collection.map(r => ({ ...r })) };
+    return { active: this.activeId, actives: this.activeIds, collection: this.collection.map(r => ({ ...r })) };
   }
 
   fromSave(data) {
@@ -163,6 +210,8 @@ export class CreatureManager {
     const tamed = new Set(this.collection.map(r => r.id));
     this.wild.filter(w => tamed.has(w.id)).forEach(w => w.dispose());
     this.wild = this.wild.filter(w => !tamed.has(w.id));
-    if (data.active && tamed.has(data.active)) this.summon(data.active);
+    // Версия 7 хранит список зверей рядом, старые — одного (active)
+    const ids = Array.isArray(data.actives) ? data.actives : (data.active ? [data.active] : []);
+    for (const id of ids) if (tamed.has(id)) this.summon(id);
   }
 }

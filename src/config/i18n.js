@@ -4,6 +4,8 @@ export const LANGS = ['ru', 'en', 'ka'];
 
 const TEXTS = {
   ru: {
+    'beastsNear': "звери рядом",
+    'stat.beasts': "Звери",
     'atk.plain': "обычный удар",
     'atk.splash': "удар по области вокруг цели",
     'atk.pierce': "пробивает несколько целей по линии",
@@ -274,6 +276,8 @@ const TEXTS = {
     'tut.done': 'Обучение пройдено! Исследуй и строй свой остров',
   },
   en: {
+    'beastsNear': "beasts nearby",
+    'stat.beasts': "Beasts",
     'atk.plain': "regular hit",
     'atk.splash': "hits the area around the target",
     'atk.pierce': "pierces several targets in a line",
@@ -544,6 +548,8 @@ const TEXTS = {
     'tut.done': 'Tutorial complete! Explore and build your island',
   },
   ka: {
+    'beastsNear': "ცხოველები გვერდით",
+    'stat.beasts': "ცხოველები",
     'atk.plain': "ჩვეულებრივი დარტყმა",
     'atk.splash': "ურტყამს მიზნის გარშემო არეს",
     'atk.pierce': "ხვრეტს რამდენიმე მიზანს ხაზზე",

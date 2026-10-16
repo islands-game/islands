@@ -6,7 +6,7 @@ import { CREATURES, creatureNameKey } from '../config/creatures.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
 import { Settings, QUALITIES } from '../save/Settings.js';
 import { events } from '../core/Events.js';
-import { HEROES, CLASS_ORDER, ELEMENT_ORDER, ENABLED_ELEMENTS, DEFAULT_HERO, SKILLS, arenaStats } from '../config/heroes.js';
+import { HEROES, CLASSES, CLASS_ORDER, ELEMENT_ORDER, ENABLED_ELEMENTS, DEFAULT_HERO, SKILLS, arenaStats } from '../config/heroes.js';
 
 const COMMANDS = ['follow', 'stay', 'defend', 'attack', 'ability', 'return'];
 const _v = new THREE.Vector3();
@@ -232,7 +232,8 @@ export class UIManager {
     this.$('hs-info').innerHTML =
       `<div class="desc"><b>${t('cls.' + h.cls)} · ${t('el.' + h.element)}</b><br>${t('clsd.' + h.cls)}<br>${t('elp.' + h.element)}</div>` +
       `<div class="stats"><span>❤ ${t('stat.hp')}: ${st.hp}</span><span>⚔ ${t('stat.atk')}: ${Math.round(st.atk)}</span>` +
-      `<span>🎯 ${t('stat.range')}: ${st.range}</span><span>👟 ${t('stat.speed')}: ${st.speed}</span></div>` +
+      `<span>🎯 ${t('stat.range')}: ${st.range}</span><span>👟 ${t('stat.speed')}: ${st.speed}</span>` +
+      `<span>🐾 ${t('stat.beasts')}: ${CLASSES[h.cls].beasts}</span></div>` +
       `<h4>${t('autoAttack')}</h4><div class="sk"><b>⚔ ${t('weapon')}</b><span>${t('atk.' + kind)}</span></div><h4>${t('skillsLabel')}</h4>${skills}`;
   }
 
@@ -422,7 +423,7 @@ export class UIManager {
     if (text) el.textContent = text;
   }
 
-  updateHud(player, inventory, pet, xpNeed) {
+  updateHud(player, inventory, pet, xpNeed, petCount = 1) {
     this.level = player.level;
     this.$('hp-fill').style.width = `${(player.hp / player.maxHp) * 100}%`;
     const full = player.level >= MAX_LEVEL;
@@ -432,20 +433,21 @@ export class UIManager {
 
     this.$('pet').classList.toggle('hidden', !pet);
     if (pet) {
-      this.$('pet-name').textContent = `${t(pet.nameKey)} · ${t('level')} ${pet.level}`;
+      this.$('pet-name').textContent = `${t(pet.nameKey)} · ${t('level')} ${pet.level}${petCount > 1 ? ` +${petCount - 1}` : ''}`;
       this.$('pet-cd').style.width = `${Math.max(0, Math.min(1, pet.abilityReady)) * 100}%`;
       this.$('btn-ability').title = t('ability.' + pet.def.ability.id);
     }
   }
 
   // Панель существ: список приручённых и команды
-  showPanel(show, collection = [], activeId = null) {
+  showPanel(show, collection = [], activeIds = [], limit = 1) {
     this.panelOpen = show;
     this.$('creatures-panel').classList.toggle('hidden', !show);
-    if (show) this.renderPanel(collection, activeId);
+    if (show) this.renderPanel(collection, activeIds, limit);
   }
 
-  renderPanel(collection, activeId) {
+  renderPanel(collection, activeIds, limit = 1) {
+    this.$('cr-title').textContent = `${t('creatures')} · ${t('beastsNear')} ${activeIds.length}/${limit}`;
     const list = this.$('cr-list');
     list.textContent = '';
     if (!collection.length) {
@@ -463,8 +465,8 @@ export class UIManager {
       small.textContent = `${t('level')} ${r.level}`;
       info.appendChild(small);
       const btn = document.createElement('button');
-      btn.textContent = r.id === activeId ? t('active') : t('summon');
-      btn.disabled = r.id === activeId;
+      const isActive = activeIds.includes(r.id);
+      btn.textContent = isActive ? `${t('active')} ✕` : t('summon');
       btn.onclick = () => this.onSummon(r.id);
       row.append(info, btn);
       list.appendChild(row);

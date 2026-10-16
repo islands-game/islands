@@ -37,7 +37,7 @@ export const CLASSES = {
     main: { hpMul: 0.55, dpsMul: 1.75 },
   },
   support: {
-    hp: 450, atk: 14, cooldown: 0.9, range: 6, speed: 5.6, beasts: 1,             // до 3 зверей — на этапе 4
+    hp: 450, atk: 14, cooldown: 0.9, range: 6, speed: 5.6, beasts: 3, beastPower: 0.7,   // до 3 зверей; на арене каждый слабее (70%)
     main: { hpMul: 0.75, dpsMul: 0.39 },
   },
 };

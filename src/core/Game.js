@@ -56,7 +56,7 @@ export class Game {
       onStart: heroId => this.start(false, heroId),
       onContinue: () => this.start(true),
       onMenu: () => this.pause(),
-      onSummon: id => { this.creatures.summon(id); this.refreshPanel(); },
+      onSummon: id => { this.creatures.toggle(id); this.refreshPanel(); },
       onSelectBuilding: id => { this.ui.showBuildPanel(false); this.build.select(id); },
       onSkipTutorial: () => this.setTutorialStep(TUTORIAL_DONE),
     });
@@ -439,11 +439,11 @@ export class Game {
 
   togglePanel() {
     if (this.ui.panelOpen) this.ui.showPanel(false);
-    else this.ui.showPanel(true, this.creatures.list(), this.creatures.activeId);
+    else this.ui.showPanel(true, this.creatures.list(), this.creatures.activeIds, this.creatures.limit);
   }
 
   refreshPanel() {
-    if (this.ui.panelOpen) this.ui.renderPanel(this.creatures.list(), this.creatures.activeId);
+    if (this.ui.panelOpen) this.ui.renderPanel(this.creatures.list(), this.creatures.activeIds, this.creatures.limit);
   }
 
   // --- Главный цикл ---
@@ -522,7 +522,7 @@ export class Game {
       this.updateQuestUi();
       this.updateTopBar();
       this.ui.setClock(this.world.night);
-      this.ui.updateHud(this.player, this.inventory, this.creatures.active, xpNeeded(this.player.level));
+      this.ui.updateHud(this.player, this.inventory, this.creatures.active, xpNeeded(this.player.level), this.creatures.actives.length);
       if (!this.arena.active) this.ui.setSkills(this.skills.ids, this.skills.cd);
 
       this.saveTimer += dt;

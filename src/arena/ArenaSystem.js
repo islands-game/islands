@@ -54,7 +54,7 @@ export class ArenaSystem {
     p.team = 'blue';
     // Спутник участвует в матче с одинаковыми для всех характеристиками
     g.creatures.combat = this.facade;
-    if (g.creatures.active) g.creatures.active.normalized = true;
+    g.creatures.setArenaMode(true);
     this.startMatch();
   }
 
@@ -78,7 +78,7 @@ export class ArenaSystem {
     g.cameraCtl.snap(this.savedCam ?? { yaw: 0, pitch: 0.35, distance: 9 }, p.pos);
     document.body.classList.remove('arena');
     g.creatures.combat = g.combat;
-    if (g.creatures.active) g.creatures.active.normalized = false;
+    g.creatures.setArenaMode(false);
     this.ui.setArena(false);
     this.saved = null;
   }

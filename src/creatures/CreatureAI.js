@@ -108,9 +108,11 @@ export function updateCreature(c, dt, ctx) {
   } else if (c.command === 'stay') {
     c.state = 'idle';
   } else {
-    const stop = c.command === 'defend' ? 2 : FOLLOW_DIST;
+    // Если зверей несколько, у каждого своё место рядом с героем (c.anchor)
+    const spot = c.anchor ?? player.pos;
+    const stop = c.anchor ? 0.6 : (c.command === 'defend' ? 2 : FOLLOW_DIST);
     const speed = st.speed * (dOwner > 8 ? 1.6 : 1);
-    moving = dOwner > stop + 0.4 && moveToward(c, player.pos, speed, dt, stop, world);
+    moving = dist(c.pos, spot) > stop + 0.4 && moveToward(c, spot, speed, dt, stop, world);
     c.state = moving ? 'follow' : 'idle';
   }
   c.syncMesh(dt, moving);

@@ -2,6 +2,7 @@
 // Версия 1: позиция, уровень, опыт. Версия 2: + ресурсы и приручённые существа.
 // Версия 3: + постройки и шаг обучения. Версия 4: + задания. Версия 5: + время суток и рейды.
 // Версия 6: + выбранный герой (hero). Старые сохранения читаются как «Воин огня».
+// Версия 7: + список зверей рядом с героем (creatures.actives, у поддержки до 3). Старые читаются с одним зверем (active).
 // Старые версии читаются без потерь.
 import { CREATURES } from '../config/creatures.js';
 import { BUILDINGS, MAX_BUILDINGS } from '../config/buildings.js';
@@ -13,7 +14,8 @@ import { DEFAULT_HERO, isHero } from '../config/heroes.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
+const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
 const num = (v, fallback) => (Number.isFinite(v) ? v : fallback);
@@ -28,7 +30,13 @@ function validateCreatures(raw) {
     collection.push({ id: r.id, level: int(r.level, 1, MAX_LEVEL, 1), xp: Math.max(0, num(r.xp, 0)) });
   }
   const active = typeof raw?.active === 'string' && seen.has(raw.active) ? raw.active : null;
-  return { active, collection };
+  // Звери рядом: список (v7) или один active (старые сохранения), без повторов и только приручённые
+  const listed = Array.isArray(raw?.actives) ? raw.actives : (active ? [active] : []);
+  const actives = [];
+  for (const id of listed) {
+    if (typeof id === 'string' && seen.has(id) && !actives.includes(id) && actives.length < MAX_ACTIVE) actives.push(id);
+  }
+  return { active: actives[0] ?? null, actives, collection };
 }
 
 // Проверка и приведение данных к безопасному виду. Старые сохранения (v1) тоже подходят.
