@@ -5,6 +5,8 @@ import { performHeroAttack } from '../combat/Attacks.js';
 import { mainStats } from '../config/heroes.js';
 import { events } from '../core/Events.js';
 import { t } from '../config/i18n.js';
+import { LEVELS } from '../config/levels.js';
+import { masteryRank } from '../progression/Progression.js';
 
 // Три умения героя на островах (клавиши 2, 3, 4 и кнопки). Откаты хранятся здесь, логика — в combat/Skills.js.
 export class HeroSkills {
@@ -30,8 +32,9 @@ export class HeroSkills {
     const id = this.ids[i];
     if (!id || p.dead || p.inside) return;
     if (this.cd[i] > 0) return g.ui.toast(t('notReady'));
-    if (!castSkill(this.context(), id)) return g.ui.toast(t('noTarget'));
-    this.cd[i] = SKILLS[id].cooldown;
+    const rank = masteryRank(p.level, i);          // сколько вех усилило это умение
+    if (!castSkill(this.context(), id, 1 + LEVELS.masteryPower * rank)) return g.ui.toast(t('noTarget'));
+    this.cd[i] = SKILLS[id].cooldown * (1 - LEVELS.masteryCooldown) ** rank;
     events.emit('slam');
   }
 

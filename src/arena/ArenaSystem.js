@@ -7,6 +7,7 @@ import { performHeroAttack } from '../combat/Attacks.js';
 import { ELEMENT_FX } from '../config/creatures.js';
 import { events } from '../core/Events.js';
 import { t } from '../config/i18n.js';
+import { ARENA_XP } from '../config/levels.js';
 
 const C = ARENA.center;
 const HERO_SCALE = 1.3;   // герои чуть крупнее, чтобы их было видно на маленьком экране
@@ -441,7 +442,9 @@ export class ArenaSystem {
       else if (u.kind === 'minion') this.awardGold(ARENA.gold.minion, u);
       else if (u.kind === 'monster') this.awardGold(ARENA.gold.monster, u);
     }
-    if (u.kind === 'tower' && u.team === 'red' && killer?.team === 'blue') this.awardGold(ARENA.gold.tower, u);
+    if (u.kind === 'tower' && u.team === 'red' && killer?.team === 'blue') { this.awardGold(ARENA.gold.tower, u); this.awardXp(ARENA_XP.tower, u); }
+    // Опыт героя за убийства и разрушения (в основную игру сразу)
+    if (killer === this.playerUnit && u.team !== 'blue' && Object.hasOwn(ARENA_XP, u.kind) && u.kind !== 'tower') this.awardXp(ARENA_XP[u.kind], u);
     if (u.kind !== 'hero') {
       // Остальные исчезают
       this.game.combat.ring(u.pos, TEAM_RING[u.team] ?? 0xffffff, u.kind === 'tower' || u.kind === 'crystal' ? 6 : 2, 0.5);
@@ -519,6 +522,14 @@ export class ArenaSystem {
     u.hp = u.maxHp;
     u.burnT = u.slowT = u.hasteT = u.shieldT = 0;
     u.shieldAmt = 0;
+  }
+
+  // Опыт идёт сразу в основную игру: убийство героя, крипа, монстра, башня
+  awardXp(n, at) {
+    this.game.gainXp(n);
+    const p = at.pos.clone();
+    p.y += 2.2;
+    this.ui.floatText(p, `+${n} XP`, '#7df9ff');
   }
 
   // Золото за матч копится и выдаётся в конце (в основную игру)

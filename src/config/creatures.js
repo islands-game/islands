@@ -54,8 +54,8 @@ export const ELEMENT_FX = {
 };
 
 const EVOLUTIONS = [
-  { level: 4, scale: 1.25, statMult: 1.25, tint: 0.25 },
-  { level: 8, scale: 1.5, statMult: 1.6, tint: -0.25 },
+  { level: 5, scale: 1.25, statMult: 1.25, tint: 0.25 },
+  { level: 10, scale: 1.5, statMult: 1.6, tint: -0.25 },
 ];
 
 // Смешивает два цвета (k от 0 до 1) и осветляет/затемняет (tint)

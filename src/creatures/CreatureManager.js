@@ -2,6 +2,7 @@ import { Creature } from './Creature.js';
 import { updateCreature, updateGuard, tryAbility } from './CreatureAI.js';
 import { t } from '../config/i18n.js';
 import { events } from '../core/Events.js';
+import { LEVELS } from '../config/levels.js';
 import { HEROES, CLASSES } from '../config/heroes.js';
 
 // Звери героя: коллекция, кто идёт рядом, освобождение и отпускание, команды, опыт.
@@ -84,7 +85,7 @@ export class CreatureManager {
   // Охранники получают часть опыта за врагов, побеждённых на домашнем острове
   gainGuardXp(enemy, xp) {
     if (!this.guards.length || this.world.islandIdAt(enemy.pos.x, enemy.pos.z) !== 'home') return;
-    for (const c of this.guards) this.gainOne(c, Math.ceil(xp * 0.5));
+    for (const c of this.guards) this.gainOne(c, Math.ceil(xp * LEVELS.guardShare));
     this.syncActive();
   }
 

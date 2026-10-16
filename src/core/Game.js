@@ -7,7 +7,8 @@ import { InputManager } from '../player/InputManager.js';
 import { CombatSystem } from '../combat/CombatSystem.js';
 import { CreatureManager } from '../creatures/CreatureManager.js';
 import { Inventory } from '../inventory/Inventory.js';
-import { addXp, xpNeeded } from '../progression/Progression.js';
+import { addXp, xpNeeded, xpFactor, isMilestone, milestoneSkill } from '../progression/Progression.js';
+import { LEVELS } from '../config/levels.js';
 import { UIManager } from '../ui/UIManager.js';
 import { BuildSystem, DEMOLISH, UPGRADE } from '../building/BuildSystem.js';
 import { BUILDINGS } from '../config/buildings.js';
@@ -295,10 +296,17 @@ export class Game {
   // --- Награды ---
 
   gainXp(n) {
-    if (addXp(this.player, n)) {
+    const gained = addXp(this.player, n);
+    if (gained.length) {
       this.ui.toast(`${t('levelUp')} ${this.player.level}`);
       this.combat.ring(this.player.pos, 0xffe066, 4, 0.8);
       events.emit('levelUp');
+      // Веха (5, 10, 15...): одно из умений становится сильнее
+      for (const lv of gained) {
+        if (!isMilestone(lv)) continue;
+        const id = this.skills.ids[milestoneSkill(lv)];
+        if (id) setTimeout(() => this.ui.toast(`${t('mastery')}: ${t('skill.' + id)}`), 900);
+      }
     }
   }
 
@@ -317,7 +325,7 @@ export class Game {
   // Полоска сверху: здоровье босса рядом или оставшиеся слизни рейда
   updateTopBar() {
     const boss = this.combat.nearestBoss(this.player.pos, 30);
-    if (boss) this.ui.setBar(t('enemy.' + boss.def.id), boss.hp / boss.maxHp);
+    if (boss) this.ui.setBar(`${t('enemy.' + boss.def.id)} · ${t('lvShort')} ${boss.level}`, boss.hp / boss.maxHp);
     else if (this.raids.active) this.ui.setBar(t('raid.title'), this.raids.remaining / Math.max(1, this.raids.total));
     else this.ui.setBar(null, 0);
   }
@@ -350,9 +358,10 @@ export class Game {
       const got = this.inventory.add('gold', drop[0] + Math.floor(Math.random() * (drop[1] - drop[0] + 1)));
       if (got > 0) this.ui.floatText(enemy.pos.clone().setY(2.6), `+${got} ${RESOURCES.gold.icon}`, '#ffd23f');
     }
-    const xp = enemy.def.xp;
+    // Опыт зависит от уровня врага: слабый враг даёт меньше, сильный больше (config/levels.js)
+    const xp = Math.max(1, Math.round(enemy.xpReward * xpFactor(this.player.level, enemy.level)));
     this.gainXp(xp);
-    this.creatures.gainXp(Math.ceil(xp * 0.6));
+    this.creatures.gainXp(Math.ceil(xp * LEVELS.beastShare));
     this.creatures.gainGuardXp(enemy, xp);
     const p = enemy.pos.clone();
     p.y += 1.2;

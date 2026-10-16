@@ -5,6 +5,8 @@
 // Версия 7: + список зверей рядом с героем (creatures.actives, у поддержки до 3). Старые читаются с одним зверем (active).
 // Версия 8: звери из порталов (виды × стихии, creatures.*), освобождённые звери по дням (realms.freed), новый порядок заданий.
 // Старые существа превращаются в новых зверей (LEGACY_CREATURES).
+// Версия 15: уровни героя до 30, зверей до 15, новая кривая опыта (config/levels.js). Старые сохранения читаются без потерь:
+// у зверей эволюции теперь на 5 и 10 уровне, опыт героя и зверей сохраняется как есть.
 // Версия 14: золотая жила дня (realms.veins: когда добыли на каждом острове).
 // Версия 13: гномы (gnomes: места, уровни, зарплата, поручение дня).
 // Версия 12: уровни построек и стартового дома (lvl, houseLevel), уровень рюкзака (inventory.bag), торговец (merchant: день и сколько золота заплатил).
@@ -19,13 +21,13 @@ import { BUILDINGS, MAX_BUILDINGS } from '../config/buildings.js';
 import { TUTORIAL_DONE } from '../ui/Tutorial.js';
 import { QUESTS } from '../config/quests.js';
 import { RESOURCE_ORDER, CARRY } from '../config/resources.js';
-import { MAX_LEVEL } from '../progression/Progression.js';
+import { MAX_LEVEL, BEAST_MAX_LEVEL } from '../progression/Progression.js';
 import { DEFAULT_HERO, isHero } from '../config/heroes.js';
 import { events } from '../core/Events.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
@@ -42,7 +44,7 @@ function validateCreatures(raw) {
     const id = creatureId(r?.id);
     if (!r || !isCreature(id) || seen.has(id)) continue;
     seen.add(id);
-    collection.push({ id, level: int(r.level, 1, MAX_LEVEL, 1), xp: Math.max(0, num(r.xp, 0)), fed: r.fed !== false, hunger: int(r.hunger, 0, 2, 0) });
+    collection.push({ id, level: int(r.level, 1, BEAST_MAX_LEVEL, 1), xp: Math.max(0, num(r.xp, 0)), fed: r.fed !== false, hunger: int(r.hunger, 0, 2, 0) });
   }
   const activeId = creatureId(raw?.active);
   const active = typeof activeId === 'string' && seen.has(activeId) ? activeId : null;

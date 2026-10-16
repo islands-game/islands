@@ -77,8 +77,8 @@ export class CombatSystem {
   }
 
   // Участники рейда: временные слизни, которые сами ищут героя
-  spawnRaider(defId, x, z) {
-    const e = new Enemy(ENEMIES[defId], { x, z }, this.scene);
+  spawnRaider(defId, x, z, level = null) {
+    const e = new Enemy(ENEMIES[defId], { x, z }, this.scene, level);
     e.temp = 'raid';
     e.hunter = true;
     this.enemies.push(e);

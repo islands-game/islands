@@ -334,8 +334,8 @@ export class Economy {
   // Враг бьёт постройку. Амбар: сначала сбивается защита, потом можно красть. Остальное: теряет прочность и ломается.
   hitStructure(enemy, rec) {
     const g = this.game;
-    if (rec.isGnome) return g.gnomes.hurt(rec, enemy.def.atk * 0.8);       // гнома рейдер бьёт сильнее, чем постройку
-    const dmg = enemy.def.atk * RAIDS.structureDamage;
+    if (rec.isGnome) return g.gnomes.hurt(rec, enemy.atk * 0.8);       // гнома рейдер бьёт сильнее, чем постройку
+    const dmg = enemy.atk * RAIDS.structureDamage;
     rec.lastHit = this.t;
     if (this.t - (this.alertT ?? -99) > 12) { this.alertT = this.t; g.ui.toast(`${t('struct.attacked')}: ${t('building.' + rec.id)}`); events.emit('raidWarn'); }
     if (rec.maxDef !== undefined) {

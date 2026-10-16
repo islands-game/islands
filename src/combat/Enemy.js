@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { HealthBar } from './HealthBar.js';
+import { LEVELS, ENEMY_LEVELS } from '../config/levels.js';
 
 const bodyGeo = new THREE.SphereGeometry(0.7, 12, 10);
 const eyeGeo = new THREE.SphereGeometry(0.1, 6, 6);
@@ -7,10 +8,16 @@ const eyeMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
 
 // Враг (слизень): бродит у своей точки, замечает героя, догоняет и бьёт.
 export class Enemy {
-  constructor(def, home, scene) {
+  constructor(def, home, scene, level = null) {
     this.def = def;
     this.home = { x: home.x, z: home.z };
-    this.maxHp = def.hp;
+    // Уровень врага: по умолчанию базовый (ENEMY_LEVELS), у слизней рейдов — по уровню героя
+    this.baseLevel = ENEMY_LEVELS[def.id] ?? 1;
+    this.level = level ?? this.baseLevel;
+    const d = this.level - this.baseLevel;
+    this.atkMul = LEVELS.enemyAtk ** d;
+    this.xpMul = LEVELS.enemyXp ** d;
+    this.maxHp = Math.round(def.hp * LEVELS.enemyHp ** d);
     this.pos = new THREE.Vector3(home.x, 0, home.z);
     this.t = Math.random() * 10;
 
@@ -28,6 +35,10 @@ export class Enemy {
 
     this.respawn();
   }
+
+  get atk() { return this.def.atk * this.atkMul; }
+  get slamDamage() { return this.def.slam.damage * this.atkMul; }
+  get xpReward() { return this.def.xp * this.xpMul; }
 
   // Слизень: мягкий шарик с глазами
   buildBlob() {
@@ -170,7 +181,7 @@ export class Enemy {
         const center = { x: this.pos.x, y: 0, z: this.pos.z };
         combat.telegraph(center, slam.radius, slam.windup, () => {
           this.slamming = false;
-          if (!this.dead) combat.slamImpact(center, slam.radius, slam.damage);
+          if (!this.dead) combat.slamImpact(center, slam.radius, this.slamDamage);
         });
       } else if (dist > this.def.attackRange * 0.9) {
         this.moveTo(player.pos.x, player.pos.z, this.def.speed, dt, world);
@@ -180,7 +191,7 @@ export class Enemy {
         if (this.cd <= 0) {
           this.cd = this.def.attackCooldown;
           this.lunge = 0.25;
-          combat.damagePlayer(this.def.atk);
+          combat.damagePlayer(Math.round(this.atk));
         }
       }
     } else {

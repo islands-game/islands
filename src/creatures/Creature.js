@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { BEAST_FOOD } from '../config/food.js';
 import { CREATURES, ELEMENT_FX, stageForLevel, creatureNameKey, beastTitle } from '../config/creatures.js';
 import { buildCreatureModel } from './CreatureModels.js';
-import { MAX_LEVEL } from '../progression/Progression.js';
+import { BEAST_MAX_LEVEL, beastXpNeeded } from '../progression/Progression.js';
+import { LEVELS } from '../config/levels.js';
 
 const ringGeo = new THREE.RingGeometry(0.9, 1.1, 24).rotateX(-Math.PI / 2);
 
@@ -87,7 +88,12 @@ export class Creature {
   }
 
   get xpNeeded() {
-    return 30 + this.level * 20;
+    return beastXpNeeded(this.level);
+  }
+
+  // Сила способности растёт с уровнем (+3% за уровень). На арене без уровней: баланс арены не меняется.
+  get abilityPower() {
+    return this.normalized ? this.def.ability.power : this.def.ability.power * (1 + LEVELS.beastAbilityPower * (this.level - 1));
   }
 
   // Доля восстановления способности: 1 — готова
@@ -97,16 +103,16 @@ export class Creature {
 
   // Возвращает true, если получен новый уровень
   addXp(n) {
-    if (this.level >= MAX_LEVEL) return false;
+    if (this.level >= BEAST_MAX_LEVEL) return false;
     const stageBefore = this.stage;
     this.xp += n;
     let up = false;
-    while (this.level < MAX_LEVEL && this.xp >= this.xpNeeded) {
+    while (this.level < BEAST_MAX_LEVEL && this.xp >= this.xpNeeded) {
       this.xp -= this.xpNeeded;
       this.level++;
       up = true;
     }
-    if (this.level >= MAX_LEVEL) this.xp = 0;
+    if (this.level >= BEAST_MAX_LEVEL) this.xp = 0;
     if (this.stage > stageBefore) {
       this.justEvolved = true;
       this.applyStage();

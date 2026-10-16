@@ -119,9 +119,16 @@ const HANDLERS = {
 };
 
 // Применяет умение. Возвращает false, если применить не к чему (откат не тратится).
-export function castSkill(ctx, skillId) {
-  const def = SKILLS[skillId];
-  return def ? HANDLERS[def.type](ctx, def) : false;
+// mul — усиление умения вехами уровня героя (config/levels.js): растёт урон, лечение и щит
+export function castSkill(ctx, skillId, mul = 1) {
+  const base = SKILLS[skillId];
+  if (!base) return false;
+  let def = base;
+  if (mul !== 1) {
+    def = { ...base };
+    for (const k of ['power', 'healPct', 'shieldPct']) if (def[k]) def[k] *= mul;
+  }
+  return HANDLERS[def.type](ctx, def);
 }
 
 // Нужно ли умению видеть врага рядом (для подсказки «нет цели»)

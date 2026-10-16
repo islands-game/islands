@@ -50,14 +50,14 @@ export function tryAbility(c, ctx, target, force = false) {
   if (a.id === 'fireball') {
     const t = target ?? (force ? combat.nearestEnemy(c.pos, a.range) : null);
     if (!t || dist(c.pos, t.pos) > a.range) return false;
-    combat.fireball(c, t, a.power + st.atk * 0.5, a.color);
+    combat.fireball(c, t, c.abilityPower + st.atk * 0.5, a.color);
   } else if (a.id === 'shield') {
     if (!force && !combat.enemyNear(player.pos, 6)) return false;
-    player.addShield(a.power + st.def * 3, a.duration);
+    player.addShield(c.abilityPower + st.def * 3, a.duration);
     combat.ring(player.pos, 0x7ab8ff, 3, 0.5);
   } else if (a.id === 'heal') {
     if (!force && player.hp > player.maxHp * 0.7) return false;
-    const healed = player.heal(a.power + st.atk * 2);
+    const healed = player.heal(c.abilityPower + st.atk * 2);
     combat.ring(player.pos, 0x5de08a, 3, 0.5);
     const p = player.pos.clone();
     p.y += 2;
@@ -66,7 +66,7 @@ export function tryAbility(c, ctx, target, force = false) {
     // Дракон: огненное дыхание по области вокруг цели
     const t = target ?? (force ? combat.nearestEnemy(c.pos, a.range) : null);
     if (!t || dist(c.pos, t.pos) > a.range) return false;
-    combat.breath(c, t, a.power + st.atk * 0.6, a.aoe, a.color);
+    combat.breath(c, t, c.abilityPower + st.atk * 0.6, a.aoe, a.color);
   } else if (a.id === 'pounce') {
     // Волк: прыгает к врагу и кусает
     const t = target ?? (force ? combat.nearestEnemy(c.pos, a.range) : null);
@@ -77,7 +77,7 @@ export function tryAbility(c, ctx, target, force = false) {
     c.pos.x += (dx / d) * run;
     c.pos.z += (dz / d) * run;
     c.facing = Math.atan2(dx, dz);
-    combat.creatureHit(c, t, a.power + st.atk * 0.8);
+    combat.creatureHit(c, t, c.abilityPower + st.atk * 0.8);
   } else {
     return false;
   }

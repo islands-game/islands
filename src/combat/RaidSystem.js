@@ -2,6 +2,7 @@ import { RAIDS } from '../config/raids.js';
 import { TUTORIAL_FIGHT_STEP } from '../ui/Tutorial.js';
 import { events } from '../core/Events.js';
 import { t } from '../config/i18n.js';
+import { LEVELS } from '../config/levels.js';
 
 // Рейды: вечером раз в несколько суток слизни нападают на домашний остров.
 // Состояния: idle (спокойно) -> warning (предупреждение) -> active (рейд идёт).
@@ -48,7 +49,7 @@ export class RaidSystem {
     for (let i = 0; i < this.pending; i++) {
       const a = (i / this.pending) * Math.PI * 2 + Math.random() * 0.6;
       const spot = g.world.findFree(Math.cos(a) * 22, Math.sin(a) * 22, 1.2);       // слизни выходят с края большого острова
-      g.combat.spawnRaider(RAIDS.enemy, spot.x, spot.z);
+      g.combat.spawnRaider(RAIDS.enemy, spot.x, spot.z, Math.max(1, g.player.level));      // слизни рейда растут вместе с героем
     }
     this.total = this.pending;
     this.state = 'active';
@@ -66,7 +67,7 @@ export class RaidSystem {
     if (g.combat.raiders().some(e => !e.dead && e.loot)) g.ui.toast(t('loot.lost'));   // слизни ушли с добычей
     g.combat.clearRaiders();
     if (why === 'win' && wasActive) {
-      const xp = RAIDS.rewardXp + RAIDS.rewardPerEnemy * this.total;
+      const xp = Math.round((RAIDS.rewardXp + RAIDS.rewardPerEnemy * this.total) * LEVELS.enemyXp ** (g.player.level - 1));
       g.ui.toast(`${t('raidWin')} +${xp} XP`);
       events.emit('quest');
       g.gainXp(xp);

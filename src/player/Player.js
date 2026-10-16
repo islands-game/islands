@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GROUND_Y } from '../world/World.js';
 import { DEFAULT_HERO, HEROES, ELEMENTS, mainStats } from '../config/heroes.js';
 import { buildHeroModel } from './HeroModels.js';
+import { heroBaseHp, heroBaseAtk } from '../progression/Progression.js';
 
 const SPEED = 6;
 const JUMP_SPEED = 8;
@@ -39,8 +40,8 @@ export class Player {
 
   // Характеристики растут вместе с уровнем
   recalcStats() {
-    this.maxHp = Math.round((100 + (this.level - 1) * 10) * mainStats(this.heroId).hpMul);
-    this.atk = 10 + (this.level - 1) * 2;
+    this.maxHp = Math.round(heroBaseHp(this.level) * mainStats(this.heroId).hpMul);
+    this.atk = Math.round(heroBaseAtk(this.level));
     this.def = Math.floor((this.level - 1) / 2);
   }
 
