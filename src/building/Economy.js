@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BUILDINGS, DEFENSE } from '../config/buildings.js';
 import { RAIDS } from '../config/raids.js';
 import { UPGRADES, BAG } from '../config/upgrades.js';
+import { beastUpkeep } from '../config/scaling.js';
 import { rectOf } from './geometry.js';
 import { HealthBar } from '../combat/HealthBar.js';
 import { FARM, PEN, BARN, FOODS, FOOD_ORDER, FAVORITE, BEAST_FOOD, BARN_ITEMS } from '../config/food.js';
@@ -540,9 +541,9 @@ export class Economy {
 
   // ---------- питание зверей ----------
 
-  // Сколько еды в день нужно зверю: 1, с 4 уровня 2, с 8 уровня 3
+  // Сколько еды в день нужно зверю: растёт с уровнем (config/scaling.js: beastFood)
   upkeep(rec) {
-    return 1 + Math.floor((rec.level - 1) / 4);
+    return beastUpkeep(rec.level);
   }
 
   // Берёт одну порцию еды (сначала любимую): из амбаров, потом из рюкзака. Возвращает вид еды или null.

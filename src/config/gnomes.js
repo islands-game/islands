@@ -1,3 +1,5 @@
+import { wage } from './scaling.js';
+
 // Гномы. Работают на острове вместо игрока за золото. Только данные.
 //
 // Первый гном (слот 0) делает всё сам. Остальные гномы живут в пещере гномов и имеют специальность:
@@ -23,4 +25,5 @@ export const GNOME = {
   questReward: 2,                  // награда = amount / 2 + questReward
 };
 
-export const wageOf = level => GNOME.baseWage + GNOME.wageStep * (level - 1);
+// Зарплата растёт с уровнем гнома (config/scaling.js: gnomeWage): 6, 8, 11, 15, 20
+export const wageOf = level => wage(level, GNOME.baseWage);

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GNOME, wageOf } from '../config/gnomes.js';
+import { hireFee } from '../config/scaling.js';
 import { FARM, PEN, FOOD_ORDER, BARN_ITEMS } from '../config/food.js';
 import { DEFENSE } from '../config/buildings.js';
 import { UPGRADES } from '../config/upgrades.js';
@@ -141,7 +142,9 @@ export class Gnomes {
   hireFee(i) {
     const s = this.slots[i];
     if (i === 0 && s.alive) return 0;
-    return GNOME.trainFee;
+    // Чем больше гномов уже нанято, тем дороже следующий (30, 50, 75, 125...)
+    const others = this.slots.filter((x, j) => j !== i && x.hired && x.alive).length;
+    return hireFee(others, GNOME.trainFee);
   }
 
   fire(i) {
