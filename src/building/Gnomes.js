@@ -12,6 +12,7 @@ import { HealthBar } from '../combat/HealthBar.js';
 import { todayKey } from '../world/Realms.js';
 import { t } from '../config/i18n.js';
 import { events } from '../core/Events.js';
+import { GnomeNav } from './GnomeNav.js';
 
 const SPEC_COLOR = { all: 0xffd23f, farmer: 0x5de08a, porter: 0xc9955a, fixer: 0x6ab0ff, lumber: 0x2f8f3a, mason: 0xb0b6c0, fisher: 0x39a7d6 };
 export const SPEC_ICON = { all: '⭐', farmer: '🌱', porter: '📦', fixer: '🔧', lumber: '🪓', mason: '⛏', fisher: '🎣' };
@@ -38,6 +39,7 @@ export class Gnomes {
     this.game = game;
     this.slots = [];
     this.food = { day: null, n: 0 };
+    this.nav = new GnomeNav(game);
     this.t = 0;
     this.claimed = new Map();
     this.reset();
@@ -235,6 +237,17 @@ export class Gnomes {
       if (Math.hypot(pos.x - nx, pos.z - nz) < 2) return { cave: true };
     }
     return best ? { slot: best } : null;
+  }
+
+  // Ближайший гном (даже если рядом стоит пещера): с ним говорит герой, подойдя к пещере
+  nearestSlot(pos, range = 8) {
+    let best = null, bestD = range;
+    for (const s of this.slots) {
+      if (!s.run || s.run.hidden || !s.alive) continue;
+      const d = dist2(pos, s.run.pos);
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    return best;
   }
 
   // Рейдеры могут бить гномов (прячущиеся неуязвимы)
@@ -520,6 +533,9 @@ export class Gnomes {
     run.rec.hp = slot.hp;
     run.rec.maxHp = this.maxHp(slot);
 
+    // Гном внутри загона (его построили вокруг него): выставляем наружу, иначе он застрянет за забором
+    if (!run.hidden && this.unstick(slot, run)) return;
+
     // Прятки
     if (danger && !run.hidden) {
       this.releaseClaim(slot);
@@ -549,19 +565,23 @@ export class Gnomes {
       run.state = 'walk';
       run.stuck = 0;
       run.tries = 0;
-      run.detour = null;
+      run.detour = null; run.route = null;
     } else if (run.state === 'walk') {
       const tk = run.task;
-      // Упёрся в препятствие: обходит его в сторону (до трёх попыток), потом бросает дело
-      if (run.detour && run.detour.until > this.t) {
-        this.moveTo(slot, run, run.detour.x, run.detour.z, dt);
-      } else if (this.moveTo(slot, run, tk.pos.x, tk.pos.z, dt)) { run.state = 'work'; run.timer = tk.type === 'gather' ? this.gatherTime(slot) : tk.type === 'fish' ? this.gatherTime(slot) * 1.1 : this.workTime(slot); }
-      else if (run.stuck > 0.5 && (run.tries ?? 0) < 3) {
-        const dx = tk.pos.x - run.pos.x, dz = tk.pos.z - run.pos.z, d = Math.hypot(dx, dz) || 1, side = Math.random() < 0.5 ? 1 : -1;
-        run.detour = { x: run.pos.x - (dz / d) * 3 * side + (dx / d), z: run.pos.z + (dx / d) * 3 * side + (dz / d), until: this.t + 1.3 };
-        run.tries = (run.tries ?? 0) + 1;
-        run.stuck = 0;
-      } else if (run.stuck > 1.2) {
+      // Дорога ищется по сетке (A*): гном обходит загоны, дома, деревья. Нет пути — бросает дело.
+      if (!run.route) {
+        run.route = this.nav.path(run.pos, tk.pos, this.t);
+        if (run.route === null) {
+          run.bad = run.bad ?? {}; run.bad[tk.key] = this.t + 25;
+          this.releaseClaim(slot); run.task = null; run.state = 'idle'; run.wait = 0.5; run.stuck = 0;
+          return;
+        }
+      }
+      const wp = run.route[0];
+      if (wp && this.moveTo(slot, run, wp.x, wp.z, dt)) run.route.shift();
+      if (run.route.length && run.stuck > 0.8) { run.route = null; run.tries = (run.tries ?? 0) + 1; run.stuck = 0; if (run.tries > 4) { run.bad = run.bad ?? {}; run.bad[tk.key] = this.t + 25; this.releaseClaim(slot); run.task = null; run.state = 'idle'; run.wait = 0.5; } }
+      else if (!run.route.length && this.moveTo(slot, run, tk.pos.x, tk.pos.z, dt)) { run.state = 'work'; run.timer = tk.type === 'gather' ? this.gatherTime(slot) : tk.type === 'fish' ? this.gatherTime(slot) * 1.1 : this.workTime(slot); }
+      else if (!run.route.length && run.stuck > 1.2) {
         run.bad = run.bad ?? {};
         run.bad[tk.key] = this.t + 25;
         this.releaseClaim(slot); run.task = null; run.state = 'idle'; run.wait = 0.5; run.stuck = 0;
@@ -571,6 +591,24 @@ export class Gnomes {
       run.grp.rotation.y += Math.sin(this.t * 14) * 0.02;
       if (run.timer <= 0) { this.complete(slot, run.task); run.task = null; run.state = 'idle'; run.wait = 0.2; }
     }
+  }
+
+  // Если гном оказался внутри загона, ставим его у ближайшей стены снаружи и сбрасываем дело
+  unstick(slot, run) {
+    for (const rec of this.game.build.placed) {
+      if (rec.id !== 'pen') continue;
+      const r = rec.rect;
+      if (Math.abs(run.pos.x - r.x) >= r.hw + 0.4 || Math.abs(run.pos.z - r.z) >= r.hd + 0.4) continue;
+      const dl = run.pos.x - (r.x - r.hw), dr = (r.x + r.hw) - run.pos.x, dt = run.pos.z - (r.z - r.hd), db = (r.z + r.hd) - run.pos.z;
+      const m = Math.min(dl, dr, dt, db);
+      if (m === dl) run.pos.x = r.x - r.hw - 1.4; else if (m === dr) run.pos.x = r.x + r.hw + 1.4;
+      else if (m === dt) run.pos.z = r.z - r.hd - 1.4; else run.pos.z = r.z + r.hd + 1.4;
+      this.game.world.resolveCollisions(run.pos, 0.35);
+      this.releaseClaim(slot);
+      run.task = null; run.state = 'idle'; run.wait = 0.5; run.stuck = 0; run.detour = null; run.bad = {};
+      return true;
+    }
+    return false;
   }
 
   // Гулять возле своего места

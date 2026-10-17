@@ -91,6 +91,8 @@ export class BuildSystem {
     }
     // Не строим на герое, спутнике и врагах
     const blocks = def.solid || def.structure;
+    // и на гномах: иначе загон закроет гнома внутри забора
+    if (blocks && this.gnomePositions) for (const g of this.gnomePositions()) if (circleRectOverlap(g.x, g.z, 0.7, rect)) return false;
     if (blocks && circleRectOverlap(this.player.pos.x, this.player.pos.z, 0.6, rect)) return false;
     const pet = this.creatures.active;
     if (blocks && pet && circleRectOverlap(pet.pos.x, pet.pos.z, 0.6, rect)) return false;

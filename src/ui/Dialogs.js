@@ -60,6 +60,7 @@ export class Dialogs {
   // Разговор с гномом (slot — с каким из гномов)
   gnome(slot) {
     const g = this.game;
+    slot = slot ?? g.gnomes.slots.find(s => s.hired && s.alive) ?? null;
     const work = { label: t('dlg.gnome.work'), act: () => g.openGnomes(), primary: true };
     if (!this.met.gnome) {
       this.met.gnome = true;

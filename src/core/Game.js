@@ -135,6 +135,7 @@ export class Game {
     this.vessels = new Vessels(this);
     this.guide = new Guide(this);
     this.dialogs = new Dialogs(id => document.getElementById(id), this);
+    this.build.gnomePositions = () => this.gnomes.slots.filter(s => s.run && !s.run.hidden).map(s => s.run.pos);
     this.ui.intro.game = this;
     this.player.onRevive = () => this.vessels.returnAll();
     this.itemsPanel = new ItemsPanel(id => document.getElementById(id), this);

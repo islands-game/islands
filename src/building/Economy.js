@@ -456,7 +456,7 @@ export class Economy {
     const g = this.game, inv = g.inventory;
     if (tg.type === 'repair') return this.repair(tg.rec);
     if (tg.type === 'tower' || tg.type === 'trap') return;
-    if (tg.type === 'cave') return g.openGnomes();
+    if (tg.type === 'cave') return g.dialogs.gnome(g.gnomes.nearestSlot(g.player.pos));      // у пещеры тоже сначала разговор с гномом, потом окно найма
     if (tg.type === 'plot') {
       const p = tg.rec.state.plots[tg.plot], crop = FARM.plots[tg.plot].crop;
       if (p.s === 'empty') { p.s = 'grow'; p.t = 0; p.water = false; p.gold = false; g.ui.toast(`${t('econ.planted')}: ${t('food.' + crop)}`); events.emit('collect'); return; }
