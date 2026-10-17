@@ -435,3 +435,4 @@ button, .round, .icon, #btn-ability { touch-action: manipulation; }
 .ai-st { margin-left: 8px; font-size: 12px; padding: 1px 8px; border-radius: 8px; background: #3d5a99; }
 .ai-st.done { background: #2f9e44; } .ai-st.rejected { background: #a33; } .ai-st.working { background: #e69100; }
 .ai-del { position: absolute; right: 6px; top: 6px; width: 30px; height: 30px; border-radius: 8px; background: #a33; padding: 0; }
+#menu-sub { white-space: pre-line; }
