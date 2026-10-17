@@ -83,6 +83,7 @@ create policy requests_delete_own on public.requests for delete to authenticated
 
 revoke all on public.requests from anon, public;
 grant select, insert, delete on public.requests to authenticated;
+grant select, update on public.requests to service_role;      -- владелец читает заявки и ставит статус (tools/requests.mjs)
 
 -- Не больше 3 открытых заявок на игрока, чтобы очередь не засорялась
 create or replace function public.limit_requests() returns trigger
