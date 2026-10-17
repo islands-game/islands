@@ -108,19 +108,24 @@ export const Cloud = {
         this.status = 'ok';                              // облако содержит то, что это устройство отправило само: местное сохранение новее
         await this.push(true);
       } else {
-        this.conflict = { cloud: data.data, at: data.updated_at, level: Number.isFinite(data.data?.player?.level) ? data.data.player.level : null, localLevel: local.player.level };
-        this.status = 'conflict';
+        // Сохранения разные: автоматически берём самое свежее, второе остаётся запасной копией на этом устройстве.
+        // Если время сохранения на устройстве неизвестно (старое сохранение), побеждает облако, если в нём уровень не ниже.
+        const localAt = SaveManager.savedAt(), cloudAt = Date.parse(data.updated_at) || 0;
+        const cloudLevel = Number.isFinite(data.data?.player?.level) ? data.data.player.level : 0;
+        const useCloud = localAt ? cloudAt > localAt : cloudLevel >= local.player.level;
+        if (useCloud) { SaveManager.backup('local', local); this.take(data, true); }
+        else { SaveManager.backup('cloud', data.data); this.status = 'ok'; await this.push(true); }
       }
     } catch { this.status = 'error'; }
     events.emit('cloud:status');
   },
 
   // Взять облачное сохранение на это устройство
-  take(row) {
-    if (SaveManager.import(row.data)) {
+  take(row, auto = false) {
+    if (SaveManager.import(row.data, row.updated_at)) {
       store.set(CLOUD_AT_KEY, row.updated_at);
       this.status = 'ok'; this.conflict = null;
-      events.emit('cloud:imported');
+      events.emit('cloud:imported', auto);
     } else { this.status = 'error'; }
     events.emit('cloud:status');
   },

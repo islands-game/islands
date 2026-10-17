@@ -37,6 +37,8 @@ import { events } from '../core/Events.js';
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
 export const SAVE_VERSION = 22;
+const SAVED_AT_KEY = 'islands.savedAt';
+const BACKUP_KEY = 'islands.backup';
 const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
@@ -191,14 +193,26 @@ export const SaveManager = {
   save(data) {
     try {
       localStorage.setItem(KEY, JSON.stringify({ version: SAVE_VERSION, ...data }));
+      localStorage.setItem(SAVED_AT_KEY, new Date().toISOString());          // когда сохранено на этом устройстве (нужно, чтобы выбрать самое свежее сохранение)
     } catch { /* хранилище недоступно — игра продолжает работать */ }
     events.emit('saved');                  // облако (net/Cloud.js) отправит сохранение, когда придёт время
   },
   // Облачное сохранение: проходит ту же проверку, что и местное (чужой JSON не доверяем)
-  import(raw) {
+  import(raw, at = null) {
     const data = validate(raw);
     if (!data) return false;
-    try { localStorage.setItem(KEY, JSON.stringify(data)); return true; } catch { return false; }
+    try {
+      localStorage.setItem(KEY, JSON.stringify(data));
+      if (at) localStorage.setItem(SAVED_AT_KEY, at);
+      return true;
+    } catch { return false; }
+  },
+  savedAt() {
+    try { return Date.parse(localStorage.getItem(SAVED_AT_KEY) ?? '') || 0; } catch { return 0; }
+  },
+  // Запасная копия сохранения, которое заменили более свежим (чтобы ничего не потерялось)
+  backup(from, data) {
+    try { localStorage.setItem(BACKUP_KEY, JSON.stringify({ at: new Date().toISOString(), from, data })); } catch { /* ничего */ }
   },
   clear() {
     try { localStorage.removeItem(KEY); } catch { /* ничего */ }

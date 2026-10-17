@@ -127,6 +127,8 @@ export class Game {
     this.raids = new RaidSystem(this);
     this.arena = new ArenaSystem(this);
     this.hub = new Hub(this);
+    // Облако принесло более свежее сохранение, пока игра уже идёт: перезапускаем, чтобы не затереть его старым
+    events.on('cloud:imported', () => { if (this.started) setTimeout(() => location.reload(), 1200); });
     this.skills = new HeroSkills(this);
     this.realms = new Realms(this);
     this.gnomes = new Gnomes(this);

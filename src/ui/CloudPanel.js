@@ -32,7 +32,7 @@ export class CloudPanel {
       if (Cloud.status === 'conflict') this.show(true);          // игроку надо выбрать сохранение
       this.render();
     });
-    events.on('cloud:imported', () => { ui.refreshTexts(); ui.toast(t('cloud.imported')); });
+    events.on('cloud:imported', auto => { ui.refreshTexts(); ui.toast(t(auto ? 'cloud.latest' : 'cloud.imported')); });
   }
 
   show(on) {
