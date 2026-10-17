@@ -367,6 +367,27 @@ body.arena #left { width: 190px; }
   #btn-attack { bottom: calc(14px + env(safe-area-inset-bottom)); }
 }
 
+/* Телефон в горизонтали: все боевые кнопки сжаты в два столбца у правого края, центр экрана свободен.
+   Правый столбец: умения (сверху) и «Атака» (внизу, в углу). Левее: «Прыжок» (внизу), «Действие» и команды зверю над ним. */
+@media (pointer: coarse) and (max-height: 520px) {
+  #actions::after { display: none; }
+  #actions { right: 0; bottom: 0; gap: 0; }
+  #btn-attack { width: 72px; height: 72px; right: calc(12px + env(safe-area-inset-right)); bottom: calc(10px + env(safe-area-inset-bottom)); }
+  #spells { position: fixed; right: calc(17px + env(safe-area-inset-right)); bottom: calc(90px + env(safe-area-inset-bottom)); flex-direction: column; gap: 6px; }
+  .round.small { width: 50px; height: 50px; }
+  #btn-jump { width: 64px; height: 64px; right: calc(92px + env(safe-area-inset-right)); bottom: calc(10px + env(safe-area-inset-bottom)); }
+  #btn-interact { position: fixed; width: 52px; height: 52px; right: calc(98px + env(safe-area-inset-right)); bottom: calc(82px + env(safe-area-inset-bottom)); }
+  #pet-cmds { right: calc(104px + env(safe-area-inset-right)); top: auto; bottom: calc(142px + env(safe-area-inset-bottom)); gap: 4px; }
+  #pet-cmds button { width: 40px; height: 34px; font-size: 17px; }
+  #hint, #prompt, #build-bar { max-width: calc(100vw - 380px); }
+}
+/* Совсем низкий экран: команды зверю сеткой 2×2, чтобы не доставать до верхнего ряда кнопок */
+@media (pointer: coarse) and (max-height: 345px) {
+  #pet-cmds { flex-direction: row; flex-wrap: wrap; width: 84px; }
+  #stick { width: 104px; height: 104px; }
+  #knob { width: 46px; height: 46px; margin: -23px 0 0 -23px; }
+}
+
 /* iPhone: запрет увеличения страницы двойным касанием и щипком (кнопки реагируют сразу, без задержки) */
 html, body { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 button, .round, .icon, #btn-ability { touch-action: manipulation; }
