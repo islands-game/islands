@@ -183,6 +183,14 @@ body.has-pet #pet-cmds { display: flex; }
 #intro-dots { letter-spacing: 6px; opacity: .7; }
 #intro-next { max-width: 260px; }
 @keyframes intro-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+#quest { cursor: pointer; }
+#quest-full { position: fixed; left: calc(12px + env(safe-area-inset-left)); top: calc(56px + env(safe-area-inset-top)); width: min(380px, calc(100vw - 24px)); z-index: 14;
+  background: #1e2a4afa; border: 2px solid #ffd166; padding: 12px 14px; border-radius: 14px; pointer-events: auto; font-size: 15px; line-height: 1.4; }
+#quest-full.hidden { display: none; }
+#qf-title { color: #ffd166; display: block; margin-bottom: 4px; }
+#qf-text { font-weight: 600; margin-bottom: 6px; }
+#qf-reward, #qf-dist { font-size: 13px; opacity: .9; }
+@media (max-height: 460px) { #quest-full { font-size: 13px; padding: 8px 12px; top: 8px; } }
 #quest-dist { margin-left: auto; font-size: 12px; opacity: .9; }
 #quest-where { padding: 0 8px; border-radius: 10px; background: #3d5a99; font-size: 14px; min-width: 34px; min-height: 28px; touch-action: manipulation; }
 #quest-where.off { opacity: .5; }

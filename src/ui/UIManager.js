@@ -3,6 +3,7 @@ import { t, setLang, getLang, LANGS } from '../config/i18n.js';
 import { SaveManager } from '../save/SaveManager.js';
 import { CloudPanel } from './CloudPanel.js';
 import { Intro } from './Intro.js';
+import { STORY_XP_SCALE } from '../config/story.js';
 import { RESOURCES, RESOURCE_ORDER } from '../config/resources.js';
 import { CREATURES, beastTitle } from '../config/creatures.js';
 import { MAX_LEVEL } from '../progression/Progression.js';
@@ -77,7 +78,10 @@ export class UIManager {
     this.initSettings();
     this.cloudPanel = new CloudPanel(id => this.$(id), this);
     this.intro = new Intro(id => this.$(id), null);
-    this.$('quest-where').onclick = () => { Settings.set({ guide: !Settings.get().guide }); };
+    this.$('quest-where').onclick = e => { e.stopPropagation(); Settings.set({ guide: !Settings.get().guide }); };
+    // Нажатие на задание показывает его целиком (в тесном окне текст обрезается), ещё одно нажатие закрывает
+    this.$('quest').onclick = () => { this.questFull = !this.questFull; this.renderQuestFull(); };
+    this.$('quest-full').onclick = () => { this.questFull = false; this.renderQuestFull(); };
     document.querySelectorAll('[data-lang]').forEach(b => {
       b.onclick = () => {
         setLang(b.dataset.lang);
@@ -166,6 +170,7 @@ export class UIManager {
       return;
     }
     progress = Math.floor(progress);
+    this.curQuest = q;
     const key = `${q.id}:${progress}`;
     if (key === this.questKey && getLang() === this.questLang) return; // ничего не изменилось
     this.questKey = key;
@@ -175,12 +180,28 @@ export class UIManager {
     this.$('quest-fill').style.width = `${(progress / q.amount) * 100}%`;
     const r = q.reward;
     const items = Object.entries(r.items ?? {}).map(([k, v]) => `${RESOURCES[k].icon}${v}`).join(' ');
-    this.$('quest-reward').textContent = `${t('quest.reward')}: ${r.gold ? `💰${r.gold} ` : ''}${r.xp ? `${r.xp} XP ` : ''}${items}`;
+    const xp = q.chapter !== undefined ? Math.round((r.xp ?? 0) * STORY_XP_SCALE) : (r.xp ?? 0);       // за сюжетные задания опыта меньше (config/story.js)
+    this.$('quest-reward').textContent = `${t('quest.reward')}: ${r.gold ? `💰${r.gold} ` : ''}${xp ? `${xp} XP ` : ''}${items}`;
+    this.questRewardText = this.$('quest-reward').textContent;
+    this.questCountText = `${progress}/${q.amount}`;
+    this.renderQuestFull();
+  }
+
+  // Окно «задание целиком»: название главы, весь текст, прогресс, награда и расстояние до цели
+  renderQuestFull() {
+    const box = this.$('quest-full'), q = this.curQuest;
+    box.classList.toggle('hidden', !this.questFull || !q || q === 'done');
+    if (!this.questFull || !q || q === 'done') return;
+    this.$('qf-title').textContent = `${this.$('quest-title').textContent} · ${this.questCountText ?? ''}`;
+    this.$('qf-text').textContent = this.$('quest-text').textContent;
+    this.$('qf-reward').textContent = this.questRewardText ?? '';
+    this.$('qf-dist').textContent = this.$('quest-dist').textContent;
   }
 
   // Стрелка-подсказка: расстояние и состояние кнопки (вкл/выкл)
   setGuide(distText) {
     this.$('quest-dist').textContent = distText;
+    if (this.questFull) this.$('qf-dist').textContent = distText;
     this.$('quest-where').classList.toggle('off', !Settings.get().guide);
   }
 
