@@ -138,6 +138,7 @@ export class Gnomes {
     this.spawn(s, i);
     g.ui.toast(t('gnome.hired'));
     events.emit('levelUp');
+    events.emit('hire');
     return null;
   }
 
@@ -181,6 +182,7 @@ export class Gnomes {
     });
     if (strike) g.ui.toast(`${t('gnome.strike')}: ${strike}`);
     else if (paid) g.ui.toast(`${t('gnome.paid')}: 💰${paid}`);
+    if (paid && !strike) events.emit('payDay');
   }
 
   // ---------- поручение дня (первый гном) ----------
@@ -206,6 +208,7 @@ export class Gnomes {
     g.inventory.add('gold', q.reward);
     g.ui.toast(`${t('gnome.questOk')} 💰${q.reward}`);
     events.emit('quest');
+    events.emit('gnomeQuest');
   }
 
   // ---------- что рядом ----------

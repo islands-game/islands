@@ -6,11 +6,14 @@
 //  type    — walk (пройти метров), collect (собрать ресурс, target: wood | stone | any), reach (подойти к цели стрелки),
 //            visit (побывать на острове), kill (победить врага, target: id), tame (освободить зверя), has (построена постройка, target: id; amount — сколько штук),
 //            harvest (собрать урожай), fed (покормить зверя), level (достичь уровня), carry (иметь в рюкзаке столько ресурса),
-//            deposit (сложить в амбар штук), raidWin (отбить нападение слизней; callRaid — игра сама зовёт нападение)
+//            deposit (сложить в амбар штук), raidWin (отбить нападение слизней; callRaid — игра сама зовёт нападение),
+//            hired (сколько гномов нанято), gnomeQuest (поручение гнома), payDay (зарплата выплачена), sell (продать торговцу штук),
+//            buyItem (купить предмет), equip (надеть предмет), upgrade (улучшить постройку), bagUpgrade (расширить рюкзак)
 //  amount  — сколько
 //  reward  — gold (золото: исключение из правил золота, решение владельца 17.10.2026), xp, items
 //  guide   — куда показывает стрелка: { kind: 'point', x, z } | { kind: 'node', res } | { kind: 'portal', island } |
-//            { kind: 'enemy', id } | { kind: 'cage', element } | { kind: 'building', id, spot: { x, z } } | { kind: 'beast' }
+//            { kind: 'enemy', id } | { kind: 'cage', element } | { kind: 'building', id, spot: { x, z } } | { kind: 'beast' } |
+//            { kind: 'gnome' } | { kind: 'merchant' } | { kind: 'bed' } | null (стрелки нет)
 //  voice   — реплика героя в начале задания (ключ "story.<voice>")
 export const STORY = [
   // --- Глава 1. Кораблекрушение ---
@@ -36,6 +39,19 @@ export const STORY = [
   { id: 's_trap', chapter: 4, type: 'has', target: 'trap', amount: 2, reward: { gold: 10, xp: 20 }, guide: { kind: 'building', id: 'trap', spot: { x: 14, z: 12 } } },
   { id: 's_tower', chapter: 4, type: 'has', target: 'tower', amount: 1, reward: { gold: 25, xp: 30 }, guide: { kind: 'building', id: 'tower', spot: { x: 6, z: 14 } } },
   { id: 's_raid', chapter: 4, type: 'raidWin', amount: 1, callRaid: true, voice: 'raid', reward: { gold: 10, xp: 40 }, guide: { kind: 'enemy', id: 'slime' } },
+  // --- Глава 5. Хозяйство ---
+  { id: 's_hire', chapter: 5, type: 'hired', amount: 1, reward: { xp: 15 }, guide: { kind: 'gnome' } },
+  { id: 's_cave', chapter: 5, type: 'has', target: 'cave', amount: 1, reward: { gold: 30, xp: 25 }, guide: { kind: 'building', id: 'cave', spot: { x: -10, z: -12 } } },
+  { id: 's_hire2', chapter: 5, type: 'hired', amount: 2, reward: { gold: 30, xp: 20 }, guide: { kind: 'building', id: 'cave', spot: { x: -10, z: -12 } } },
+  { id: 's_gnomeq', chapter: 5, type: 'gnomeQuest', amount: 1, reward: { gold: 5, xp: 20 }, guide: { kind: 'gnome' } },
+  { id: 's_payday', chapter: 5, type: 'payDay', amount: 1, reward: { gold: 5, xp: 20 }, guide: { kind: 'bed' } },
+  // --- Глава 6. Торговля ---
+  { id: 's_sell', chapter: 6, type: 'sell', amount: 5, reward: { gold: 5, xp: 15 }, guide: { kind: 'merchant' } },
+  { id: 's_buy', chapter: 6, type: 'buyItem', amount: 1, reward: { gold: 25, xp: 25 }, guide: { kind: 'merchant' } },
+  { id: 's_equip', chapter: 6, type: 'equip', amount: 1, reward: { gold: 5, xp: 15 }, guide: null },
+  // --- Глава 7. Улучшения ---
+  { id: 's_upgrade', chapter: 7, type: 'upgrade', amount: 1, reward: { gold: 40, xp: 30 }, guide: { kind: 'building', id: 'barn', spot: { x: 0, z: -8 } } },
+  { id: 's_bag', chapter: 7, type: 'bagUpgrade', amount: 1, reward: { gold: 40, xp: 30 }, guide: { kind: 'building', id: 'barn', spot: { x: 0, z: -8 } } },
 ];
 
 // Начало новой игры: пляж у обломков корабля (южный берег домашнего острова)

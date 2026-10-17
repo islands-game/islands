@@ -3,6 +3,7 @@ import { STORY } from '../config/story.js';
 import { events } from '../core/Events.js';
 import { t } from '../config/i18n.js';
 import { RAIDS } from '../config/raids.js';
+import { ITEMS } from '../config/items.js';
 
 // Все задания по порядку: сначала сюжетная цепочка «Путь выжившего» (config/story.js), потом «Приключения» (config/quests.js).
 const ALL = [...STORY, ...QUESTS];
@@ -30,6 +31,9 @@ export class QuestManager {
     events.on('fed', () => this.add('fed', 'any', 1));
     events.on('deposit', n => this.add('deposit', 'any', n));
     events.on('raidWin', () => this.add('raidWin', 'any', 1));
+    for (const name of ['gnomeQuest', 'payDay', 'buyItem', 'equip', 'upgrade', 'bagUpgrade']) events.on(name, () => this.add(name, 'any', 1));
+    events.on('sell', (n = 1) => this.add('sell', 'any', n));
+    events.on('hire', () => this.check());
     events.on('build', () => this.check());
   }
 
@@ -74,6 +78,7 @@ export class QuestManager {
     if (q.type === 'level') return g.player.level;
     if (q.type === 'has') return g.build.placed.filter(r => r.id === q.target).length;
     if (q.type === 'carry') return g.inventory.items[q.target] ?? 0;
+    if (q.type === 'hired') return g.gnomes.slots.filter(s => s.hired && s.alive).length;
     return this.progress;
   }
 
@@ -84,6 +89,11 @@ export class QuestManager {
 
   // Началось новое задание: реплика героя
   announce(q) {
+    // «Надень предмет»: если в сумке нечего надеть (ячейка закрыта уровнем), даём простое оружие
+    if (q?.id === 's_equip') {
+      const g = this.game;
+      if (!g.items.bag.some(id => g.items.slotOpen(ITEMS[id].slot)) && !g.items.full) g.items.add('weapon_none_1');
+    }
     if (q?.voice) this.game.ui.toast(t('story.' + q.voice));
     if (q?.voice) events.emit('quest');
   }

@@ -79,6 +79,16 @@ export class Guide {
         const spot = b ? { x: b.x, z: b.z } : guide.spot;
         return go('home', spot.x, spot.z);
       }
+      case 'gnome': {
+        const s = g.gnomes.slots.find(x => x.run && !x.run.hidden);
+        return s ? go('home', s.run.pos.x, s.run.pos.z) : null;
+      }
+      case 'merchant':
+        return go('home', g.merchant.pos.x, g.merchant.pos.z);
+      case 'bed': {
+        const bed = w.interiors.find(r => r.bed)?.bed;
+        return bed ? go('home', bed.x, bed.z) : null;
+      }
       case 'beast': {
         const c = g.creatures.actives[0];
         return c ? { x: c.pos.x, z: c.pos.z } : null;

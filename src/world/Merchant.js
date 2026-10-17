@@ -76,7 +76,7 @@ export class Merchant {
       let id, n = 0;
       do {
         const h = hash(`${this.day}:shop:${i}:${n++}`);
-        const slot = SLOTS[h % SLOTS.length];
+        const slot = i === 0 ? ['weapon', 'armor'][h % 2] : SLOTS[h % SLOTS.length];       // первый (дешёвый) предмет всегда оружие или броня: их можно надеть с 5 уровня
         const el = i === 0 ? NEUTRAL : ELEMENT_ORDER[(h >>> 4) % ELEMENT_ORDER.length];
         id = `${slot}_${el}_${i === 0 ? 1 : SHOP.tiers[i]}`;
       } while (used.has(id) && n < 30);
@@ -101,6 +101,7 @@ export class Merchant {
     g.items.add(row.id);
     this.bought.push(i);
     events.emit('collect');
+    events.emit('buyItem');
   }
 
   // Продать предмет из сумки. Деньги идут из того же дневного лимита, что и за ресурсы (золото на острове не должно литься рекой)
@@ -118,6 +119,7 @@ export class Merchant {
     this.earned += price;
     g.ui.floatText(g.player.pos.clone().setY(2.4), `+${gold} ${RESOURCES.gold.icon}`, '#ffd23f');
     events.emit('collect');
+    events.emit('sell', 1);
   }
 
   view() {
@@ -154,6 +156,7 @@ export class Merchant {
     this.earned += n * price;
     g.ui.floatText(g.player.pos.clone().setY(2.4), `+${gold} ${RESOURCES.gold.icon}`, '#ffd23f');
     events.emit('collect');
+    events.emit('sell', n);
   }
 
   toSave() {

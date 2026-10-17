@@ -90,6 +90,7 @@ export class Economy {
     g.combat.ring({ x: rec.x, y: 0, z: rec.z }, 0xffd23f, 4, 0.7);
     g.ui.toast(`${t('upgrade.done')}: ${rec.isStart ? t('building.house') : t('building.' + rec.id)} ${t('level')} ${rec.lvl}`);
     events.emit('levelUp');
+    events.emit('upgrade');
   }
 
   // Применяет уровень: защита амбара, значки уровня
@@ -132,6 +133,7 @@ export class Economy {
     g.inventory.bag++;
     g.ui.toast(`${t('bag.upgraded')} ${g.inventory.bag}`);
     events.emit('levelUp');
+    events.emit('bagUpgrade');
   }
 
   get recs() {

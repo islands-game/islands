@@ -93,6 +93,7 @@ export class Items {
     if (old) this.bag[index] = old; else this.bag.splice(index, 1);
     this.equipped[slot] = id;
     this.apply();
+    events.emit('equip');
     return true;
   }
 
