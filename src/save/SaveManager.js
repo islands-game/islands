@@ -5,6 +5,7 @@
 // Версия 7: + список зверей рядом с героем (creatures.actives, у поддержки до 3). Старые читаются с одним зверем (active).
 // Версия 8: звери из порталов (виды × стихии, creatures.*), освобождённые звери по дням (realms.freed), новый порядок заданий.
 // Старые существа превращаются в новых зверей (LEGACY_CREATURES).
+// Версия 22: знакомства с гномом и торговцем (dialogs: gnome, merchant). Старые сохранения читаются как «ещё не знакомы».
 // Версия 21: сюжетные задания «Путь выжившего» (quests.index считает сначала сюжет, потом «Приключения»). Старые сохранения (до 21) пропускают сюжет и продолжают «Приключения».
 // Версия 20: судно у пирса (пирс помнит, где оно стоит: vx, vz, vr), острова в открытом море. Старые сохранения читаются без потерь.
 // Версия 19: рыба (еда fish в рюкзаке и амбаре), пирс, специальность гнома fisher. Старые сохранения читаются без потерь.
@@ -35,7 +36,7 @@ import { events } from '../core/Events.js';
 
 const KEY = 'islands.save';
 const LANG_KEY = 'islands.lang';
-export const SAVE_VERSION = 21;
+export const SAVE_VERSION = 22;
 const MAX_ACTIVE = 3;
 const MAX_COORD = 40;
 
@@ -115,6 +116,7 @@ function validate(raw) {
     // Версия 9: кристаллы стали золотом; рюкзак ограничен (CARRY)
     inventory: { ...Object.fromEntries(RESOURCE_ORDER.map(k => [k, int(k === 'gold' ? (inv.gold ?? inv.crystal) : inv[k], 0, (CARRY[k] ?? 9999) + (k === 'gold' ? 0 : 45), 0)])), food: validateFood(inv.food), bag: int(inv.bag, 0, 3, 0) },
     items: validateItems(raw.items),
+    dialogs: { gnome: raw.dialogs?.gnome === true, merchant: raw.dialogs?.merchant === true },
     houseLevel: int(raw.houseLevel, 1, 3, 1),
     gnomes: raw.gnomes && typeof raw.gnomes === 'object' ? raw.gnomes : null,       // подробная проверка — в Gnomes.fromSave
     merchant: { day: /^\d{4}-\d{2}-\d{2}$/.test(raw.merchant?.day ?? '') ? raw.merchant.day : null, earned: int(raw.merchant?.earned, 0, 500, 0), bought: Array.isArray(raw.merchant?.bought) ? raw.merchant.bought.filter(n => Number.isInteger(n) && n >= 0 && n < 6).slice(0, 6) : [] },

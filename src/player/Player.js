@@ -6,7 +6,7 @@ import { heroBaseHp, heroBaseAtk } from '../progression/Progression.js';
 import { noFx } from '../inventory/ItemEffects.js';
 
 const SPEED = 6;
-const JUMP_SPEED = 8;
+const JUMP_SPEED = 9.2;       // хватает, чтобы запрыгнуть на камень
 const GRAVITY = 22;
 const RADIUS = 0.45;
 const SPAWN = { x: 0, y: GROUND_Y, z: 6 };
@@ -171,7 +171,7 @@ export class Player {
     this.vy -= GRAVITY * dt;
     this.pos.y += this.vy * dt;
 
-    const ground = this.world.groundAt(this.pos.x, this.pos.z);
+    const ground = this.world.groundAt(this.pos.x, this.pos.z, this.pos.y);
     if (ground !== null && this.pos.y <= ground && this.vy <= 0) {
       this.pos.y = ground;
       this.vy = 0;

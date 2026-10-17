@@ -166,6 +166,15 @@ body.has-pet #pet-cmds { display: flex; }
 .it-btns .big { margin: 6px 0 0; padding: 10px; font-size: 15px; }
 .it-btns .big:disabled { opacity: .45; }
 
+/* Разговоры */
+#dialog-panel { z-index: 14; align-items: flex-end; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+#dialog-panel .panel { width: min(520px, 94vw); padding: 16px 18px; text-align: left; }
+#dlg-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 18px; }
+#dlg-icon { font-size: 30px; }
+#dlg-text { font-size: 16px; line-height: 1.45; margin: 4px 0 12px; opacity: 1; }
+#dlg-choices button.big { margin: 6px 0; padding: 12px; font-size: 16px; }
+@media (max-height: 460px) { #dialog-panel .panel { padding: 10px 14px; } #dlg-text { font-size: 14px; margin-bottom: 6px; } #dlg-choices { display: flex; gap: 8px; } #dlg-choices button.big { margin: 0; padding: 8px; font-size: 14px; } }
+
 /* Сюжет: заставка и стрелка */
 #intro { position: fixed; inset: 0; z-index: 60; background: linear-gradient(#050b1efa, #0a1a3afa); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 24px; text-align: center; color: #fff; }
 #intro.hidden { display: none; }
@@ -174,8 +183,8 @@ body.has-pet #pet-cmds { display: flex; }
 #intro-dots { letter-spacing: 6px; opacity: .7; }
 #intro-next { max-width: 260px; }
 @keyframes intro-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-.quest-guide { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; }
-#quest-where { padding: 4px 10px; border-radius: 10px; background: #3d5a99; font-size: 15px; min-width: 40px; min-height: 34px; touch-action: manipulation; }
+#quest-dist { margin-left: auto; font-size: 12px; opacity: .9; }
+#quest-where { padding: 0 8px; border-radius: 10px; background: #3d5a99; font-size: 14px; min-width: 34px; min-height: 28px; touch-action: manipulation; }
 #quest-where.off { opacity: .5; }
 
 /* Книга открытий */
@@ -236,7 +245,10 @@ button.big.danger { background: #8a3a3a; font-size: 14px; padding: 10px; }
   #res { font-size: 13px; }
   #quest-reward, #quest .bar { display: none; }
   #quest { font-size: 11px; }
-  #quest-text { margin-bottom: 0; }
+  #quest-text { margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #quest-title, #quest-count { display: none; }          /* в горизонтали название главы не нужно: места мало, остаётся стрелка и расстояние */
+  .quest-head { justify-content: flex-end; }
+  #quest-where { min-height: 24px; }
   #pet .bar { height: 6px; }
   .pet-top { margin-bottom: 2px; }
   #btn-ability { width: 32px; height: 32px; font-size: 16px; }
@@ -331,6 +343,28 @@ body.arena #left { width: 190px; }
 }
 @media (pointer: coarse) and (min-height: 521px) {
   body.arena #left { width: min(190px, calc(100vw - 195px)); }
+}
+
+/* Телефон: «Атака» справа, «Прыжок» левее (поменялись местами), под «Прыжок» оставлено место в колонке кнопок */
+@media (pointer: coarse) {
+  #actions::after { content: ''; width: 88px; height: 88px; flex: none; }
+  #btn-attack { position: fixed; right: calc(28px + env(safe-area-inset-right)); bottom: calc(40px + env(safe-area-inset-bottom)); }
+  #btn-jump { right: calc(120px + env(safe-area-inset-right)); }
+  body.arena #btn-jump { display: none; }
+}
+@media (pointer: coarse) and (max-width: 380px) and (min-height: 521px) {
+  #btn-attack, #btn-jump { width: 80px; height: 80px; }
+  #btn-jump { right: calc(116px + env(safe-area-inset-right)); }
+  #actions::after { width: 80px; height: 80px; }
+}
+/* Телефон в горизонтальном положении: кнопки меню в ряд сверху, команды зверю свободным столбцом справа */
+@media (pointer: coarse) and (max-height: 520px) {
+  .icon.second, .icon.third, .icon.fourth { top: calc(12px + env(safe-area-inset-top)); }
+  .icon.second { right: calc(70px + env(safe-area-inset-right)); }
+  .icon.third { right: calc(128px + env(safe-area-inset-right)); }
+  .icon.fourth { right: calc(186px + env(safe-area-inset-right)); }
+  #pet-cmds { position: fixed; right: calc(12px + env(safe-area-inset-right)); top: calc(70px + env(safe-area-inset-top)); flex-direction: column; }
+  #btn-attack { bottom: calc(14px + env(safe-area-inset-bottom)); }
 }
 
 /* iPhone: запрет увеличения страницы двойным касанием и щипком (кнопки реагируют сразу, без задержки) */

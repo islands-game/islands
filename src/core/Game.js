@@ -15,6 +15,7 @@ import { BookPanel } from '../ui/BookPanel.js';
 import { Fishing } from '../world/Fishing.js';
 import { Vessels } from '../world/Vessels.js';
 import { Guide } from '../quests/Guide.js';
+import { Dialogs } from '../ui/Dialogs.js';
 import { BEACH_START } from '../config/story.js';
 import { STORY_LENGTH } from '../quests/QuestManager.js';
 import { ISLANDS } from '../world/World.js';
@@ -133,6 +134,7 @@ export class Game {
     this.fishing = new Fishing(this);
     this.vessels = new Vessels(this);
     this.guide = new Guide(this);
+    this.dialogs = new Dialogs(id => document.getElementById(id), this);
     this.ui.intro.game = this;
     this.player.onRevive = () => this.vessels.returnAll();
     this.itemsPanel = new ItemsPanel(id => document.getElementById(id), this);
@@ -183,6 +185,7 @@ export class Game {
     this.combat.reset();
     this.inventory.reset();
     this.items.reset();
+    this.dialogs.reset();
     this.fishing.cancel();
     this.player.vessel = null;
     for (const v of this.vessels.list) v.boarded = false;
@@ -201,6 +204,7 @@ export class Game {
     if (data) {
       this.player.fromSave(data.player);
       this.items.fromSave(data.items);
+      this.dialogs.fromSave(data.dialogs);
       // Если сохранились на арене (старая версия) — возвращаем домой
       if (this.world.islandIdAt(this.player.pos.x, this.player.pos.z) === 'arena') this.player.respawn();
       this.inventory.fromSave(data.inventory);
@@ -253,6 +257,7 @@ export class Game {
   }
 
   pause() {
+    this.dialogs.hide();
     this.bookPanel.show(false);
     this.itemsPanel.show(false);
     this.playing = false;
@@ -276,6 +281,7 @@ export class Game {
       player: playerData,
       inventory: this.inventory.toSave(),
       items: this.items.toSave(),
+      dialogs: this.dialogs.toSave(),
       creatures: this.creatures.toSave(),
       realms: this.realms.toSave(),
       houseLevel: this.economy.startHouse.lvl,
@@ -565,6 +571,7 @@ export class Game {
   }
 
   interact() {
+    if (this.dialogs.open) return;
     const target = this.player.dead ? null : this.interactTarget();
     if (!target) return;
     if (target.kind === 'node') {
@@ -590,9 +597,9 @@ export class Game {
     } else if (target.kind === 'vein') {
       this.realms.mineVein(target.element);
     } else if (target.kind === 'gnome') {
-      this.openGnomes();
+      this.dialogs.gnome(target.slot);
     } else if (target.kind === 'merchant') {
-      this.ui.showMerchant(true, this.merchant.view());
+      this.dialogs.merchant();
     } else if (target.kind === 'econ') {
       this.economy.act(target.tg);
     } else if (target.kind === 'cage') {

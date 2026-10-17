@@ -277,6 +277,7 @@ export class World {
       m.rotation.y = rand() * 6;
       this.scene.add(m);
       this.addNode('stone', m, p.x, p.z, s * 0.9);
+      this.nodes[this.nodes.length - 1].collider.h = s * 1.1;        // высота камня: на него можно запрыгнуть
     }
     for (let i = 0; i < island.gold; i++) {
       const p = place(3, R - 2);
@@ -545,11 +546,18 @@ export class World {
   }
 
   // Высота земли в точке; null — за краем острова (падение)
-  groundAt(x, z) {
+  groundAt(x, z, hy) {
     let y = ISLANDS.some(i => Math.hypot(x - i.x, z - i.z) <= i.r + (i.id === 'arena' ? 0 : BEACH)) ? GROUND_Y : null;     // остров и пляж вокруг него
     // Платформы и мосты — тоже земля (можно стоять и выходить за край острова)
     for (const w of this.walkables) {
       if (Math.abs(x - w.x) <= w.hw && Math.abs(z - w.z) <= w.hd) y = WALK_Y;
+    }
+    // Камни: если герой (высота hy) выше края камня, он стоит на нём
+    if (hy !== undefined && y !== null) {
+      for (const c of this.colliders) {
+        if (c.h === undefined || !c.active) continue;
+        if (hy >= c.h - 0.35 && Math.hypot(x - c.x, z - c.z) < c.r * 0.9) y = Math.max(y, c.h);
+      }
     }
     return y;
   }
@@ -575,6 +583,7 @@ export class World {
     }
     for (const c of this.colliders) {
       if (!c.active || c.placeOnly) continue;
+      if (c.h !== undefined && pos.y >= c.h - 0.35) continue;        // герой над камнем: не выталкиваем
       const dx = pos.x - c.x, dz = pos.z - c.z;
       const dist = Math.hypot(dx, dz);
       const min = c.r + radius;
