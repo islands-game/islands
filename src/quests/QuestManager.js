@@ -1,5 +1,5 @@
 import { QUESTS } from '../config/quests.js';
-import { STORY } from '../config/story.js';
+import { STORY, STORY_XP_SCALE, ALL_BUILDINGS } from '../config/story.js';
 import { events } from '../core/Events.js';
 import { t } from '../config/i18n.js';
 import { RAIDS } from '../config/raids.js';
@@ -33,6 +33,8 @@ export class QuestManager {
     events.on('raidWin', () => this.add('raidWin', 'any', 1));
     for (const name of ['gnomeQuest', 'payDay', 'buyItem', 'equip', 'upgrade', 'bagUpgrade']) events.on(name, () => this.add(name, 'any', 1));
     events.on('sell', (n = 1) => this.add('sell', 'any', n));
+    events.on('fish', () => this.add('fish', 'any', 1));
+    events.on('arenaPlay', () => this.add('arenaPlay', 'any', 1));
     events.on('hire', () => this.check());
     events.on('build', () => this.check());
   }
@@ -47,6 +49,11 @@ export class QuestManager {
 
   get current() {
     return this.began ? (ALL[this.index] ?? null) : null;
+  }
+
+  // Пока идёт сюжетное обучение, награды за рейды и арену вдвое меньше: цепочка заканчивается около 10 уровня
+  get xpMul() {
+    return this.began && this.index < STORY_LENGTH ? 0.5 : 1;
   }
 
   get done() {
@@ -79,6 +86,11 @@ export class QuestManager {
     if (q.type === 'has') return g.build.placed.filter(r => r.id === q.target).length;
     if (q.type === 'carry') return g.inventory.items[q.target] ?? 0;
     if (q.type === 'hired') return g.gnomes.slots.filter(s => s.hired && s.alive).length;
+    if (q.type === 'gatherer') return g.gnomes.slots.filter(s => s.hired && s.alive && ['fisher', 'lumber', 'mason'].includes(s.spec)).length;
+    if (q.type === 'beasts') return g.creatures.collection.length;
+    if (q.type === 'beastLevel') return Math.max(0, ...g.creatures.collection.map(r => r.level));
+    if (q.type === 'hasAll') return ALL_BUILDINGS.filter(id => g.build.placed.some(r => r.id === id)).length;
+    if (q.type === 'celebrate') return 1;
     return this.progress;
   }
 
@@ -101,7 +113,8 @@ export class QuestManager {
   // Награда и переход к следующему заданию
   complete(q) {
     const g = this.game;
-    const { xp = 0, gold = 0, items = {} } = q.reward;
+    let { xp = 0, gold = 0, items = {} } = q.reward;
+    if (this.isStory(q)) xp = Math.round(xp * STORY_XP_SCALE);       // герой растёт в основном от боёв (config/story.js)
     for (const [k, v] of Object.entries(items)) g.inventory.add(k, v);
     if (gold) {
       const got = g.inventory.add('gold', gold);
@@ -116,6 +129,7 @@ export class QuestManager {
     if (xp) g.gainXp(xp);
     const next = this.current;
     if (chapter !== undefined && next?.chapter !== chapter) g.ui.toast(`${t('chapter.done')}: ${t('chapter.' + chapter)}`);
+    if (q.type === 'celebrate') g.bookPanel.banner(t('title.congrats'), `🏆 ${t('title.master')} 🏆`, t('title.masterText'));
     this.announce(next);
     this.check(); // следующее задание могло уже быть выполнено
   }

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { REALMS } from '../config/realms.js';
 import { Settings } from '../save/Settings.js';
+import { ALL_BUILDINGS } from '../config/story.js';
 import { t } from '../config/i18n.js';
 
 const arrowGeo = new THREE.ConeGeometry(0.28, 0.9, 4).rotateX(Math.PI / 2);        // острие вдоль +z
@@ -88,6 +89,12 @@ export class Guide {
       case 'bed': {
         const bed = w.interiors.find(r => r.bed)?.bed;
         return bed ? go('home', bed.x, bed.z) : null;
+      }
+      case 'missing': {
+        const id = ALL_BUILDINGS.find(b => !g.build.placed.some(r => r.id === b));
+        if (!id) return null;
+        const spots = { wood_platform: [10, 18], wall: [-12, 16], bridge: [16, 4], house: [-14, 6], pen: [9, -4], farm: [-9, -3], barn: [0, -8], cave: [-10, -12], tower: [6, 14], trap: [14, 12], pier: [6, 28] };
+        return go('home', spots[id][0], spots[id][1]);
       }
       case 'beast': {
         const c = g.creatures.actives[0];

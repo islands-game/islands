@@ -8,13 +8,24 @@
 //            harvest (собрать урожай), fed (покормить зверя), level (достичь уровня), carry (иметь в рюкзаке столько ресурса),
 //            deposit (сложить в амбар штук), raidWin (отбить нападение слизней; callRaid — игра сама зовёт нападение),
 //            hired (сколько гномов нанято), gnomeQuest (поручение гнома), payDay (зарплата выплачена), sell (продать торговцу штук),
-//            buyItem (купить предмет), equip (надеть предмет), upgrade (улучшить постройку), bagUpgrade (расширить рюкзак)
+//            buyItem (купить предмет), equip (надеть предмет), upgrade (улучшить постройку), bagUpgrade (расширить рюкзак),
+//            fish (поймать рыбу), gatherer (гномов-собирателей), beasts (сколько зверей), beastLevel (уровень лучшего зверя),
+//            arena (выиграть матч на арене), arenaPlay (сыграть матч на арене), hasAll (построены все виды построек), celebrate (финал: звание)
 //  amount  — сколько
 //  reward  — gold (золото: исключение из правил золота, решение владельца 17.10.2026), xp, items
 //  guide   — куда показывает стрелка: { kind: 'point', x, z } | { kind: 'node', res } | { kind: 'portal', island } |
 //            { kind: 'enemy', id } | { kind: 'cage', element } | { kind: 'building', id, spot: { x, z } } | { kind: 'beast' } |
-//            { kind: 'gnome' } | { kind: 'merchant' } | { kind: 'bed' } | null (стрелки нет)
+//            { kind: 'gnome' } | { kind: 'merchant' } | { kind: 'bed' } | { kind: 'missing' } (первая недостающая постройка) | null (стрелки нет)
 //  voice   — реплика героя в начале задания (ключ "story.<voice>")
+// Весь опыт за задания умножается на этот коэффициент: герой растёт в основном от боёв, а цепочка заканчивается к 10 уровню.
+// Подкручивай здесь (проверка: node tools/story-check.js).
+export const STORY_XP_SCALE = 0.15;
+
+// Какие постройки надо построить в финале (хотя бы по одной каждого вида)
+export const ALL_BUILDINGS = ['wood_platform', 'wall', 'bridge', 'house', 'pen', 'farm', 'barn', 'cave', 'tower', 'trap', 'pier'];
+
+const ALL_BUILDINGS_COUNT = ALL_BUILDINGS.length;
+
 export const STORY = [
   // --- Глава 1. Кораблекрушение ---
   { id: 's_look', chapter: 1, type: 'walk', amount: 15, reward: { xp: 5 }, guide: { kind: 'point', x: 0, z: 10 } },
@@ -52,6 +63,22 @@ export const STORY = [
   // --- Глава 7. Улучшения ---
   { id: 's_upgrade', chapter: 7, type: 'upgrade', amount: 1, reward: { gold: 40, xp: 30 }, guide: { kind: 'building', id: 'barn', spot: { x: 0, z: -8 } } },
   { id: 's_bag', chapter: 7, type: 'bagUpgrade', amount: 1, reward: { gold: 40, xp: 30 }, guide: { kind: 'building', id: 'barn', spot: { x: 0, z: -8 } } },
+  // --- Глава 8. Море и рыба ---
+  { id: 's_pier', chapter: 8, type: 'has', target: 'pier', amount: 1, reward: { xp: 15 }, guide: { kind: 'building', id: 'pier', spot: { x: 6, z: 28 } } },
+  { id: 's_fish3', chapter: 8, type: 'fish', amount: 3, reward: { gold: 5, xp: 15 }, guide: { kind: 'building', id: 'pier', spot: { x: 6, z: 28 } } },
+  { id: 's_gatherer', chapter: 8, type: 'gatherer', amount: 1, reward: { gold: 5, xp: 20 }, guide: { kind: 'building', id: 'cave', spot: { x: -10, z: -12 } } },
+  // --- Глава 9. Стая ---
+  { id: 's_tide', chapter: 9, type: 'kill', target: 'tide_king', amount: 1, reward: { gold: 15, xp: 100 }, guide: { kind: 'enemy', id: 'tide_king' } },
+  { id: 's_free2', chapter: 9, type: 'beasts', amount: 2, reward: { gold: 10, xp: 60 }, guide: { kind: 'cage', element: 'water' } },
+  { id: 's_evolve', chapter: 9, type: 'beastLevel', amount: 5, reward: { gold: 10, xp: 40 }, guide: { kind: 'beast' } },
+  // --- Глава 10. Арена ---
+  { id: 's_arena_go', chapter: 10, type: 'visit', target: 'arena', amount: 1, reward: { gold: 5, xp: 10 }, guide: { kind: 'portal', island: 'arena' } },
+  { id: 's_arena_play', chapter: 10, type: 'arenaPlay', amount: 1, reward: { gold: 10, xp: 30 }, guide: null },
+  { id: 's_arena_win', chapter: 10, type: 'arena', amount: 1, reward: { gold: 15, xp: 40 }, guide: null },
+  // --- Финал ---
+  { id: 's_allbuild', chapter: 11, type: 'hasAll', amount: ALL_BUILDINGS_COUNT, reward: { gold: 20, xp: 40 }, guide: { kind: 'missing' } },
+  { id: 's_level10', chapter: 11, type: 'level', amount: 10, reward: { gold: 10 }, guide: null },
+  { id: 's_master', chapter: 11, type: 'celebrate', amount: 1, reward: { gold: 15 }, guide: null },
 ];
 
 // Начало новой игры: пляж у обломков корабля (южный берег домашнего острова)

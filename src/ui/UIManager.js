@@ -637,7 +637,7 @@ export class UIManager {
     this.$('hp-fill').style.width = `${(player.hp / player.maxHp) * 100}%`;
     const full = player.level >= MAX_LEVEL;
     this.$('xp-fill').style.width = `${full ? 100 : Math.min(100, (player.xp / xpNeed) * 100)}%`;
-    this.$('lvl-label').textContent = `${t('level')} ${player.level}`;
+    this.$('lvl-label').textContent = `${t('level')} ${player.level}${this.titleSuffix ?? ''}`;
     for (const k of RESOURCE_ORDER) {
       const el = this.resEls[k], n = inventory.items[k], cap = inventory.capacity(k);
       el.textContent = `${RESOURCES[k].icon} ${n}`;       // в рюкзаке; когда полон — число красное

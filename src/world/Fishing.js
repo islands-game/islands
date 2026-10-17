@@ -129,6 +129,7 @@ export class Fishing {
       else g.ui.floatText(pos.clone().setY(2.6), `${kind === 'rare' ? '✨ ' : ''}+${got} 🐟`, kind === 'rare' ? '#ffe066' : '#ffffff');
     }
     g.stats.collected++;
+    if (kind !== 'chest') events.emit('fish');
     g.gainXp(R.xp);
   }
 

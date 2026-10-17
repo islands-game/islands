@@ -16,6 +16,7 @@ import { Fishing } from '../world/Fishing.js';
 import { Vessels } from '../world/Vessels.js';
 import { Guide } from '../quests/Guide.js';
 import { BEACH_START } from '../config/story.js';
+import { STORY_LENGTH } from '../quests/QuestManager.js';
 import { ISLANDS } from '../world/World.js';
 import { VESSELS } from '../config/vessels.js';
 import { SLOT_INFO, ITEMS, ENEMY_DROP } from '../config/items.js';
@@ -391,6 +392,7 @@ export class Game {
     const show = this.tutorialStep >= TUTORIAL_DONE;
     this.ui.setQuest(show ? (q ?? (this.quests.began ? 'done' : null)) : null, q ? Math.min(this.quests.value(q), q.amount) : 0, this.quests.total);
     this.ui.setGuide(this.guide.distanceText());
+    this.ui.titleSuffix = this.quests.index >= STORY_LENGTH ? ` · ${t('title.master')}` : '';
   }
 
   updateTutorial() {
@@ -670,8 +672,9 @@ export class Game {
 
   // Матч закончился: награда в основной игре
   onArenaEnd(win, gold = 0) {
-    this.gainXp(win ? ARENA.winXp : ARENA.loseXp);
+    this.gainXp(Math.round((win ? ARENA.winXp : ARENA.loseXp) * this.quests.xpMul));       // в обучении награда вдвое меньше
     this.inventory.add('gold', gold);        // золото, заработанное в матче (убийства, башни, победа)
+    events.emit('arenaPlay');
     if (win) events.emit('arenaWin');
   }
 

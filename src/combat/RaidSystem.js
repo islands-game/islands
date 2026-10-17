@@ -67,7 +67,7 @@ export class RaidSystem {
     if (g.combat.raiders().some(e => !e.dead && e.loot)) g.ui.toast(t('loot.lost'));   // слизни ушли с добычей
     g.combat.clearRaiders();
     if (why === 'win' && wasActive) {
-      const xp = Math.round((RAIDS.rewardXp + RAIDS.rewardPerEnemy * this.total) * LEVELS.enemyXp ** (g.player.level - 1));
+      const xp = Math.round((RAIDS.rewardXp + RAIDS.rewardPerEnemy * this.total) * LEVELS.enemyXp ** (g.player.level - 1) * g.quests.xpMul);
       g.ui.toast(`${t('raidWin')} +${xp} XP`);
       events.emit('quest');
       events.emit('raidWin');

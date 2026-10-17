@@ -57,10 +57,15 @@ export class BookPanel {
 
   // Большое поздравление: надпись, кольца, звук
   celebrate(id) {
+    this.banner(t('book.congrats'), `✨ ${t('combo.' + id)} ✨`, t('combo.' + id + '.d'));
+  }
+
+  // Большая надпись с поздравлением (тайные сочетания и звание в конце обучения)
+  banner(top, name, desc) {
     const $ = this.$, g = this.game;
-    $('dc-t').textContent = t('book.congrats');
-    $('dc-n').textContent = `✨ ${t('combo.' + id)} ✨`;
-    $('dc-d').textContent = t('combo.' + id + '.d');
+    $('dc-t').textContent = top;
+    $('dc-n').textContent = name;
+    $('dc-d').textContent = desc;
     const box = $('discover');
     box.classList.add('hidden');
     void box.offsetWidth;                              // перезапуск анимации

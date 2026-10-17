@@ -5,5 +5,5 @@ export const VESSELS = [
   { id: 'boat', speed: 7.5 },
   { id: 'ship', speed: 10.5 },
 ];
-export const BOARD_RANGE = 4;   // с какого расстояния можно сесть
+export const BOARD_RANGE = 3.6;   // с какого расстояния можно сесть (на конце пирса «Действие» садит в судно, чуть дальше от конца можно ловить рыбу)
 export const DOCK_RANGE = 3.6;    // насколько близко к суше можно причалить
