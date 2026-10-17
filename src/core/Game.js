@@ -657,7 +657,7 @@ export class Game {
     if (action === 'hire') err = this.gnomes.hire(i);
     else if (action === 'fire') this.gnomes.fire(i);
     else if (action === 'spec') this.gnomes.setSpec(i, arg);
-    else if (action === 'quest') this.gnomes.deliverQuest();
+    else if (action === 'quest') this.gnomes.buyFood();
     if (err) this.ui.toast(t(err));
     this.ui.showGnomes(true, this.gnomes.view());
   }

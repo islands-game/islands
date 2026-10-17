@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { GNOME, wageOf } from '../config/gnomes.js';
 import { hireFee } from '../config/scaling.js';
-import { FARM, PEN, FOOD_ORDER, BARN_ITEMS } from '../config/food.js';
+import { FARM, PEN, FOOD_ORDER, BARN_ITEMS, FAVORITE, FOODS } from '../config/food.js';
+import { CREATURES } from '../config/creatures.js';
 import { DEFENSE } from '../config/buildings.js';
 import { UPGRADES } from '../config/upgrades.js';
 import { RESOURCES } from '../config/resources.js';
@@ -36,7 +37,7 @@ export class Gnomes {
   constructor(game) {
     this.game = game;
     this.slots = [];
-    this.quest = { day: null, done: false };
+    this.food = { day: null, n: 0 };
     this.t = 0;
     this.claimed = new Map();
     this.reset();
@@ -51,7 +52,7 @@ export class Gnomes {
   reset() {
     for (const s of this.slots) this.despawn(s);
     this.slots = [this.blank('all')];
-    this.quest = { day: null, done: false };
+    this.food = { day: null, n: 0 };
     this.spawn(this.slots[0], 0);
   }
 
@@ -187,28 +188,35 @@ export class Gnomes {
 
   // ---------- поручение дня (первый гном) ----------
 
-  questInfo() {
-    const day = todayKey();
-    if (this.quest.day !== day) this.quest = { day, done: false };
-    const amount = GNOME.questAmounts[hash(`${day}:gnome`) % GNOME.questAmounts.length];
-    return { amount, reward: Math.round(amount / 2) + GNOME.questReward, done: this.quest.done };
+  // Какую еду продаёт гном: любимую первого зверя рядом, иначе ягоды
+  foodKind() {
+    const c = this.game.creatures.actives[0];
+    return c ? FAVORITE[CREATURES[c.id].species] : 'berries';
   }
 
-  // Сдать еду гному: сначала из рюкзака, потом из амбара
-  deliverQuest() {
-    const g = this.game, q = this.questInfo();
-    if (q.done) return g.ui.toast(t('gnome.questDone'));
-    const barns = g.economy.barns();
-    const have = g.inventory.foodTotal() + barns.reduce((s, b) => s + FOOD_ORDER.reduce((a, k) => a + b.state.items[k], 0), 0);
-    if (have < q.amount) return g.ui.toast(t('gnome.questNeed'));
-    let need = q.amount;
-    for (const k of FOOD_ORDER) { const n = Math.min(need, g.inventory.food[k]); g.inventory.food[k] -= n; need -= n; }
-    for (const b of barns) for (const k of FOOD_ORDER) { const n = Math.min(need, b.state.items[k]); b.state.items[k] -= n; need -= n; }
-    this.quest.done = true;
-    g.inventory.add('gold', q.reward);
-    g.ui.toast(`${t('gnome.questOk')} 💰${q.reward}`);
-    events.emit('quest');
-    events.emit('gnomeQuest');
+  foodInfo() {
+    const day = todayKey();
+    if (this.food.day !== day) this.food = { day, n: 0 };
+    const g = this.game, kind = this.foodKind();
+    const left = Math.max(0, GNOME.food.perDay - this.food.n);
+    return {
+      price: GNOME.food.price, left, kind, icon: FOODS[kind].icon,
+      canBuy: left > 0 && g.inventory.items.gold >= GNOME.food.price && g.inventory.foodRoom() > 0,
+    };
+  }
+
+  // Экстренная покупка: порция еды у гнома за золото (когда зверей надо срочно накормить)
+  buyFood() {
+    const g = this.game, f = this.foodInfo();
+    if (f.left <= 0) return g.ui.toast(t('gnome.questDone'));
+    if (g.inventory.foodRoom() <= 0) return g.ui.toast(t('bagFull'));
+    if (!g.inventory.spend({ gold: f.price })) return g.ui.toast(t('gnome.questNeed'));
+    g.inventory.addFood(f.kind, 1);
+    this.food.n++;
+    g.ui.floatText(g.player.pos.clone().setY(2.3), `+1 ${f.icon}`, '#ffffff');
+    g.ui.toast(`${t('gnome.questOk')}: ${f.icon}`);
+    events.emit('collect');
+    events.emit('gnomeFood');
   }
 
   // ---------- что рядом ----------
@@ -587,7 +595,7 @@ export class Gnomes {
   }
 
   view() {
-    const q = this.questInfo();
+    const food = this.foodInfo();
     const rows = [];
     const total = this.slotCount();
     for (let i = 0; i < 5; i++) {
@@ -601,7 +609,7 @@ export class Gnomes {
       });
     }
     const wages = this.slots.reduce((s, sl) => s + (sl.hired && sl.alive ? this.wage(sl) : 0), 0);
-    return { rows, wages, quest: q, hasCave: !!this.cave() };
+    return { rows, wages, food, hasCave: !!this.cave() };
   }
 
   // ---------- сохранение ----------
@@ -609,7 +617,7 @@ export class Gnomes {
   toSave() {
     return {
       slots: this.slots.map(s => ({ spec: s.spec, level: s.level, tasks: s.tasks, hired: s.hired, alive: s.alive, unpaid: s.unpaid, hp: Math.round(s.hp) })),
-      quest: { day: this.quest.day, done: this.quest.done },
+      food: { day: this.food.day, n: this.food.n },
     };
   }
 
@@ -629,7 +637,7 @@ export class Gnomes {
       this.slots.push(s);
     });
     if (!this.slots.length) this.slots.push(this.blank('all'));
-    this.quest = { day: typeof data?.quest?.day === 'string' ? data.quest.day : null, done: data?.quest?.done === true };
+    this.food = { day: typeof data?.food?.day === 'string' ? data.food.day : null, n: Math.max(0, Math.min(99, Math.floor(data?.food?.n ?? 0))) };
     this.slots.forEach((s, i) => { if (s.alive && (s.hired || i === 0)) this.spawn(s, i); });
   }
 }

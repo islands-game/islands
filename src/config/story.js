@@ -7,7 +7,7 @@
 //            visit (побывать на острове), kill (победить врага, target: id), tame (освободить зверя), has (построена постройка, target: id; amount — сколько штук),
 //            harvest (собрать урожай), fed (покормить зверя), level (достичь уровня), carry (иметь в рюкзаке столько ресурса),
 //            deposit (сложить в амбар штук), raidWin (отбить нападение слизней; callRaid — игра сама зовёт нападение),
-//            hired (сколько гномов нанято), gnomeQuest (поручение гнома), payDay (зарплата выплачена), sell (продать торговцу штук),
+//            hired (сколько гномов нанято), gnomeFood (купить еду у гнома), payDay (зарплата выплачена), sell (продать торговцу штук),
 //            buyItem (купить предмет), equip (надеть предмет), upgrade (улучшить постройку), bagUpgrade (расширить рюкзак),
 //            fish (поймать рыбу), gatherer (гномов-собирателей), beasts (сколько зверей), beastLevel (уровень лучшего зверя),
 //            arena (выиграть матч на арене), arenaPlay (сыграть матч на арене), hasAll (построены все виды построек), celebrate (финал: звание)
@@ -54,7 +54,7 @@ export const STORY = [
   { id: 's_hire', chapter: 5, type: 'hired', amount: 1, reward: { xp: 15 }, guide: { kind: 'gnome' } },
   { id: 's_cave', chapter: 5, type: 'has', target: 'cave', amount: 1, reward: { gold: 30, xp: 25 }, guide: { kind: 'building', id: 'cave', spot: { x: -10, z: -12 } } },
   { id: 's_hire2', chapter: 5, type: 'hired', amount: 2, reward: { gold: 30, xp: 20 }, guide: { kind: 'building', id: 'cave', spot: { x: -10, z: -12 } } },
-  { id: 's_gnomeq', chapter: 5, type: 'gnomeQuest', amount: 1, reward: { gold: 5, xp: 20 }, guide: { kind: 'gnome' } },
+  { id: 's_gnomeq', chapter: 5, type: 'gnomeFood', amount: 1, reward: { gold: 5, xp: 20 }, guide: { kind: 'gnome' } },
   { id: 's_payday', chapter: 5, type: 'payDay', amount: 1, reward: { gold: 5, xp: 20 }, guide: { kind: 'bed' } },
   // --- Глава 6. Торговля ---
   { id: 's_sell', chapter: 6, type: 'sell', amount: 5, reward: { gold: 5, xp: 15 }, guide: { kind: 'merchant' } },

@@ -31,7 +31,7 @@ export class QuestManager {
     events.on('fed', () => this.add('fed', 'any', 1));
     events.on('deposit', n => this.add('deposit', 'any', n));
     events.on('raidWin', () => this.add('raidWin', 'any', 1));
-    for (const name of ['gnomeQuest', 'payDay', 'buyItem', 'equip', 'upgrade', 'bagUpgrade']) events.on(name, () => this.add(name, 'any', 1));
+    for (const name of ['gnomeFood', 'payDay', 'buyItem', 'equip', 'upgrade', 'bagUpgrade']) events.on(name, () => this.add(name, 'any', 1));
     events.on('sell', (n = 1) => this.add('sell', 'any', n));
     events.on('fish', () => this.add('fish', 'any', 1));
     events.on('arenaPlay', () => this.add('arenaPlay', 'any', 1));

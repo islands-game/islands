@@ -272,17 +272,16 @@ export class UIManager {
     this.$('gnome-title').textContent = t('gnome.title');
     this.$('gnome-close').textContent = t('close');
     this.$('gnome-info').textContent = `${t('gnome.wages')}: 💰${view.wages} ${t('gnome.perDay')}${view.hasCave ? '' : ' · ' + t('gnome.needCave')}`;
-    const q = view.quest, qe = this.$('gnome-quest');
+    const f = view.food, qe = this.$('gnome-quest');
     qe.textContent = '';
     const qt = document.createElement('div');
-    qt.textContent = `${t('gnome.quest')}: ${t('gnome.questText')} ${q.amount} 🍎 → 💰${q.reward}${q.done ? ' ✔' : ''}`;
+    qt.textContent = `${t('gnome.quest')}: ${f.icon} 💰${f.price} ${t('gnome.questText')} (${f.left})`;
     qe.appendChild(qt);
-    if (!q.done) {
-      const b = document.createElement('button');
-      b.textContent = t('gnome.questGive');
-      b.onclick = () => this.onGnomes('quest');
-      qe.appendChild(b);
-    }
+    const b = document.createElement('button');
+    b.textContent = `${t('gnome.questGive')} ${f.icon}`;
+    b.disabled = !f.canBuy;
+    b.onclick = () => this.onGnomes('quest');
+    qe.appendChild(b);
     const list = this.$('gnome-list');
     list.textContent = '';
     for (const r of view.rows) {
