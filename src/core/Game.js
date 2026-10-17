@@ -30,6 +30,7 @@ import { Settings } from '../save/Settings.js';
 import { QuestManager } from '../quests/QuestManager.js';
 import { RaidSystem } from '../combat/RaidSystem.js';
 import { ArenaSystem } from '../arena/ArenaSystem.js';
+import { Hub } from '../net/Hub.js';
 import { HeroSkills } from '../player/HeroSkills.js';
 import { Realms } from '../world/Realms.js';
 import { Economy } from '../building/Economy.js';
@@ -125,6 +126,7 @@ export class Game {
     this.quests = new QuestManager(this);
     this.raids = new RaidSystem(this);
     this.arena = new ArenaSystem(this);
+    this.hub = new Hub(this);
     this.skills = new HeroSkills(this);
     this.realms = new Realms(this);
     this.gnomes = new Gnomes(this);
@@ -853,6 +855,7 @@ export class Game {
       this.guide.update(dt);
       this.raids.update(dt);
       this.arena.update(dt);
+      this.hub.update(dt);
       this.updateQuestUi();
       this.updateTopBar();
       this.ui.setClock(this.world.night);

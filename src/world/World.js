@@ -80,6 +80,12 @@ export const ISLANDS = [
     trees: 0, rocks: 0, gold: 0,
     colors: { grass: 0x5f9a58, rock: 0x6a5a4a, trunk: 0x6a4a2a, leaf: 0x2f9e44, stone: 0x9aa0a6, crystal: 0xffc93c, glow: 0x2aa9c9, pad: 0x9cc2ff },
   },
+  // Гавань: общий остров, где встречаются игроки (docs/shared-world.md). Враги тут не живут.
+  {
+    id: 'hub', x: -300, z: 0, r: 22, spawn: { x: -300, z: 14 }, seed: 77, nameKey: 'island.hub',
+    trees: 10, rocks: 3, gold: 0,
+    colors: { grass: 0x7ad06a, rock: 0x8a7a65, trunk: 0x8a5a35, leaf: 0x3fb054, stone: 0xb0b4ba, crystal: 0xffc93c, glow: 0xffa94d, pad: 0xf5e6b0 },
+  },
 ];
 
 // Порталы стихий и арены стоят по берегу домашнего острова (на разных сторонах, разного цвета):
@@ -90,7 +96,7 @@ function shore(deg) {
   const x = +(c * HOME_PORTAL_R).toFixed(2), z = +(s * HOME_PORTAL_R).toFixed(2);
   return { x, z, rot: +Math.atan2(-x, -z).toFixed(3), inside: { x: +(c * (HOME_PORTAL_R - 3.4)).toFixed(2), z: +(s * (HOME_PORTAL_R - 3.4)).toFixed(2) } };
 }
-export const HOME_SHORE = { arena: shore(0), ice: shore(60), fire: shore(120), earth: shore(180), air: shore(240), water: shore(300) };
+export const HOME_SHORE = { arena: shore(0), ice: shore(60), fire: shore(120), earth: shore(180), air: shore(240), water: shore(300), hub: shore(90) };
 const H = HOME_SHORE;
 
 // Порталы между островами: x, z — где стоит портал, dest — куда он переносит героя
@@ -110,6 +116,9 @@ export const PORTALS = [
   // Арена 5 на 5: портал на берегу домашнего острова и обратный портал у синей базы
   { x: H.arena.x, z: H.arena.z, rot: H.arena.rot, color: 0x6aa8ff, glow: 0x1a4aa0, dest: { x: 300, z: 44 }, nameKey: 'island.arena', shore: true },
   { x: 288, z: 50, rot: 0.4, color: 0x8fe3ff, glow: 0x2a9fd0, dest: H.arena.inside, nameKey: 'island.home' },
+  // Гавань: общий остров игроков
+  { x: H.hub.x, z: H.hub.z, rot: H.hub.rot, color: 0xffc078, glow: 0xd9730d, dest: { x: -300, z: 14 }, nameKey: 'island.hub', shore: true },
+  { x: -300, z: 20, rot: Math.PI, color: 0x8fe3ff, glow: 0x2a9fd0, dest: H.hub.inside, nameKey: 'island.home' },
 ];
 
 // Остров: земля, деревья, камни, кристаллы, дом, порталы, облака, освещение.

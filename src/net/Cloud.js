@@ -32,7 +32,8 @@ export const Cloud = {
   },
 
   async init() {
-    this.listen();
+    if (this.client) return;
+    if (!this.listening) { this.listening = true; this.listen(); }      // повторный вызов (повтор после сбоя загрузки) не дублирует слушателей
     try {
       const { createClient } = await import('@supabase/supabase-js');      // грузится отдельным файлом, игра стартует быстрее
       this.client = createClient(SUPABASE_URL, SUPABASE_KEY, {
