@@ -347,7 +347,7 @@ export class ArenaSystem {
     this.bushPos = ARENA.bushes.map(b => world(b.x, b.z));
     this.bushSeen = this.bushPos.map(() => ({ blue: false, red: false }));
     const per = 7;
-    const blob = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: 0x2f9a45, flatShading: true, transparent: true, opacity: 0.88 }), this.bushPos.length * per);
+    const blob = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: 0x6fdc4f, emissive: 0x1a4a12, flatShading: true, transparent: true, opacity: 0.9 }), this.bushPos.length * per);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), pos = new THREE.Vector3();
     let n = 0;
     this.bushPos.forEach((b, bi) => {
