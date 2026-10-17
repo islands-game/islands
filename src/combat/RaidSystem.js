@@ -70,6 +70,7 @@ export class RaidSystem {
       const xp = Math.round((RAIDS.rewardXp + RAIDS.rewardPerEnemy * this.total) * LEVELS.enemyXp ** (g.player.level - 1));
       g.ui.toast(`${t('raidWin')} +${xp} XP`);
       events.emit('quest');
+      events.emit('raidWin');
       g.gainXp(xp);
     } else if (why === 'gone' && wasActive) {
       g.ui.toast(t('raidGone'));

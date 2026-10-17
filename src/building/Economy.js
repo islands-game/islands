@@ -510,6 +510,7 @@ export class Economy {
       if (n > 0) { inv.food[k] -= n; items[k] += n; moved += n; }
     }
     if (!moved) this.game.ui.toast(t('barn.nothingToStore'));
+    else events.emit('deposit', moved);
   }
 
   // Взять из амбара в рюкзак не больше n

@@ -838,7 +838,7 @@ export class Game {
       this.updateBuildBar();
       this.updatePrompt();
       this.updateTutorial();
-      this.quests.update();
+      this.quests.update(dt);
       this.guide.update(dt);
       this.raids.update(dt);
       this.arena.update(dt);

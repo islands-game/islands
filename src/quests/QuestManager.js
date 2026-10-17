@@ -2,6 +2,7 @@ import { QUESTS } from '../config/quests.js';
 import { STORY } from '../config/story.js';
 import { events } from '../core/Events.js';
 import { t } from '../config/i18n.js';
+import { RAIDS } from '../config/raids.js';
 
 // Все задания по порядку: сначала сюжетная цепочка «Путь выжившего» (config/story.js), потом «Приключения» (config/quests.js).
 const ALL = [...STORY, ...QUESTS];
@@ -16,6 +17,7 @@ export class QuestManager {
     this.progress = 0;  // сколько уже сделано
     this.began = false; // началась ли цепочка (после заставки)
     this.walkLast = null;
+    this.raidWait = 0;  // сколько секунд дома спокойно: потом игра сама зовёт нападение (задание «отбей нападение»)
 
     events.on('collect', (type, n = 1) => {
       this.add('collect', type, n);
@@ -26,6 +28,8 @@ export class QuestManager {
     events.on('portal', island => this.add('visit', island, 1));
     events.on('arenaWin', () => this.add('arena', 'any', 1));
     events.on('fed', () => this.add('fed', 'any', 1));
+    events.on('deposit', n => this.add('deposit', 'any', n));
+    events.on('raidWin', () => this.add('raidWin', 'any', 1));
     events.on('build', () => this.check());
   }
 
@@ -68,7 +72,8 @@ export class QuestManager {
   value(q) {
     const g = this.game;
     if (q.type === 'level') return g.player.level;
-    if (q.type === 'has') return g.build.placed.some(r => r.id === q.target) ? 1 : 0;
+    if (q.type === 'has') return g.build.placed.filter(r => r.id === q.target).length;
+    if (q.type === 'carry') return g.inventory.items[q.target] ?? 0;
     return this.progress;
   }
 
@@ -106,7 +111,7 @@ export class QuestManager {
   }
 
   // Каждый кадр: прогулка, уровень, «подойти к цели», «построено»
-  update() {
+  update(dt = 1 / 60) {
     const q = this.current;
     if (!q) return;
     const g = this.game, p = g.player.pos;
@@ -116,6 +121,12 @@ export class QuestManager {
         if (d < 3) this.progress += d;                    // телепорт и рывки не считаются шагами
       }
       this.walkLast = { x: p.x, z: p.z };
+    } else if (q.callRaid) {
+      // Задание «отбей нападение»: если дома тихо, через 12 секунд приходят слизни
+      if (g.raids.state === 'idle' && g.raids.atHome() && !g.player.dead && !g.arena.active) {
+        this.raidWait += dt;
+        if (this.raidWait > 12) { this.raidWait = 0; g.raids.begin(RAIDS.firstCount); }
+      } else this.raidWait = 0;
     } else if (q.type === 'reach') {
       const target = g.guide?.resolve(q);
       if (target && Math.hypot(target.x - p.x, target.z - p.z) < q.radius) this.progress = q.amount;
