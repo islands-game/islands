@@ -52,13 +52,18 @@ grant execute on function public.delete_my_account() to authenticated;
 -- Заявки ИИ: ребёнок описывает, что хочет добавить в игру (docs/shared-world.md).
 -- Видит заявку только автор и владелец (в панели Supabase). Статус и ответ меняет владелец.
 -- ============================================================================
+-- Статус списком: в панели Supabase он выбирается из меню, ошибиться нельзя
+do $$ begin
+  create type public.request_status as enum ('new', 'working', 'done', 'rejected');
+exception when duplicate_object then null; end $$;
+
 create table if not exists public.requests (
   id         bigint generated always as identity primary key,
   user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
   kind       text not null check (kind in ('creature', 'enemy', 'building', 'island', 'other')),
   title      text not null check (char_length(title) between 3 and 60),
   body       text not null check (char_length(body) between 10 and 420),
-  status     text not null default 'new' check (status in ('new', 'working', 'done', 'rejected')),
+  status     public.request_status not null default 'new',
   reply      text check (reply is null or char_length(reply) <= 500),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
