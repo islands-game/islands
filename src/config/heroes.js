@@ -25,19 +25,19 @@ export const CLASSES = {
     main: { hpMul: 1.33, dpsMul: 0.94 },
   },
   archer: {
-    hp: 420, atk: 36, cooldown: 0.9, range: 8.5, speed: 5.6, beasts: 1,
+    hp: 420, atk: 36, cooldown: 0.9, range: 8.5, speed: 5.6, beasts: 3, beastPower: 0.55,      // мало здоровья: до 3 зверей, каждый слабее
     main: { hpMul: 0.7, dpsMul: 1.0 },
   },
   mage: {
-    hp: 520, atk: 40, cooldown: 1.0, range: 7, speed: 5.4, beasts: 1,
+    hp: 520, atk: 40, cooldown: 1.0, range: 7, speed: 5.4, beasts: 2, beastPower: 0.8,        // среднее здоровье: 2 зверя
     main: { hpMul: 0.87, dpsMul: 1.0 },
   },
   assassin: {
-    hp: 330, atk: 70, cooldown: 1.0, range: 2.4, speed: 7.0, beasts: 1,
+    hp: 330, atk: 70, cooldown: 1.0, range: 2.4, speed: 7.0, beasts: 3, beastPower: 0.55,      // меньше всего здоровья: 3 зверя (и невидим в кустах на арене)
     main: { hpMul: 0.55, dpsMul: 1.75 },
   },
   support: {
-    hp: 520, atk: 20, cooldown: 0.9, range: 6, speed: 5.6, beasts: 3, beastPower: 0.9,   // до 3 зверей; на арене каждый чуть слабее (90%)
+    hp: 520, atk: 20, cooldown: 0.9, range: 6, speed: 5.6, beasts: 2, beastPower: 1.0,   // среднее здоровье: 2 зверя в полную силу
     main: { hpMul: 0.87, dpsMul: 0.56 },
   },
 };

@@ -266,6 +266,7 @@ export class ArenaSystem {
       }
     }
     this.addRidgeDecor(trees.filter(t => Math.hypot(t.x - C.x, t.z - C.z) < ARENA.radius - 3), lh);
+    this.buildBushes();
   }
 
   // Сосны и камни на хребтах: две общие геометрии, по одному вызову отрисовки на каждую
@@ -307,15 +308,68 @@ export class ArenaSystem {
     return true;
   }
 
-  targetable(b) {
-    return !b.dead && !b.shielded;
+  // Цель можно атаковать: жива, не под щитом башни и не спрятана в кусте от команды observer
+  targetable(b, observer) {
+    return !b.dead && !b.shielded && !(observer && this.hiddenFrom(b, observer));
+  }
+
+  // ---------- кусты ----------
+
+  // Номер куста под точкой или -1
+  bushAt(pos) {
+    const r = ARENA.bushRadius;
+    for (let i = 0; i < this.bushPos.length; i++) {
+      const b = this.bushPos[i];
+      if (Math.hypot(pos.x - b.x, pos.z - b.z) < r) return i;
+    }
+    return -1;
+  }
+
+  // Каждый кадр: кто в каком кусте и какие команды видят содержимое куста (если кто-то из команды стоит в этом же кусте)
+  updateBushes() {
+    this.bushSeen = this.bushPos.map(() => ({ blue: false, red: false }));
+    for (const u of this.units) {
+      if (u.kind !== 'hero' || u.dead) { u.bush = -1; continue; }
+      u.bush = this.bushAt(u.pos);
+      if (u.bush >= 0) this.bushSeen[u.bush][u.team] = true;
+    }
+  }
+
+  // Спрятан ли герой u от команды team: в кусте его видит только враг, вошедший в тот же куст; убийцу в кустах не видно никогда
+  hiddenFrom(u, team) {
+    if (u.kind !== 'hero' || u.dead || !(u.bush >= 0) || u.team === team) return false;
+    if (HEROES[u.heroId ?? u.heroType]?.cls === 'assassin') return true;
+    return !this.bushSeen?.[u.bush]?.[team];
+  }
+
+  // Кусты на карте: одна InstancedMesh из зелёных кочек (один вызов отрисовки), в кустах не мешают ходить
+  buildBushes() {
+    this.bushPos = ARENA.bushes.map(b => world(b.x, b.z));
+    this.bushSeen = this.bushPos.map(() => ({ blue: false, red: false }));
+    const per = 7;
+    const blob = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshLambertMaterial({ color: 0x2f9a45, flatShading: true, transparent: true, opacity: 0.88 }), this.bushPos.length * per);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), pos = new THREE.Vector3();
+    let n = 0;
+    this.bushPos.forEach((b, bi) => {
+      for (let k = 0; k < per; k++) {
+        const a = (k / per) * Math.PI * 2 + bi, r = k === 0 ? 0 : ARENA.bushRadius * (0.55 + ((bi * 7 + k * 3) % 5) * 0.07);
+        const sz = 0.95 + ((bi + k) % 4) * 0.12;
+        s.set(sz, sz * 0.8, sz);
+        pos.set(b.x + Math.cos(a) * r, 0.55, b.z + Math.sin(a) * r);
+        blob.setMatrixAt(n++, m.compose(pos, q, s));
+      }
+    });
+    blob.instanceMatrix.needsUpdate = true;
+    blob.frustumCulled = false;
+    this.scene.add(blob);
+    this.gates.push({ mesh: blob, wall: true });
   }
 
   // Лучшая цель для a в радиусе range (от края цели). bias — предпочтения по типам: меньше = важнее
   findTarget(a, range, bias) {
     let best = null, bestScore = Infinity;
     for (const b of this.units) {
-      if (b === a || !this.targetable(b) || !this.isEnemy(a, b)) continue;
+      if (b === a || !this.targetable(b, a.team) || !this.isEnemy(a, b)) continue;
       const d = edge(a, b);
       if (d > range) continue;
       const score = d + (bias[b.kind] ?? 0);
@@ -328,7 +382,7 @@ export class ArenaSystem {
   nearestEnemyTo(pos, range, team) {
     let best = null, bestD = range;
     for (const b of this.units) {
-      if (b.team === team || !this.targetable(b)) continue;
+      if (b.team === team || !this.targetable(b, team)) continue;
       const d = Math.hypot(b.pos.x - pos.x, b.pos.z - pos.z);
       if (d < bestD) { bestD = d; best = b; }
     }
@@ -350,7 +404,7 @@ export class ArenaSystem {
         sys.game.combat.projectile(c.pos, target, color, () => {
           sys.game.combat.ring(target.pos, color, aoe * 1.6, 0.4);
           for (const b of sys.units.slice()) {
-            if (!sys.targetable(b) || !sys.isEnemy(sys.playerUnit, b) || b.kind === 'tower' || b.kind === 'crystal') continue;
+            if (!sys.targetable(b, 'blue') || !sys.isEnemy(sys.playerUnit, b) || b.kind === 'tower' || b.kind === 'crystal') continue;
             if (Math.hypot(b.pos.x - target.pos.x, b.pos.z - target.pos.z) - b.radius > aoe) continue;
             b.takeDamage(Math.round(dmg), sys.playerUnit);
             sys.beastElement(c, b, dmg);
@@ -378,7 +432,7 @@ export class ArenaSystem {
 
   // Атака: ближняя бьёт сразу, дальняя пускает снаряд
   attack(a, b) {
-    if (a.atkCd > 0 || !this.targetable(b)) return false;
+    if (a.atkCd > 0 || !this.targetable(b, a.team)) return false;
     a.atkCd = a.cooldown;
     a.facing = Math.atan2(b.pos.x - a.pos.x, b.pos.z - a.pos.z);
     const dmg = a.atk;
@@ -571,6 +625,7 @@ export class ArenaSystem {
       const p = this.player, pu = this.playerUnit;
       pu.hp = p.hp;
       pu.maxHp = p.maxHp;
+      this.updateBushes();
       for (const u of this.units.slice()) {
         u.atkCd = Math.max(0, u.atkCd - dt);
         if (u.dead && u.kind !== 'hero') continue;
@@ -580,6 +635,8 @@ export class ArenaSystem {
       this.units = this.units.filter(u => !u.dead || u.kind === 'hero');
     }
     for (const u of this.units) if (!u.dead || u.kind === 'hero') u.syncMesh(dt, cam);
+    // Враги, спрятанные в кустах, для игрока (синей команды) невидимы
+    for (const u of this.units) if (u.kind === 'hero' && !u.dead && u.mesh) u.mesh.visible = !this.hiddenFrom(u, 'blue');
     this.drawHud(dt);
   }
 
@@ -822,7 +879,7 @@ export class ArenaSystem {
       this.game.combat.ring(center, 0xff6a2a, s.radius * 1.5, 0.5);
       events.emit('slam');
       for (const b of this.units) {
-        if (!this.targetable(b) || !this.isEnemy(k, b) || b.kind === 'tower' || b.kind === 'crystal') continue;
+        if (!this.targetable(b, k.team) || !this.isEnemy(k, b) || b.kind === 'tower' || b.kind === 'crystal') continue;
         if (Math.hypot(b.pos.x - center.x, b.pos.z - center.z) < s.radius + b.radius) {
           const dealt = b.takeDamage(s.damage, k);
           if (b.isPlayer && dealt > 0) this.number(b, dealt, '#ff6b6b');
@@ -836,7 +893,7 @@ export class ArenaSystem {
     this.game.combat.ring(u.pos, 0xffd27a, radius * 1.2, 0.4);
     events.emit('slam');
     for (const b of this.units) {
-      if (b === u || !this.targetable(b) || !this.isEnemy(u, b)) continue;
+      if (b === u || !this.targetable(b, u.team) || !this.isEnemy(u, b)) continue;
       if (edge(u, b) < radius) {
         const dealt = b.takeDamage(damage, u);
         if (u.isPlayer && dealt > 0) this.number(b, dealt, '#ffd27a');
@@ -950,7 +1007,7 @@ export class ArenaSystem {
     return {
       caster: { pos: u.pos, facing: u.facing, hit: u.atk, color },
       foes: r => this.units
-        .filter(b => this.targetable(b) && this.isEnemy(u, b) && b.kind !== 'tower' && b.kind !== 'crystal' && edge(u, b) <= r)
+        .filter(b => this.targetable(b, u.team) && this.isEnemy(u, b) && b.kind !== 'tower' && b.kind !== 'crystal' && edge(u, b) <= r)
         .sort((a, b) => dist(u, a) - dist(u, b))
         .map(foeAdapter),
       allies: r => this.units
@@ -1007,7 +1064,7 @@ export class ArenaSystem {
     for (let i = 0; i < 3; i++) u.skillCd[i] = Math.max(0, u.skillCd[i] - dt);
     if (u.skillCd.every(c => c > 0)) return;
     const hr = u.hp / u.maxHp;
-    const near = r => this.units.filter(b => this.targetable(b) && this.isEnemy(u, b) && b.kind !== 'tower' && b.kind !== 'crystal' && edge(u, b) <= r);
+    const near = r => this.units.filter(b => this.targetable(b, u.team) && this.isEnemy(u, b) && b.kind !== 'tower' && b.kind !== 'crystal' && edge(u, b) <= r);
     for (let i = 0; i < 3; i++) {
       if (u.skillCd[i] > 0) continue;
       const def = SKILLS[u.skillIds[i]];
@@ -1066,7 +1123,7 @@ export class ArenaSystem {
     this.ui.updateArena({
       kills: this.kills, time: this.time, towers: { blue: towers('blue'), red: towers('red') },
       spellCd: this.spellCd, skillIds: this.playerUnit.skillIds, respawn: this.respawnLeft, phase: this.phase,
-      units: this.units.filter(u => !u.dead || u.kind === 'hero').map(u => ({ x: u.pos.x - C.x, z: u.pos.z - C.z, team: u.team, kind: u.kind, dead: u.dead, me: u.isPlayer })),
+      units: this.units.filter(u => (!u.dead || u.kind === 'hero') && !this.hiddenFrom(u, 'blue')).map(u => ({ x: u.pos.x - C.x, z: u.pos.z - C.z, team: u.team, kind: u.kind, dead: u.dead, me: u.isPlayer })),
     });
   }
 }
