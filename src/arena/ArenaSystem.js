@@ -29,6 +29,7 @@ export class ArenaSystem {
     this.player = game.player;
     this.ui = game.ui;
     this.units = [];
+    this.threats = {}; this.planT = 0;
     this.active = false;
     this.phase = 'idle';   // countdown | playing | ended
     this.saved = null;     // состояние игрока в основной игре
@@ -105,6 +106,7 @@ export class ArenaSystem {
     this.phase = 'countdown';
     this.timer = ARENA.startDelay;
     this.waveTimer = 5;
+    this.planT = 0; this.threats = {};
     this.kingTimer = ARENA.kingFirstAt;
     this.kingIndex = 0;
     this.king = null;
@@ -620,6 +622,7 @@ export class ArenaSystem {
     } else if (this.phase === 'playing') {
       this.spawnLogic(dt);
       this.updateShields();
+      this.planBots(dt);
       this.playerAtkCd = Math.max(0, this.playerAtkCd - dt);
       for (let i = 0; i < 3; i++) this.spellCd[i] = Math.max(0, this.spellCd[i] - dt);
       const p = this.player, pu = this.playerUnit;
@@ -733,6 +736,79 @@ export class ArenaSystem {
     else if (this.time - u.lastHurt > 4) u.heal(4 * dt);
   }
 
+  // ---------- командное мышление ботов ----------
+
+  // Угроза на каждой линии для команды: враги на нашей половине минус свои + потерянные башни. hot — враг, глубже всех зашедший к нашей базе
+  laneThreats(team) {
+    const B = ARENA.botAI, sgn = SIGN[team], out = {};
+    for (const lane of LANES) {
+      const lx = C.x + ARENA.lanes[lane];
+      let threat = 0, hot = null, hotZ = -Infinity;
+      const mine = [];
+      for (const u of this.units) {
+        if (u.dead || u.team === 'neutral') continue;
+        const w = B.weights[u.kind];
+        if (!w || Math.abs(u.pos.x - lx) > B.corridor) continue;
+        const lz = (u.pos.z - C.z) * sgn;                       // больше нуля — наша половина карты
+        if (lz < -4) continue;
+        if (u.team === team) mine.push([u, w]);
+        else { threat += w; if (lz > hotZ) { hotZ = lz; hot = u; } }
+      }
+      // Свои силы засчитываем только рядом с местом прорыва
+      if (hot) for (const [u, w] of mine) if (dist(u, hot) < B.corridor + 3) threat -= w * 0.8;
+      threat = Math.max(0, threat);
+      // Разрушенные башни удаляются из списка, поэтому считаем, каких нет (угроза растёт, только если враг уже рядом)
+      B.towerLoss.forEach((loss, k) => {
+        if (!this.units.some(tw => tw.kind === 'tower' && tw.team === team && tw.lane === lane && tw.tier === k + 1 && !tw.dead) && hot) threat += loss;
+      });
+      out[lane] = { threat, hot };
+    }
+    return out;
+  }
+
+  // Раз в планEvery секунд: кого из ботов куда отправить (помощь линиям, оборона базы)
+  planBots(dt) {
+    this.planT -= dt;
+    if (this.planT > 0) return;
+    const B = ARENA.botAI;
+    this.planT = B.planEvery;
+    for (const team of ['blue', 'red']) {
+      const bots = this.units.filter(u => u.kind === 'hero' && u.team === team && !u.isPlayer && !u.dead);
+      for (const b of bots) { b.help = null; b.defend = null; }
+      const crystal = this.units.find(x => x.kind === 'crystal' && x.team === team && !x.dead);
+      this.threats[team] = this.laneThreats(team);
+      // Атака базы: все бросают линии и бьют ближайшего к кристаллу врага
+      if (crystal) {
+        let inv = null, invD = B.baseAlarm;
+        for (const u of this.units) {
+          if (u.dead || u.team !== OTHER[team] || !B.weights[u.kind]) continue;
+          const d = dist(u, crystal);
+          if (d < invD) { invD = d; inv = u; }
+        }
+        if (inv) { for (const b of bots) if (!b.retreat) b.defend = inv; return; }
+      }
+      // Помощь линиям: чем больше угрозы, тем больше помощников; уходят только с линий, где спокойнее
+      const lanes = LANES.map(l => ({ lane: l, ...this.threats[team][l] })).sort((a, b) => b.threat - a.threat);
+      const homeThreat = b => (b.lane === 'jungle' ? 0 : this.threats[team][b.lane]?.threat ?? 0);
+      for (const L of lanes) {
+        if (L.threat < B.perHelper) break;
+        const need = Math.min(B.maxHelpers, Math.floor(L.threat / B.perHelper));
+        let have = 0;                       // помощники сверх тех, что стоят на линии с начала
+        while (have < need) {
+          const spot = L.hot ? L.hot.pos : world(ARENA.lanes[L.lane], SIGN[team] * 20);
+          let best = null, bd = Infinity;
+          for (const b of bots) {
+            if (b.help || b.retreat || b.lane === L.lane || homeThreat(b) >= L.threat - 1) continue;
+            const d = Math.hypot(b.pos.x - spot.x, b.pos.z - spot.z);
+            if (d < bd) { bd = d; best = b; }
+          }
+          if (!best) break;
+          best.help = L.lane; have++;
+        }
+      }
+    }
+  }
+
   // Герой-бот
   thinkBot(u, dt) {
     if (u.dead) return;
@@ -749,9 +825,12 @@ export class ArenaSystem {
 
     this.botSkills(u, dt);
 
+    // Атака базы: все защищают кристалл
+    if (u.defend && !u.defend.dead) return this.engage(u, u.defend, dt);
+
     // Цель: герой (если здоров), потом крипы, потом постройки
     const bias = hr > 0.5 ? { hero: -3, minion: 0, monster: 1, king: 2, tower: 5, crystal: 5 } : { minion: 0, monster: 1, hero: 4, king: 6, tower: 6, crystal: 6 };
-    let role = u.lane;
+    let role = u.help ?? u.lane;
     if (role === 'jungle') {
       // Лесной бот: сначала лес, потом король
       if (this.king && this.king.team === 'neutral' && hr > 0.7 && this.time > ARENA.kingFirstAt - 5) {
@@ -769,6 +848,9 @@ export class ArenaSystem {
     }
     const target = this.findTarget(u, u.range + 3, bias);
     if (target && this.safeToEngage(u, target)) return this.engage(u, target, dt);
+    // Враг прорвался на нашу половину линии: идём бить его
+    const info = this.threats[u.team]?.[role];
+    if (info?.hot && !info.hot.dead && info.threat > 0 && this.safeToEngage(u, info.hot)) return this.engage(u, info.hot, dt);
     // Иначе идём за своими крипами по линии
     const path = lanePath(role, u.team);
     const anchor = this.laneAnchor(u, role, path);
