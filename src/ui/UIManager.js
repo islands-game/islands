@@ -3,6 +3,7 @@ import { t, setLang, getLang, LANGS } from '../config/i18n.js';
 import { SaveManager } from '../save/SaveManager.js';
 import { CloudPanel } from './CloudPanel.js';
 import { Intro } from './Intro.js';
+import { AiPanel } from './AiPanel.js';
 import { STORY_XP_SCALE } from '../config/story.js';
 import { RESOURCES, RESOURCE_ORDER } from '../config/resources.js';
 import { CREATURES, beastTitle } from '../config/creatures.js';
@@ -77,6 +78,7 @@ export class UIManager {
     this.$('tut-skip').onclick = onSkipTutorial;
     this.initSettings();
     this.cloudPanel = new CloudPanel(id => this.$(id), this);
+    this.aiPanel = new AiPanel(this);
     this.intro = new Intro(id => this.$(id), null);
     this.$('quest-where').onclick = e => { e.stopPropagation(); Settings.set({ guide: !Settings.get().guide }); };
     // Нажатие на задание показывает его целиком (в тесном окне текст обрезается), ещё одно нажатие закрывает
@@ -534,6 +536,7 @@ export class UIManager {
     this.$('btn-settings').textContent = `⚙ ${t('settings')}`;
     this.refreshSettings();
     this.cloudPanel?.render();
+    this.aiPanel?.relabel();
     this.itemsPanel?.render();
     this.bookPanel?.render();
     this.$('tut-title').textContent = t('tut.title');

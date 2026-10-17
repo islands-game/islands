@@ -415,3 +415,23 @@ button, .round, .icon, #btn-ability { touch-action: manipulation; }
 .hub-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 .hub-grid button { min-height: 44px; border-radius: 12px; background: #3d5a99; font-size: 14px; padding: 4px 8px; touch-action: manipulation; }
 .hub-note { margin-top: 8px; font-size: 12px; opacity: .8; }
+
+/* Заявки ИИ */
+#ai-panel { z-index: 60; }
+.ai-box { max-height: calc(100vh - 24px); overflow-y: auto; text-align: left; }
+.ai-box h2, .ai-box h3 { margin: 4px 0 6px; }
+.ai-intro { font-size: 13px; opacity: .9; margin: 4px 0 8px; }
+.ai-kinds { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.ai-kinds button { min-height: 40px; padding: 4px 10px; border-radius: 12px; background: #3d5a99; font-size: 14px; touch-action: manipulation; }
+.ai-kinds button.on { background: #ff9f43; color: #1b2540; }
+.ai-field { display: block; margin-bottom: 6px; font-size: 13px; }
+.ai-field span { display: block; color: #ffd166; margin-bottom: 2px; }
+.ai-field input, .ai-field textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 10px; border: 2px solid #ffffff44; background: #10202a; color: #fff; font: inherit; font-size: 15px; resize: vertical; user-select: text; -webkit-user-select: text; touch-action: manipulation; }
+.ai-meter { font-size: 15px; margin-top: 4px; }
+.ai-tip, .ai-warn, .ai-small { font-size: 12px; opacity: .85; margin: 2px 0; }
+.ai-msg { font-weight: 700; color: #ffd166; margin: 6px 0; }
+.ai-list { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; }
+.ai-row { position: relative; background: #ffffff1a; border-radius: 12px; padding: 8px 40px 8px 10px; }
+.ai-st { margin-left: 8px; font-size: 12px; padding: 1px 8px; border-radius: 8px; background: #3d5a99; }
+.ai-st.done { background: #2f9e44; } .ai-st.rejected { background: #a33; } .ai-st.working { background: #e69100; }
+.ai-del { position: absolute; right: 6px; top: 6px; width: 30px; height: 30px; border-radius: 8px; background: #a33; padding: 0; }
