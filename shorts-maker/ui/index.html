@@ -210,7 +210,13 @@ async function api(path, body) {
 async function busy(button, label, work) {
   const old = button.textContent;
   button.disabled = true; button.textContent = label; showError('');
+  const started = Date.now();
+  const timer = setInterval(() => {  // чтобы было видно, что программа не зависла
+    const seconds = Math.round((Date.now() - started) / 1000);
+    if (seconds >= 3) button.textContent = `${label} ${seconds} с`;
+  }, 1000);
   try { await work(); } catch (error) { showError(error.message); }
+  clearInterval(timer);
   button.disabled = false; button.textContent = old;
 }
 

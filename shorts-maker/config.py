@@ -36,6 +36,8 @@ TTS_RETRIES = 4
 
 # --- Генерация сценария ---
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
+GEMINI_FALLBACK_MODEL = "gemini-flash-lite-latest"
+GEMINI_TIMEOUT = 45  # секунд на одну модель
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.1")
 

@@ -55,16 +55,31 @@ def _gemini(prompt: str) -> str:
     key = keys.get("GEMINI_API_KEY")
     if not key:
         raise PipelineError("Нет ключа Gemini. Добавь его на вкладке «Ключи» или переменной GEMINI_API_KEY.")
-    data = _post(
-        f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent",
-        {"contents": [{"parts": [{"text": prompt}]}]},
-        headers={"x-goog-api-key": key},
-    )
-    try:
-        parts = data["candidates"][0]["content"]["parts"]
-        return "".join(part.get("text", "") for part in parts)
-    except (KeyError, IndexError) as error:
-        raise PipelineError(f"Gemini вернул пустой ответ: {str(data)[:400]}") from error
+    problem = ""
+    # если основная модель молчит или перегружена, пробуем более быструю
+    for model in dict.fromkeys((config.GEMINI_MODEL, config.GEMINI_FALLBACK_MODEL)):
+        try:
+            response = requests.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                json={"contents": [{"parts": [{"text": prompt}]}]},
+                headers={"x-goog-api-key": key}, timeout=config.GEMINI_TIMEOUT,
+            )
+        except requests.Timeout:
+            problem = f"нет ответа за {config.GEMINI_TIMEOUT} с"
+            continue
+        except requests.RequestException as error:
+            raise PipelineError(f"Нет связи с Google: {error}") from error
+        if response.status_code in (429, 500, 503, 504):
+            problem = "исчерпан бесплатный лимит" if response.status_code == 429 else "сервис перегружен"
+            continue
+        if not response.ok:
+            raise PipelineError(f"Gemini ответил {response.status_code}: {response.text[:400]}")
+        data = response.json()
+        try:
+            return "".join(part.get("text", "") for part in data["candidates"][0]["content"]["parts"])
+        except (KeyError, IndexError) as error:
+            raise PipelineError(f"Gemini вернул пустой ответ: {str(data)[:400]}") from error
+    raise PipelineError(f"Gemini не помог: {problem}. Подожди пару минут и попробуй ещё раз.")
 
 
 def _ollama(prompt: str) -> str:
