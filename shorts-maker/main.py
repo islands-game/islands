@@ -76,6 +76,10 @@ def build_parser() -> argparse.ArgumentParser:
     _common_options(clip)
 
     commands.add_parser("check", help="проверить окружение")
+
+    ui = commands.add_parser("ui", help="открыть интерфейс в браузере")
+    ui.add_argument("--port", type=int, default=8765)
+    ui.add_argument("--no-browser", action="store_true", help="не открывать браузер")
     return parser
 
 
@@ -191,6 +195,10 @@ def run(args: argparse.Namespace) -> int:
 
     if args.command == "check":
         return check_environment()
+    if args.command == "ui":
+        from src.webui import serve
+
+        return serve(args.port, open_browser=not args.no_browser)
     if args.command == "auto" and not args.list and args.llm == "gemini" and not os.environ.get("GEMINI_API_KEY"):
         raise PipelineError(
             "Для auto нужен GEMINI_API_KEY (или --llm ollama). Посмотреть темы без ключа: добавь --list."

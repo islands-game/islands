@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="token" content="__TOKEN__">
+<title>shorts-maker</title>
+<style>
+  :root { --bg:#10131a; --card:#1a1f2b; --line:#2c3445; --text:#eef1f7; --dim:#98a2b8; --accent:#ffd60a; --bad:#ff7b72; --ok:#5ee08a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.45 system-ui, "Segoe UI", sans-serif; }
+  .wrap { max-width:1100px; margin:0 auto; padding:16px; display:grid; gap:16px; grid-template-columns:minmax(0,1fr) 340px; }
+  header { grid-column:1/-1; display:flex; flex-wrap:wrap; gap:12px; align-items:baseline; }
+  h1 { margin:0; font-size:24px; } h1 b { color:var(--accent); }
+  h2 { margin:0 0 10px; font-size:17px; }
+  .dim { color:var(--dim); font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:16px; }
+  .tabs { display:flex; gap:8px; margin-bottom:12px; }
+  button, select, input, textarea { font:inherit; color:var(--text); background:#11151e; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  button { cursor:pointer; min-height:44px; } button:hover:not(:disabled) { border-color:var(--accent); }
+  button:disabled { opacity:.5; cursor:default; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#141414; font-weight:700; }
+  .tabs button { flex:1; } .tabs button[aria-selected=true] { border-color:var(--accent); color:var(--accent); font-weight:700; }
+  button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  textarea { width:100%; min-height:170px; resize:vertical; }
+  input, select { width:100%; min-height:44px; }
+  input[type=checkbox] { width:20px; min-height:20px; accent-color:var(--accent); }
+  input[type=range] { padding:0; accent-color:var(--accent); }
+  label { display:block; font-size:14px; color:var(--dim); } label > input, label > select { margin-top:4px; color:var(--text); font-size:16px; }
+  label.check { display:flex; gap:8px; align-items:center; color:var(--text); min-height:44px; }
+  .grid { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); margin-top:10px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; } .row > input { flex:1; min-width:180px; width:auto; }
+  .big { width:100%; font-size:18px; min-height:54px; }
+  details summary { cursor:pointer; color:var(--dim); min-height:32px; }
+  .topic { border-top:1px solid var(--line); padding:10px 0; display:flex; gap:10px; align-items:center; }
+  .topic div { flex:1; min-width:0; overflow-wrap:anywhere; }
+  .bar { height:10px; background:#11151e; border-radius:6px; overflow:hidden; margin:8px 0; }
+  .bar i { display:block; height:100%; width:0; background:var(--accent); transition:width .3s; }
+  .bar.wait i { width:35% !important; animation:slide 1.2s infinite ease-in-out; }
+  @keyframes slide { 0% { margin-left:-35%; } 100% { margin-left:100%; } }
+  pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:13px; color:var(--dim); max-height:140px; overflow:auto; margin:8px 0 0; }
+  video { width:100%; max-height:560px; aspect-ratio:9/16; background:#000; border-radius:10px; }
+  .videos button { width:100%; text-align:left; margin-top:6px; overflow-wrap:anywhere; font-size:14px; }
+  #error { position:sticky; top:8px; z-index:2; grid-column:1/-1; background:#3a1d22; border:1px solid var(--bad); border-radius:10px; padding:10px 14px; white-space:pre-wrap; cursor:pointer; }
+  [hidden] { display:none !important; }
+  @media (max-width:800px) { .wrap { grid-template-columns:minmax(0,1fr); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1><b>shorts</b>-maker</h1><span class="dim">вертикальные видео 9:16 — всё на этом компьютере</span></header>
+  <div id="error" role="alert" hidden></div>
+
+  <main>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="make">Из текста</button>
+      <button role="tab" data-tab="trends">Темы</button>
+      <button role="tab" data-tab="clip">Нарезка</button>
+    </div>
+
+    <section data-panel="make">
+      <div class="card">
+        <h2>Текст диктора</h2>
+        <textarea id="text" maxlength="8000" placeholder="Напиши, что должен сказать голос…"></textarea>
+        <div class="dim" id="count"></div>
+        <details>
+          <summary>Написать текст нейросетью</summary>
+          <div class="row"><input id="topic" maxlength="300" placeholder="Тема, например: почему коты мурлыкают"><button id="write">Написать</button></div>
+        </details>
+      </div>
+      <div class="card">
+        <h2>Голос и фон</h2>
+        <div class="grid">
+          <label>Голос<select id="voice"></select></label>
+          <label>Скорость речи: <span id="rateValue"></span><input type="range" id="rate" min="-20" max="40" value="8"></label>
+          <label>Фон<select id="background"></select></label>
+          <label>Музыка<select id="music"></select></label>
+        </div>
+        <div class="row">
+          <button data-open="backgrounds">Папка фонов</button>
+          <button data-open="music">Папка музыки</button>
+        </div>
+      </div>
+    </section>
+
+    <section data-panel="trends" hidden>
+      <div class="card">
+        <h2>Что сейчас обсуждают</h2>
+        <div class="grid">
+          <label>Где искать<select id="source"><option value="google">Google Trends</option><option value="reddit">Reddit (нужны ключи)</option></select></label>
+          <label id="geoBox">Страна<select id="geo"><option>US</option><option>GB</option><option>DE</option><option>RU</option><option>GE</option></select></label>
+          <label id="subBox" hidden>Сабреддит<input id="subreddit" value="AskReddit" maxlength="60"></label>
+        </div>
+        <div class="row"><button id="find" class="primary">Найти темы</button></div>
+        <div id="topics"></div>
+        <p class="dim">Выбранная тема превратится в текст на вкладке «Из текста». Прочитай и проверь его до сборки: нейросеть может ошибаться.</p>
+      </div>
+    </section>
+
+    <section data-panel="clip" hidden>
+      <div class="card">
+        <h2>Фрагмент из длинного видео</h2>
+        <label>Ссылка или путь к файлу<input id="clipSource" placeholder="https://… или D:\video\stream.mp4"></label>
+        <div class="grid">
+          <label>Начало<input id="start" placeholder="1:30"></label>
+          <label>Конец<input id="end" placeholder="2:15"></label>
+          <label>Язык речи<select id="clipLang"><option value="">определить самому</option><option value="ru">русский</option><option value="en">английский</option><option value="ka">грузинский</option></select></label>
+          <label>Точность распознавания<select id="model"><option value="tiny">tiny — быстро (75 МБ)</option><option value="base">base (145 МБ)</option><option value="small" selected>small — точнее (480 МБ)</option><option value="medium">medium — долго (1,5 ГБ)</option></select></label>
+        </div>
+        <label class="check"><input type="checkbox" id="subtitles" checked> Субтитры</label>
+        <p class="dim">Модель распознавания скачивается один раз при первом запуске. Бери только свои видео или те, на которые есть разрешение.</p>
+      </div>
+    </section>
+
+    <div class="card" id="common">
+      <details>
+        <summary>Настройки ролика и нейросети</summary>
+        <div class="grid">
+          <label>Субтитры<select id="subs"><option value="highlight">Подсветка слова</option><option value="karaoke">Караоке</option><option value="word">По одному слову</option></select></label>
+          <label>Кадров в секунду<select id="fps"><option>30</option><option>60</option></select></label>
+          <label>Нейросеть для текста<select id="llm"><option value="gemini">Gemini (нужен ключ)</option><option value="ollama">Ollama на компьютере</option></select></label>
+          <label>Язык текста<select id="language"><option>русский</option><option>english</option><option>ქართული</option></select></label>
+          <label>Ключ Gemini<input type="password" id="apiKey" autocomplete="off" placeholder="не сохраняется"></label>
+        </div>
+        <label class="check"><input type="checkbox" id="uniquify" checked> Лёгкий зум, цветокоррекция и скорость 1.01x</label>
+      </details>
+    </div>
+
+    <button id="create" class="primary big">Создать видео</button>
+  </main>
+
+  <aside>
+    <div class="card" id="jobCard" hidden>
+      <h2 id="jobTitle"></h2>
+      <div class="bar" id="bar"><i></i></div>
+      <pre id="log"></pre>
+      <div class="row"><button id="cancel">Отменить</button></div>
+    </div>
+    <div class="card">
+      <h2>Готовые видео</h2>
+      <video id="player" controls playsinline preload="metadata" hidden></video>
+      <div class="videos" id="videos"></div>
+      <div class="row"><button data-open="output">Открыть папку</button></div>
+    </div>
+  </aside>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const token = document.querySelector('meta[name=token]').content;
+let tab = 'make', topicKey = '', running = false, shown = '', listsKey = '';
+
+function showError(message) {
+  $('error').textContent = message + '\n(нажми, чтобы скрыть)';
+  $('error').hidden = !message;
+}
+$('error').onclick = () => $('error').hidden = true;
+
+async function api(path, body) {
+  let response;
+  try {
+    response = await fetch(path, body === undefined ? {} : {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Token': token }, body: JSON.stringify(body)
+    });
+  } catch { throw new Error('Программа не отвечает. Запусти интерфейс заново.'); }
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Ошибка ' + response.status);
+  return data;
+}
+
+async function busy(button, label, work) {
+  const old = button.textContent;
+  button.disabled = true; button.textContent = label; showError('');
+  try { await work(); } catch (error) { showError(error.message); }
+  button.disabled = false; button.textContent = old;
+}
+
+function setTab(name) {
+  tab = name;
+  document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name));
+  document.querySelectorAll('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== name);
+  $('create').hidden = name === 'trends';
+}
+document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+document.querySelectorAll('[data-open]').forEach(b => b.onclick = () =>
+  busy(b, 'Открываю…', () => api('/api/open', { folder: b.dataset.open })));
+
+function updateCount() {
+  const words = $('text').value.trim().split(/\s+/).filter(Boolean).length;
+  $('count').textContent = words ? `${words} слов ≈ ${Math.max(1, Math.round(words / 2.4))} с` : '';
+  $('rateValue').textContent = ($('rate').value > 0 ? '+' : '') + $('rate').value + '%';
+}
+$('text').oninput = () => { if (!$('text').value.trim()) topicKey = ''; updateCount(); };
+$('rate').oninput = updateCount;
+
+function options(select, items, first) {
+  const old = select.value;
+  select.replaceChildren(...[...first, ...items.map(i => [i, i])].map(([value, label]) => new Option(label, value)));
+  if ([...select.options].some(o => o.value === old)) select.value = old;
+}
+
+function play(name) {
+  shown = name;
+  $('player').hidden = false;
+  $('player').src = '/video/' + encodeURIComponent(name);
+}
+
+function render(state) {
+  const key = JSON.stringify([state.backgrounds, state.music, state.videos]);
+  if (!$('voice').options.length) {
+    const names = { dmitry: 'Дмитрий (рус.)', svetlana: 'Светлана (рус.)', christopher: 'Christopher (англ.)', andrew: 'Andrew (многоязычный)', emma: 'Emma (многоязычная)' };
+    $('voice').replaceChildren(...Object.keys(state.voices).map(v => new Option(names[v] || v, v)));
+    if (state.envKey) $('apiKey').placeholder = 'уже задан в системе';
+  }
+  if (key !== listsKey) {
+    listsKey = key;
+    options($('background'), state.backgrounds, [['', state.backgrounds.length ? 'случайный' : 'нет файлов — добавь в папку']]);
+    options($('music'), state.music, [['', state.music.length ? 'случайная' : 'папка пуста'], ['-', 'без музыки']]);
+    $('videos').replaceChildren(...state.videos.map(video => {
+      const button = document.createElement('button');
+      button.textContent = `▶ ${video.time} · ${video.name} (${(video.size / 1e6).toFixed(1)} МБ)`;
+      button.onclick = () => play(video.name);
+      return button;
+    }));
+    if (!state.videos.length) $('videos').textContent = 'Пока пусто.';
+    else if (!shown) play(state.videos[0].name);
+  }
+  const job = state.job;
+  const wasRunning = running;
+  running = job?.state === 'running';
+  $('create').disabled = running;
+  $('create').textContent = running ? 'Идёт сборка…' : 'Создать видео';
+  $('jobCard').hidden = !job;
+  if (!job) return;
+  $('jobTitle').textContent = { running: job.stage + (job.percent === null ? '…' : ` — ${job.percent}%`), done: '✅ Готово', error: '❌ Не получилось', cancelled: 'Отменено' }[job.state];
+  $('jobTitle').style.color = { done: 'var(--ok)', error: 'var(--bad)' }[job.state] || '';
+  $('bar').hidden = !running;
+  $('bar').classList.toggle('wait', running && job.percent === null);
+  $('bar').firstElementChild.style.width = (job.percent || 0) + '%';
+  $('log').textContent = job.log.join('\n');
+  $('cancel').hidden = !running;
+  if (wasRunning && job.state === 'done') play(job.file);
+}
+
+async function refresh() {
+  try { render(await api('/api/state')); } catch (error) { showError(error.message); }
+}
+async function poll() {
+  await refresh();
+  setTimeout(poll, running ? 700 : 4000);
+}
+
+$('create').onclick = async () => {
+  showError('');
+  const body = { kind: tab, subs: $('subs').value, fps: Number($('fps').value), uniquify: $('uniquify').checked };
+  if (tab === 'make') Object.assign(body, {
+    text: $('text').value, voice: $('voice').value, rate: Number($('rate').value), background: $('background').value,
+    music: $('music').value === '-' ? '' : $('music').value, noMusic: $('music').value === '-', topicKey
+  });
+  else Object.assign(body, {
+    source: $('clipSource').value, start: $('start').value, end: $('end').value,
+    model: $('model').value, language: $('clipLang').value, subtitles: $('subtitles').checked
+  });
+  $('create').disabled = true;
+  try { await api('/api/start', body); } catch (error) { showError(error.message); $('create').disabled = false; return; }
+  await refresh();
+  $('jobCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+$('cancel').onclick = () => busy($('cancel'), 'Отменяю…', async () => { await api('/api/cancel', {}); await refresh(); });
+
+async function writeScript(extra) {
+  const data = await api('/api/script', { llm: $('llm').value, language: $('language').value, apiKey: $('apiKey').value, ...extra });
+  $('text').value = data.text;
+  updateCount();
+}
+$('write').onclick = () => busy($('write'), 'Пишу…', async () => { await writeScript({ topic: $('topic').value }); topicKey = ''; });
+
+$('source').onchange = () => {
+  const reddit = $('source').value === 'reddit';
+  $('geoBox').hidden = reddit; $('subBox').hidden = !reddit;
+  $('topics').replaceChildren();
+};
+$('find').onclick = () => busy($('find'), 'Ищу…', async () => {
+  $('topics').replaceChildren();
+  const { items } = await api('/api/trends', { source: $('source').value, geo: $('geo').value, subreddit: $('subreddit').value });
+  if (!items.length) $('topics').textContent = 'Ничего не нашлось.';
+  for (const item of items) {
+    const row = document.createElement('div'), info = document.createElement('div'),
+      title = document.createElement('strong'), details = document.createElement('div'), button = document.createElement('button');
+    row.className = 'topic'; details.className = 'dim';
+    title.textContent = item.title;  // только textContent: это чужой текст из интернета
+    details.textContent = [item.used ? 'уже использована' : '', item.info, item.details].filter(Boolean).join(' · ');
+    button.textContent = 'Взять';
+    button.onclick = () => busy(button, 'Пишу…', async () => {
+      await writeScript({ material: item.material });
+      topicKey = item.key;
+      setTab('make');
+    });
+    info.append(title, details); row.append(info, button); $('topics').append(row);
+  }
+});
+
+setTab('make');
+updateCount();
+poll();
+</script>
+</body>
+</html>

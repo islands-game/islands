@@ -60,6 +60,17 @@ python tools/download_assets.py
 (например, геймплей своей игры). Без интернета: `python tools/download_assets.py --generate` нарисует градиент.
 Музыку (mp3, wav, m4a…), на которую у тебя есть права, клади в `assets/music/`.
 
+## Интерфейс (самый простой способ)
+
+Дважды щёлкни **`Открыть shorts-maker.bat`** (или `python main.py ui`) — откроется страница в браузере.
+Чёрное окно не закрывай, пока пользуешься: это и есть программа.
+
+- **Из текста** — напиши текст, выбери голос и фон, нажми «Создать видео».
+- **Темы** — найди тему, нажми «Взять», проверь получившийся текст и собери ролик.
+- **Нарезка** — ссылка или путь к файлу, начало и конец.
+
+Страница доступна только с этого компьютера (`127.0.0.1`). Ключ Gemini из поля на странице не сохраняется.
+
 ## Видео из текста
 
 ```powershell
@@ -192,6 +203,7 @@ src/tts.py           edge-tts и таймкоды слов
 src/subtitles.py     сборка .ass
 src/video_editor.py  монтаж на FFmpeg
 src/clipper.py       yt-dlp + faster-whisper
+src/webui.py         локальный веб-интерфейс (страница ui/index.html)
 src/script_gen.py    Gemini / Ollama / очистка текста
 src/trend_finder.py  темы из Reddit и Google Trends
 src/ffmpeg_utils.py  поиск и запуск FFmpeg, прогресс

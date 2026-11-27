@@ -36,8 +36,8 @@ def _post(url: str, payload: dict, headers: dict | None = None, timeout: int = 1
     return response.json()
 
 
-def _gemini(prompt: str) -> str:
-    key = os.environ.get("GEMINI_API_KEY")
+def _gemini(prompt: str, api_key: str | None = None) -> str:
+    key = api_key or os.environ.get("GEMINI_API_KEY")
     if not key:
         raise PipelineError("Задай переменную окружения GEMINI_API_KEY (бесплатный ключ из Google AI Studio).")
     data = _post(
@@ -79,24 +79,27 @@ ADAPT_PROMPT = (
 WORDS_PER_SECOND = 2.4
 
 
-def _ask(prompt: str, provider: str) -> str:
+def _ask(prompt: str, provider: str, api_key: str | None = None) -> str:
     providers = {"gemini": _gemini, "ollama": _ollama}
     if provider not in providers:
         raise PipelineError(f"Неизвестный генератор: {provider}")
-    text = clean_text(providers[provider](prompt))
+    extra = {"api_key": api_key} if provider == "gemini" and api_key else {}
+    text = clean_text(providers[provider](prompt, **extra))
     if not text:
         raise PipelineError("Генератор вернул пустой текст.")
     return text
 
 
-def generate_script(topic: str, provider: str, language: str = "русский", words: int = 90) -> str:
-    return _ask(PROMPT.format(topic=topic, language=language, words=words), provider)
+def generate_script(topic: str, provider: str, language: str = "русский", words: int = 90,
+                    api_key: str | None = None) -> str:
+    return _ask(PROMPT.format(topic=topic, language=language, words=words), provider, api_key)
 
 
-def adapt_story(material: str, provider: str, language: str = "русский", seconds: int = 45) -> str:
+def adapt_story(material: str, provider: str, language: str = "русский", seconds: int = 45,
+                api_key: str | None = None) -> str:
     """Адаптирует найденный пост или тему под сценарий заданной длины."""
     material = material.replace("<материал>", "").replace("</материал>", "")[:8000]
     prompt = ADAPT_PROMPT.format(
         seconds=seconds, words=round(seconds * WORDS_PER_SECOND), language=language, material=material
     )
-    return _ask(prompt, provider)
+    return _ask(prompt, provider, api_key)
