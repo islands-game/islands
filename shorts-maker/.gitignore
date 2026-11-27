@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+.env
+# медиафайлы и результаты не храним в git
+assets/backgrounds/*
+assets/music/*
+assets/fonts/*
+output/*
+temp/*
+!**/.gitkeep

@@ -1,0 +1,13 @@
+# Python 3.12 – 3.14, Windows / Linux / macOS
+edge-tts==7.3.1
+tqdm==4.70.1
+requests==2.34.2
+# встроенный FFmpeg: запасной вариант, если в системе его нет
+imageio-ffmpeg==0.8.2
+# режим clip
+yt-dlp[default]==2026.11.23
+faster-whisper==1.2.1
+ctranslate2==4.9.1
+onnxruntime==1.32.0
+av==19.0.2
+tokenizers==0.23.3
