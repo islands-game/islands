@@ -1,13 +1,12 @@
 """Сценарий: вручную (текст/файл), через Gemini API или локальный Ollama."""
 from __future__ import annotations
 
-import os
 import re
 
 import requests
 
 import config
-from src import PipelineError
+from src import PipelineError, keys
 
 PROMPT = (
     "Напиши текст для озвучки вертикального видео на тему: «{topic}». "
@@ -15,6 +14,22 @@ PROMPT = (
     "Пиши простыми короткими предложениями. Верни только текст диктора: "
     "без заголовков, ремарок, списков, эмодзи и разметки."
 )
+
+
+def check_gemini() -> None:
+    """Проверяет ключ запросом списка моделей: текст не отправляется."""
+    key = keys.get("GEMINI_API_KEY")
+    if not key:
+        raise PipelineError("Ключ Gemini не задан.")
+    try:
+        response = requests.get(
+            "https://generativelanguage.googleapis.com/v1beta/models",
+            params={"pageSize": 1}, headers={"x-goog-api-key": key}, timeout=30,
+        )
+    except requests.RequestException as error:
+        raise PipelineError(f"Нет связи с Google: {error}") from error
+    if not response.ok:
+        raise PipelineError(f"Google не принял ключ (код {response.status_code}).")
 
 
 def clean_text(text: str) -> str:
@@ -36,10 +51,10 @@ def _post(url: str, payload: dict, headers: dict | None = None, timeout: int = 1
     return response.json()
 
 
-def _gemini(prompt: str, api_key: str | None = None) -> str:
-    key = api_key or os.environ.get("GEMINI_API_KEY")
+def _gemini(prompt: str) -> str:
+    key = keys.get("GEMINI_API_KEY")
     if not key:
-        raise PipelineError("Задай переменную окружения GEMINI_API_KEY (бесплатный ключ из Google AI Studio).")
+        raise PipelineError("Нет ключа Gemini. Добавь его на вкладке «Ключи» или переменной GEMINI_API_KEY.")
     data = _post(
         f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent",
         {"contents": [{"parts": [{"text": prompt}]}]},
@@ -79,27 +94,24 @@ ADAPT_PROMPT = (
 WORDS_PER_SECOND = 2.4
 
 
-def _ask(prompt: str, provider: str, api_key: str | None = None) -> str:
+def _ask(prompt: str, provider: str) -> str:
     providers = {"gemini": _gemini, "ollama": _ollama}
     if provider not in providers:
         raise PipelineError(f"Неизвестный генератор: {provider}")
-    extra = {"api_key": api_key} if provider == "gemini" and api_key else {}
-    text = clean_text(providers[provider](prompt, **extra))
+    text = clean_text(providers[provider](prompt))
     if not text:
         raise PipelineError("Генератор вернул пустой текст.")
     return text
 
 
-def generate_script(topic: str, provider: str, language: str = "русский", words: int = 90,
-                    api_key: str | None = None) -> str:
-    return _ask(PROMPT.format(topic=topic, language=language, words=words), provider, api_key)
+def generate_script(topic: str, provider: str, language: str = "русский", words: int = 90) -> str:
+    return _ask(PROMPT.format(topic=topic, language=language, words=words), provider)
 
 
-def adapt_story(material: str, provider: str, language: str = "русский", seconds: int = 45,
-                api_key: str | None = None) -> str:
+def adapt_story(material: str, provider: str, language: str = "русский", seconds: int = 45) -> str:
     """Адаптирует найденный пост или тему под сценарий заданной длины."""
     material = material.replace("<материал>", "").replace("</материал>", "")[:8000]
     prompt = ADAPT_PROMPT.format(
         seconds=seconds, words=round(seconds * WORDS_PER_SECOND), language=language, material=material
     )
-    return _ask(prompt, provider, api_key)
+    return _ask(prompt, provider)

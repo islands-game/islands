@@ -23,7 +23,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 import config
-from src import PipelineError
+from src import PipelineError, keys
 
 PAGE = config.ROOT / "ui" / "index.html"
 TOKEN = secrets.token_urlsafe(24)  # чужая страница в браузере не сможет слать нам команды
@@ -144,7 +144,7 @@ class App:
             "videos": [{"name": p.name, "size": p.stat().st_size,
                         "time": time.strftime("%d.%m %H:%M", time.localtime(p.stat().st_mtime))}
                        for p in videos[:30]],
-            "envKey": bool(os.environ.get("GEMINI_API_KEY")),
+            "keys": keys.status(),
             "job": self.job.status() if self.job else None,
         }
 
@@ -233,14 +233,33 @@ class App:
 
         provider = _choice(data, "llm", ("gemini", "ollama"), "gemini")
         language = _choice(data, "language", ("русский", "english", "ქართული"), "русский")
-        key = _text(data, "apiKey", 200) or None  # живёт только на время запроса
         material = _text(data, "material", 8000)
         if material:
-            return {"text": adapt_story(material, provider, language, 45, api_key=key)}
+            return {"text": adapt_story(material, provider, language, 45)}
         topic = _text(data, "topic", 300)
         if not topic:
             raise PipelineError("Напиши тему.")
-        return {"text": generate_script(topic, provider, language, 100, api_key=key)}
+        return {"text": generate_script(topic, provider, language, 100)}
+
+    def save_keys(self, data: dict) -> dict:
+        keys.save({name: _text(data, name, 300) for name in keys.NAMES if name in data})
+        return {"keys": keys.status()}
+
+    def delete_keys(self, data: dict) -> dict:
+        service = _choice(data, "service", ("gemini", "reddit"), "gemini")
+        keys.delete(tuple(n for n in keys.NAMES if n.startswith(service.upper())))
+        return {"keys": keys.status()}
+
+    def check_key(self, data: dict) -> dict:
+        if _choice(data, "service", ("gemini", "reddit"), "gemini") == "gemini":
+            from src.script_gen import check_gemini
+
+            check_gemini()
+        else:
+            from src.trend_finder import check_reddit
+
+            check_reddit()
+        return {}
 
     def open_folder(self, data: dict) -> dict:
         folder = FOLDERS[_choice(data, "folder", tuple(FOLDERS), "output")]
@@ -330,7 +349,9 @@ class Handler(BaseHTTPRequestHandler):
         if not self._local_host() or self.headers.get("X-Token") != TOKEN:
             return self._json({"error": "Обнови страницу (F5)."}, HTTPStatus.FORBIDDEN)
         actions = {"/api/start": self.app.start, "/api/cancel": self.app.cancel, "/api/trends": self.app.trends,
-                   "/api/script": self.app.script, "/api/open": self.app.open_folder}
+                   "/api/script": self.app.script, "/api/open": self.app.open_folder,
+                   "/api/keys/save": self.app.save_keys, "/api/keys/delete": self.app.delete_keys,
+                   "/api/keys/check": self.app.check_key}
         action = actions.get(self.path)
         if not action:
             return self._json({"error": "не найдено"}, HTTPStatus.NOT_FOUND)

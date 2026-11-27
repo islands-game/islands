@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import html
 import json
-import os
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
@@ -17,7 +16,7 @@ from pathlib import Path
 import requests
 
 import config
-from src import PipelineError
+from src import PipelineError, keys
 
 HEADERS = {"User-Agent": "shorts-maker/1.0"}
 TIME_FILTERS = ("hour", "day", "week", "month", "year", "all")
@@ -46,7 +45,7 @@ class Trend:
 # --- Reddit ---------------------------------------------------------------
 
 def _reddit_token() -> str | None:
-    client, secret = os.environ.get("REDDIT_CLIENT_ID"), os.environ.get("REDDIT_CLIENT_SECRET")
+    client, secret = keys.get("REDDIT_CLIENT_ID"), keys.get("REDDIT_CLIENT_SECRET")
     if not client or not secret:
         return None
     response = requests.post(
@@ -57,6 +56,16 @@ def _reddit_token() -> str | None:
     if not response.ok or "access_token" not in response.json():
         raise PipelineError(f"Reddit не принял REDDIT_CLIENT_ID/SECRET (код {response.status_code}).")
     return response.json()["access_token"]
+
+
+def check_reddit() -> None:
+    try:
+        if not _reddit_token():
+            raise PipelineError("Нужны оба ключа Reddit: ID и Secret.")
+    except requests.RequestException as error:
+        raise PipelineError(f"Нет связи с Reddit: {error}") from error
+    except ValueError as error:
+        raise PipelineError("Reddit вернул не JSON — повтори позже.") from error
 
 
 def _reddit_listing(subreddit: str, time_filter: str) -> dict:
@@ -72,7 +81,7 @@ def _reddit_listing(subreddit: str, time_filter: str) -> dict:
         if response.status_code in (403, 429):
             raise PipelineError(
                 f"Reddit отказал в доступе (код {response.status_code}). Без регистрации публичный JSON "
-                "часто закрыт: задай REDDIT_CLIENT_ID и REDDIT_CLIENT_SECRET (см. README) или повтори позже."
+                "часто закрыт: добавь ключи Reddit на вкладке «Ключи» (см. README) или повтори позже."
             )
         response.raise_for_status()
         return response.json()

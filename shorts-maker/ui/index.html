@@ -30,6 +30,9 @@
   label.check { display:flex; gap:8px; align-items:center; color:var(--text); min-height:44px; }
   .grid { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); margin-top:10px; }
   .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; } .row > input { flex:1; min-width:180px; width:auto; }
+  a { color:var(--accent); overflow-wrap:anywhere; }
+  .badge { font-size:13px; font-weight:400; color:var(--dim); } .badge.on { color:var(--ok); }
+  .tabs button { padding:10px 4px; }
   .big { width:100%; font-size:18px; min-height:54px; }
   details summary { cursor:pointer; color:var(--dim); min-height:32px; }
   .topic { border-top:1px solid var(--line); padding:10px 0; display:flex; gap:10px; align-items:center; }
@@ -56,6 +59,7 @@
       <button role="tab" data-tab="make">Из текста</button>
       <button role="tab" data-tab="trends">Темы</button>
       <button role="tab" data-tab="clip">Нарезка</button>
+      <button role="tab" data-tab="keys">Ключи</button>
     </div>
 
     <section data-panel="make">
@@ -112,6 +116,37 @@
       </div>
     </section>
 
+    <section data-panel="keys" hidden>
+      <div class="card">
+        <h2>Gemini <span class="badge" id="geminiState"></span></h2>
+        <p class="dim">Нужен, чтобы нейросеть писала тексты. Бесплатный ключ:
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">aistudio.google.com/apikey</a></p>
+        <label>Ключ API<input type="password" data-key="GEMINI_API_KEY" autocomplete="off" spellcheck="false"></label>
+        <div class="row">
+          <button class="primary" data-save="gemini">Сохранить</button>
+          <button data-check="gemini">Проверить</button>
+          <button data-delete="gemini">Удалить</button>
+        </div>
+        <p class="dim" id="geminiResult" role="status"></p>
+      </div>
+      <div class="card">
+        <h2>Reddit <span class="badge" id="redditState"></span></h2>
+        <p class="dim">Нужен только для тем из Reddit. Создай приложение типа «script»:
+          <a href="https://www.reddit.com/prefs/apps" target="_blank" rel="noopener noreferrer">reddit.com/prefs/apps</a></p>
+        <div class="grid">
+          <label>ID приложения<input type="password" data-key="REDDIT_CLIENT_ID" autocomplete="off" spellcheck="false"></label>
+          <label>Secret<input type="password" data-key="REDDIT_CLIENT_SECRET" autocomplete="off" spellcheck="false"></label>
+        </div>
+        <div class="row">
+          <button class="primary" data-save="reddit">Сохранить</button>
+          <button data-check="reddit">Проверить</button>
+          <button data-delete="reddit">Удалить</button>
+        </div>
+        <p class="dim" id="redditResult" role="status"></p>
+      </div>
+      <p class="dim">Ключи хранятся только на этом компьютере, зашифрованными, вне папки проекта. Ключ — это как пароль: не показывай его и никому не присылай. Если тебе нет 18, регистрацию оформляет взрослый.</p>
+    </section>
+
     <div class="card" id="common">
       <details>
         <summary>Настройки ролика и нейросети</summary>
@@ -120,7 +155,6 @@
           <label>Кадров в секунду<select id="fps"><option>30</option><option>60</option></select></label>
           <label>Нейросеть для текста<select id="llm"><option value="gemini">Gemini (нужен ключ)</option><option value="ollama">Ollama на компьютере</option></select></label>
           <label>Язык текста<select id="language"><option>русский</option><option>english</option><option>ქართული</option></select></label>
-          <label>Ключ Gemini<input type="password" id="apiKey" autocomplete="off" placeholder="не сохраняется"></label>
         </div>
         <label class="check"><input type="checkbox" id="uniquify" checked> Лёгкий зум, цветокоррекция и скорость 1.01x</label>
       </details>
@@ -179,7 +213,8 @@ function setTab(name) {
   tab = name;
   document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name));
   document.querySelectorAll('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== name);
-  $('create').hidden = name === 'trends';
+  $('create').hidden = name === 'trends' || name === 'keys';
+  $('common').hidden = name === 'keys';
 }
 document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => setTab(b.dataset.tab));
 document.querySelectorAll('[data-open]').forEach(b => b.onclick = () =>
@@ -205,13 +240,52 @@ function play(name) {
   $('player').src = '/video/' + encodeURIComponent(name);
 }
 
+const services = { gemini: ['GEMINI_API_KEY'], reddit: ['REDDIT_CLIENT_ID', 'REDDIT_CLIENT_SECRET'] };
+
+function showKeys(keys) {
+  for (const [service, names] of Object.entries(services)) {
+    const ready = names.every(n => keys[n]);
+    $(service + 'State').textContent = ready ? (names.some(n => keys[n] === 'system') ? '✓ задан в системе' : '✓ сохранён') : 'не задан';
+    $(service + 'State').classList.toggle('on', ready);
+    for (const name of names) {
+      document.querySelector(`[data-key=${name}]`).placeholder =
+        keys[name] === 'system' ? 'задан переменной в системе' : keys[name] ? 'сохранён — вставь новый, чтобы заменить' : 'вставь сюда';
+    }
+  }
+}
+
+document.querySelectorAll('[data-save]').forEach(button => button.onclick = () => busy(button, 'Сохраняю…', async () => {
+  const service = button.dataset.save;
+  const inputs = services[service].map(n => document.querySelector(`[data-key=${n}]`));
+  $(service + 'Result').textContent = '';
+  if (!inputs.some(i => i.value.trim())) throw new Error('Сначала вставь ключ в поле.');
+  const data = await api('/api/keys/save', Object.fromEntries(inputs.map(i => [i.dataset.key, i.value])));
+  inputs.forEach(i => i.value = '');
+  showKeys(data.keys);
+  $(service + 'Result').textContent = 'Сохранено. Нажми «Проверить».';
+}));
+document.querySelectorAll('[data-check]').forEach(button => button.onclick = () => busy(button, 'Проверяю…', async () => {
+  const service = button.dataset.check;
+  $(service + 'Result').textContent = '';
+  await api('/api/keys/check', { service });
+  $(service + 'Result').textContent = '✅ Ключ работает.';
+}));
+document.querySelectorAll('[data-delete]').forEach(button => button.onclick = () => {
+  const service = button.dataset.delete;
+  if (!confirm('Удалить сохранённый ключ?')) return;
+  busy(button, 'Удаляю…', async () => {
+    showKeys((await api('/api/keys/delete', { service })).keys);
+    $(service + 'Result').textContent = 'Сохранённый ключ удалён.';
+  });
+});
+
 function render(state) {
   const key = JSON.stringify([state.backgrounds, state.music, state.videos]);
   if (!$('voice').options.length) {
     const names = { dmitry: 'Дмитрий (рус.)', svetlana: 'Светлана (рус.)', christopher: 'Christopher (англ.)', andrew: 'Andrew (многоязычный)', emma: 'Emma (многоязычная)' };
     $('voice').replaceChildren(...Object.keys(state.voices).map(v => new Option(names[v] || v, v)));
-    if (state.envKey) $('apiKey').placeholder = 'уже задан в системе';
   }
+  showKeys(state.keys);
   if (key !== listsKey) {
     listsKey = key;
     options($('background'), state.backgrounds, [['', state.backgrounds.length ? 'случайный' : 'нет файлов — добавь в папку']]);
@@ -269,7 +343,7 @@ $('create').onclick = async () => {
 $('cancel').onclick = () => busy($('cancel'), 'Отменяю…', async () => { await api('/api/cancel', {}); await refresh(); });
 
 async function writeScript(extra) {
-  const data = await api('/api/script', { llm: $('llm').value, language: $('language').value, apiKey: $('apiKey').value, ...extra });
+  const data = await api('/api/script', { llm: $('llm').value, language: $('language').value, ...extra });
   $('text').value = data.text;
   updateCount();
 }

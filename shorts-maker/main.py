@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import argparse
-import os
 import shutil
 import sys
 import time
@@ -191,7 +190,7 @@ def run_auto(args: argparse.Namespace, output: Path, job_dir: Path,
 
 
 def run(args: argparse.Namespace) -> int:
-    from src import PipelineError
+    from src import PipelineError, keys
 
     if args.command == "check":
         return check_environment()
@@ -199,9 +198,10 @@ def run(args: argparse.Namespace) -> int:
         from src.webui import serve
 
         return serve(args.port, open_browser=not args.no_browser)
-    if args.command == "auto" and not args.list and args.llm == "gemini" and not os.environ.get("GEMINI_API_KEY"):
+    if args.command == "auto" and not args.list and args.llm == "gemini" and not keys.get("GEMINI_API_KEY"):
         raise PipelineError(
-            "Для auto нужен GEMINI_API_KEY (или --llm ollama). Посмотреть темы без ключа: добавь --list."
+            "Для auto нужен ключ Gemini (вкладка «Ключи» или GEMINI_API_KEY) либо --llm ollama. "
+            "Посмотреть темы без ключа: добавь --list."
         )
 
     settings = RenderSettings(fps=args.fps, uniquify=not args.no_uniquify)
