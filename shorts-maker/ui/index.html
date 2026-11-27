@@ -33,6 +33,7 @@
   a { color:var(--accent); overflow-wrap:anywhere; }
   .badge { font-size:13px; font-weight:400; color:var(--dim); } .badge.on { color:var(--ok); }
   .tabs button { padding:10px 4px; }
+  #chips button[aria-pressed=true] { border-color:var(--accent); color:var(--accent); }
   .big { width:100%; font-size:18px; min-height:54px; }
   details summary { cursor:pointer; color:var(--dim); min-height:32px; }
   .topic { border-top:1px solid var(--line); padding:10px 0; display:flex; gap:10px; align-items:center; }
@@ -89,13 +90,17 @@
 
     <section data-panel="trends" hidden>
       <div class="card">
-        <h2>Что сейчас обсуждают</h2>
+        <h2>О чём снять ролик</h2>
         <div class="grid">
-          <label>Где искать<select id="source"><option value="google">Google Trends</option><option value="reddit">Reddit (нужны ключи)</option></select></label>
-          <label id="geoBox">Страна<select id="geo"><option>US</option><option>GB</option><option>DE</option><option>RU</option><option>GE</option></select></label>
+          <label>Откуда брать<select id="source"><option value="ideas">Идеи по интересам</option><option value="google">Новости (Google Trends)</option><option value="reddit">Reddit (нужны ключи)</option></select></label>
+          <label id="geoBox" hidden>Страна<select id="geo"><option>US</option><option>GB</option><option>DE</option><option>RU</option><option>GE</option></select></label>
           <label id="subBox" hidden>Сабреддит<input id="subreddit" value="AskReddit" maxlength="60"></label>
         </div>
-        <div class="row"><button id="find" class="primary">Найти темы</button></div>
+        <div id="ideaBox">
+          <div class="row" id="chips"></div>
+          <div class="row"><input id="interest" maxlength="200" placeholder="Или напиши своё: например, про акул"></div>
+        </div>
+        <div class="row"><button id="find" class="primary">Придумать идеи</button></div>
         <div id="topics"></div>
         <p class="dim">Выбранная тема превратится в текст на вкладке «Из текста». Прочитай и проверь его до сборки: нейросеть может ошибаться.</p>
       </div>
@@ -285,7 +290,9 @@ function render(state) {
     const names = { dmitry: 'Дмитрий (рус.)', svetlana: 'Светлана (рус.)', christopher: 'Christopher (англ.)', andrew: 'Andrew (многоязычный)', emma: 'Emma (многоязычная)' };
     $('voice').replaceChildren(...Object.keys(state.voices).map(v => new Option(names[v] || v, v)));
   }
-  showKeys(state.keys);
+  // страница читается с диска заново, а программа в памяти может остаться старой
+  if (state.keys) showKeys(state.keys);
+  if (state.api !== 2 && $('error').hidden) showError('Программа запущена в старой версии. Закрой чёрное окно и запусти «Открыть shorts-maker.bat» заново, потом обнови страницу.');
   if (key !== listsKey) {
     listsKey = key;
     options($('background'), state.backgrounds, [['', state.backgrounds.length ? 'случайный' : 'нет файлов — добавь в папку']]);
@@ -350,13 +357,32 @@ async function writeScript(extra) {
 $('write').onclick = () => busy($('write'), 'Пишу…', async () => { await writeScript({ topic: $('topic').value }); topicKey = ''; });
 
 $('source').onchange = () => {
-  const reddit = $('source').value === 'reddit';
-  $('geoBox').hidden = reddit; $('subBox').hidden = !reddit;
+  const source = $('source').value;
+  $('ideaBox').hidden = source !== 'ideas';
+  $('geoBox').hidden = source !== 'google';
+  $('subBox').hidden = source !== 'reddit';
+  $('find').textContent = source === 'ideas' ? 'Придумать идеи' : 'Найти темы';
   $('topics').replaceChildren();
 };
-$('find').onclick = () => busy($('find'), 'Ищу…', async () => {
+
+for (const name of ['Игры', 'Космос', 'Животные', 'Выживание', 'Загадки', 'История', 'Океан', 'Наука']) {
+  const chip = document.createElement('button');
+  chip.textContent = name;
+  chip.setAttribute('aria-pressed', false);
+  chip.onclick = () => {
+    $('interest').value = name;
+    document.querySelectorAll('#chips button').forEach(b => b.setAttribute('aria-pressed', b === chip));
+    if (!$('find').disabled) $('find').click();
+  };
+  $('chips').append(chip);
+}
+$('interest').oninput = () => document.querySelectorAll('#chips button').forEach(b => b.setAttribute('aria-pressed', false));
+$('find').onclick = () => busy($('find'), 'Думаю…', async () => {
   $('topics').replaceChildren();
-  const { items } = await api('/api/trends', { source: $('source').value, geo: $('geo').value, subreddit: $('subreddit').value });
+  const { items } = await api('/api/trends', {
+    source: $('source').value, geo: $('geo').value, subreddit: $('subreddit').value,
+    interest: $('interest').value, llm: $('llm').value, language: $('language').value
+  });
   if (!items.length) $('topics').textContent = 'Ничего не нашлось.';
   for (const item of items) {
     const row = document.createElement('div'), info = document.createElement('div'),
@@ -366,7 +392,7 @@ $('find').onclick = () => busy($('find'), 'Ищу…', async () => {
     details.textContent = [item.used ? 'уже использована' : '', item.info, item.details].filter(Boolean).join(' · ');
     button.textContent = 'Взять';
     button.onclick = () => busy(button, 'Пишу…', async () => {
-      await writeScript({ material: item.material });
+      await writeScript(item.topic ? { topic: item.topic } : { material: item.material });
       topicKey = item.key;
       setTab('make');
     });

@@ -145,6 +145,7 @@ class App:
                         "time": time.strftime("%d.%m %H:%M", time.localtime(p.stat().st_mtime))}
                        for p in videos[:30]],
             "keys": keys.status(),
+            "api": 2,
             "job": self.job.status() if self.job else None,
         }
 
@@ -209,7 +210,21 @@ class App:
         from src import trend_finder as finder
 
         used = finder.used_topics()
-        if _choice(data, "source", ("google", "reddit"), "google") == "google":
+        source = _choice(data, "source", ("ideas", "google", "reddit"), "ideas")
+        if source == "ideas":
+            from src.script_gen import suggest_ideas
+
+            interest = _text(data, "interest", 200)
+            if not interest:
+                raise PipelineError("Выбери категорию или напиши, что тебе интересно.")
+            ideas = suggest_ideas(
+                interest,
+                _choice(data, "llm", ("gemini", "ollama"), "gemini"),
+                _choice(data, "language", ("русский", "english", "ქართული"), "русский"),
+            )
+            items = [{"key": f"idea:{idea.lower()}", "title": idea, "info": "", "details": "", "topic": idea}
+                     for idea in ideas]
+        elif source == "google":
             geo = _text(data, "geo", 2) or "US"
             items = [
                 {"key": f"google:{geo.upper()}:{t.query.lower()}", "title": t.query, "info": t.traffic,

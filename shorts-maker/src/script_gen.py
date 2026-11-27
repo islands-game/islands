@@ -104,6 +104,31 @@ def _ask(prompt: str, provider: str) -> str:
     return text
 
 
+IDEAS_PROMPT = (
+    "Придумай 10 идей для коротких вертикальных видео по интересу: «{interest}». Язык: {language}.\n"
+    "Каждая идея — один цепляющий заголовок до 70 знаков, понятный подростку. "
+    "Только то, что можно рассказать правдиво: без выдуманных фактов, жести и взрослых тем, "
+    "без реальных частных людей.\n"
+    "Верни ровно 10 строк, по одной идее на строку, без вступления и пояснений."
+)
+
+
+def parse_ideas(text: str) -> list[str]:
+    ideas: list[str] = []
+    for line in text.splitlines():
+        idea = re.sub(r"^\s*(?:\d+[.)]|[-•–—])\s*", "", line).strip().strip("\"«»").strip()
+        if 5 <= len(idea) <= 150 and not idea.endswith(":") and idea not in ideas:
+            ideas.append(idea)
+    return ideas[:12]
+
+
+def suggest_ideas(interest: str, provider: str, language: str = "русский") -> list[str]:
+    ideas = parse_ideas(_ask(IDEAS_PROMPT.format(interest=interest, language=language), provider))
+    if not ideas:
+        raise PipelineError("Нейросеть не предложила идей — попробуй ещё раз.")
+    return ideas
+
+
 def generate_script(topic: str, provider: str, language: str = "русский", words: int = 90) -> str:
     return _ask(PROMPT.format(topic=topic, language=language, words=words), provider)
 
